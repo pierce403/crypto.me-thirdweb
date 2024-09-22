@@ -69,6 +69,7 @@ export default function Home() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': 'Bearer dummy_token_for_testing', // Added dummy token for testing
         },
         body: JSON.stringify(editedProfileData),
       });
