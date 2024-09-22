@@ -91,6 +91,8 @@ async def get_profile(ens_name: str, db: Session = Depends(get_db)):
 
 def fetch_profile_data(ens_name: str) -> dict:
     # This function can be easily extended to include new data sources
+    import hashlib
+
     # Create Gravatar URL
     email = f"{ens_name.lower()}@example.com"  # Use a default email format
     gravatar_url = f"https://www.gravatar.com/avatar/{hashlib.md5(email.encode()).hexdigest()}?d=identicon&s=200"
