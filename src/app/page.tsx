@@ -2,7 +2,7 @@
 
 import { createThirdwebClient } from "thirdweb";
 import { ThirdwebProvider, ConnectButton } from "thirdweb/react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Image from 'next/image';
 
 type ProfileData = {
@@ -69,6 +69,7 @@ export default function Home() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': 'Bearer dummy_token_for_testing', // Added dummy token for testing
         },
         body: JSON.stringify(editedProfileData),
       });
@@ -90,7 +91,7 @@ export default function Home() {
   };
 
   return (
-    <ThirdwebProvider>
+    <ThirdwebProvider clientId={clientId}>
       <div className="grid grid-rows-[auto_1fr_auto] min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
         <header className="flex justify-between items-center">
           <h1 className="text-4xl font-bold">crypto.me</h1>

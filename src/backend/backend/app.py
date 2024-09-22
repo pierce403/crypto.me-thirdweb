@@ -6,6 +6,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 from backend.config import DATABASE_URL, THIRDWEB_CLIENT_ID
 from datetime import datetime, timedelta
+import hashlib
 
 app = FastAPI()
 
