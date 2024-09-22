@@ -2,7 +2,7 @@
 
 import { createThirdwebClient } from "thirdweb";
 import { ThirdwebProvider, ConnectButton } from "thirdweb/react";
-import { useState, useEffect } from "react";
+import { useState, /* useEffect */ } from "react";
 import Image from 'next/image';
 
 type ProfileData = {
@@ -170,9 +170,9 @@ const client = createThirdwebClient({ clientId });
 
 // Mock data for popular profiles
 const popularProfiles = [
-  { id: 1, name: 'vitalik.eth', avatar: '/placeholder-avatar.png' },
-  { id: 2, name: 'satoshi.eth', avatar: '/placeholder-avatar.png' },
-  { id: 3, name: 'cryptopunk.eth', avatar: '/placeholder-avatar.png' },
+  { id: 1, name: 'vitalik.eth', avatar: `https://www.gravatar.com/avatar/${Buffer.from('vitalik.eth').toString('hex')}?d=identicon&s=200` },
+  { id: 2, name: 'satoshi.eth', avatar: `https://www.gravatar.com/avatar/${Buffer.from('satoshi.eth').toString('hex')}?d=identicon&s=200` },
+  { id: 3, name: 'cryptopunk.eth', avatar: `https://www.gravatar.com/avatar/${Buffer.from('cryptopunk.eth').toString('hex')}?d=identicon&s=200` },
 ];
 
 export default function Home() {
@@ -321,4 +321,3 @@ export default function Home() {
     </ThirdwebProvider>
   );
 }
->>>>>>> a8bf626 (Initial commit with Next.js setup)
