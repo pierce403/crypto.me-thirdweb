@@ -40,6 +40,12 @@
 
 ## Database Schema and Interaction Details
 - **cached_profiles**: Table storing ENS names and associated profile data.
-- Interaction via PostgreSQL client in Next.js API routes.
+- Interaction via Prisma ORM in Next.js API routes.
+
+## Prisma Setup and Usage
+- **Prisma Client**: Used for database operations, replacing direct PostgreSQL queries.
+- **Schema Definition**: Located in `prisma/schema.prisma`, reflecting the current database structure.
+- **Running Migrations**: Use `npx prisma migrate dev` to apply schema changes to the database.
+- **Generating Prisma Client**: Run `npx prisma generate` after making changes to the schema.
 
 Ensure all sections are detailed and clear for users and developers.
