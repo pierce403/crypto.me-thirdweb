@@ -1,79 +1,36 @@
-# Crypto.me
-
-Crypto.me is a web3 alternative to platforms like Keybase or LinkedIn. It allows users to search for web3 identities by address or ENS name and view their profile information, including ENS name, profile picture, and Farcaster stats. Users can also connect their wallet to update their information.
-
-## Tech Stack
-
-- **Frontend**: Next.js, TypeScript, React, Tailwind CSS
-- **Backend**: FastAPI
-- **Database**: PostgreSQL
-- **Wallet Integration**: Thirdweb
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
 
-### Prerequisites
+First, run the development server:
 
-- Node.js and npm installed
-- Python 3.9+ installed
-- PostgreSQL database
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
+```
 
-### Installation
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/pierce403/crypto.me-thirdweb.git
-   cd crypto.me-thirdweb
-   ```
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-2. **Install frontend dependencies**:
-   ```bash
-   npm install
-   ```
-
-3. **Set up the backend**:
-   - Navigate to the backend directory:
-     ```bash
-     cd src/backend
-     ```
-   - Install Python dependencies using Poetry:
-     ```bash
-     poetry install
-     ```
-
-4. **Configure environment variables**:
-   - Create a `.env` file in the `src/backend` directory with the following variables:
-     ```
-     DATABASE_URL=your_postgres_database_url
-     THIRDWEB_CLIENT_ID=your_thirdweb_client_id
-     SECRET_KEY=your_secret_key
-     ```
-
-### Running the Application
-
-1. **Start the backend server**:
-   ```bash
-   uvicorn backend.app:app --reload
-   ```
-
-2. **Start the frontend development server**:
-   ```bash
-   npm run dev
-   ```
-
-3. **Open your browser**:
-   - Visit the frontend application at `http://localhost:3000`.
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
 ## Learn More
 
-To learn more about the technologies used in this project, take a look at the following resources:
+To learn more about Next.js, take a look at the following resources:
 
-- [Next.js Documentation](https://nextjs.org/docs)
-- [FastAPI Documentation](https://fastapi.tiangolo.com/)
-- [PostgreSQL Documentation](https://www.postgresql.org/docs/)
-- [Thirdweb Documentation](https://portal.thirdweb.com/)
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
 ## Deploy on Vercel
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new) from the creators of Next.js.
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
-Check out the [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
