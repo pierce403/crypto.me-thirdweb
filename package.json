@@ -1,5 +1,5 @@
 {
-  "name": "crypto-me-app",
+  "name": "crypto.me-thirdweb",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -9,12 +9,10 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@thirdweb-dev/react": "^4.9.4",
     "next": "14.2.13",
-    "pino-pretty": "^11.2.2",
+    "pg": "^8.13.0",
     "react": "^18",
-    "react-dom": "^18",
-    "thirdweb": "^5.58.3"
+    "react-dom": "^18"
   },
   "devDependencies": {
     "@types/node": "^20",
