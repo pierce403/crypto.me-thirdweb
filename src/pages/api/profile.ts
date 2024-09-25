@@ -1,6 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { PrismaClient } from '@prisma/client';
-import { PrismaClientKnownRequestError } from '@prisma/client/runtime';
 import { createEnsPublicClient } from '@ensdomains/ensjs';
 import { http } from 'viem';
 import { mainnet } from 'viem/chains';
