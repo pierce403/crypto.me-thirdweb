@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
+import Image from 'next/image';
 
 interface Profile {
   name: string;
@@ -82,7 +83,7 @@ const Home: React.FC = () => {
         {profile && (
           <div className="bg-gray-100 p-6 rounded-lg">
             <h2 className="text-2xl font-semibold mb-4">Profile Information</h2>
-            <img src={profile.avatar} alt="Avatar" className="w-32 h-32 rounded-full mb-4" />
+            <Image src={profile.avatar} alt="Avatar" width={128} height={128} className="rounded-full mb-4" />
             <p className="text-xl font-bold">{profile.name}</p>
             <p className="text-gray-600 mb-2">{profile.bio}</p>
             <p>Twitter: <a href={`https://twitter.com/${profile.twitter}`} className="text-blue-500">{profile.twitter}</a></p>
