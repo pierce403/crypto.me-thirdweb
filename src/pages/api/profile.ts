@@ -1,7 +1,14 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { PrismaClient } from '@prisma/client';
+import { createEnsPublicClient } from '@ensdomains/ensjs';
+import { http } from 'viem';
+import { mainnet } from 'viem/chains';
 
 const prisma = new PrismaClient();
+const ensClient = createEnsPublicClient({
+  chain: mainnet,
+  transport: http(),
+});
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { ens_name } = req.query;
@@ -16,7 +23,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     // Fetch profile data from the database using Prisma
-    const profile = await prisma.cached_profiles.findFirst({
+    let profile = await prisma.cached_profiles.findFirst({
       where: {
         ens_name: ens_name
       }
@@ -25,10 +32,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (profile) {
       res.status(200).json(profile.profile_data);
     } else {
-      res.status(404).json({ error: 'Profile not found' });
+      // Profile not found, attempt to look up ENS name
+      try {
+        const address = await ensClient.getAddressRecord({ name: ens_name });
+        if (address) {
+          // ENS name resolved, create a new profile
+          const newProfile = {
+            ens_name: ens_name,
+            profile_data: {
+              address: address,
+              // Add any other default profile data here
+            }
+          };
+
+          // Save the new profile to the database
+          profile = await prisma.cached_profiles.create({
+            data: newProfile
+          });
+
+          res.status(200).json(profile.profile_data);
+        } else {
+          res.status(404).json({ error: 'ENS name not found' });
+        }
+      } catch (ensError) {
+        console.error('Error looking up ENS name:', ensError);
+        res.status(404).json({ error: 'ENS name lookup failed' });
+      }
     }
   } catch (error) {
-    console.error('Error fetching profile:', error);
+    console.error('Error fetching or creating profile:', error);
     res.status(500).json({ error: 'Internal server error' });
   } finally {
     await prisma.$disconnect();
