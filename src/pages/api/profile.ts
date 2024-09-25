@@ -66,11 +66,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
   } catch (error) {
     console.error('Error fetching or creating profile:', error);
-    if (error instanceof PrismaClient.PrismaClientKnownRequestError) {
-      res.status(500).json({ error: 'Database error', details: 'An error occurred while querying the database' });
-    } else {
-      res.status(500).json({ error: 'Internal server error', details: 'An unexpected error occurred' });
-    }
+    res.status(500).json({ error: 'Internal server error', details: 'An unexpected error occurred' });
   } finally {
     try {
       await prisma.$disconnect();
