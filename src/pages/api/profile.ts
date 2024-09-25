@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { PrismaClient } from '@prisma/client';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime';
 import { createEnsPublicClient } from '@ensdomains/ensjs';
 import { http } from 'viem';
 import { mainnet } from 'viem/chains';
@@ -45,24 +46,37 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             }
           };
 
-          // Save the new profile to the database
-          profile = await prisma.cached_profiles.create({
-            data: newProfile
-          });
+          try {
+            // Save the new profile to the database
+            profile = await prisma.cached_profiles.create({
+              data: newProfile
+            });
 
-          res.status(200).json(profile.profile_data);
+            res.status(200).json(profile.profile_data);
+          } catch (dbError) {
+            console.error('Error saving new profile to database:', dbError);
+            res.status(500).json({ error: 'Failed to save new profile', details: 'Database operation failed' });
+          }
         } else {
-          res.status(404).json({ error: 'ENS name not found' });
+          res.status(404).json({ error: 'ENS name not found', details: 'The provided ENS name does not resolve to an address' });
         }
       } catch (ensError) {
         console.error('Error looking up ENS name:', ensError);
-        res.status(404).json({ error: 'ENS name lookup failed' });
+        res.status(404).json({ error: 'ENS name lookup failed', details: 'Unable to resolve the provided ENS name' });
       }
     }
   } catch (error) {
     console.error('Error fetching or creating profile:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    if (error instanceof PrismaClient.PrismaClientKnownRequestError) {
+      res.status(500).json({ error: 'Database error', details: 'An error occurred while querying the database' });
+    } else {
+      res.status(500).json({ error: 'Internal server error', details: 'An unexpected error occurred' });
+    }
   } finally {
-    await prisma.$disconnect();
+    try {
+      await prisma.$disconnect();
+    } catch (disconnectError) {
+      console.error('Error disconnecting from Prisma:', disconnectError);
+    }
   }
 }
