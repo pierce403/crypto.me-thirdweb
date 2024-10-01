@@ -36,7 +36,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       try {
         const address = await ensClient.getAddressRecord({ name: ens_name });
         if (address) {
-          // ENS name resolved, create a new profile
+          // ENS name resolved, print it and create a new profile
+          console.log('ENS name resolved:', ens_name);
           const newProfile = {
             ens_name: ens_name,
             profile_data: {
