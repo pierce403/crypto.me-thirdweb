@@ -33,7 +33,7 @@ export const getServerSideProps: GetServerSideProps<ProfilePageProps> = async (c
     const cacheExpiration = 3600000; // 1 hour in milliseconds
     const now = new Date();
 
-    if (!profile || new Date(profile.updated_at) < new Date(now.getTime() - cacheExpiration)) {
+    if (!profile || (profile.updated_at && new Date(profile.updated_at) < new Date(now.getTime() - cacheExpiration))) {
       let retries = 3;
       let addressRecord;
 
@@ -71,7 +71,7 @@ export const getServerSideProps: GetServerSideProps<ProfilePageProps> = async (c
       if (typeof profile.profile_data === 'string') {
         parsedProfile = JSON.parse(profile.profile_data);
       } else if (typeof profile.profile_data === 'object') {
-        parsedProfile = profile.profile_data as Profile;
+        parsedProfile = profile.profile_data as unknown as Profile;
       }
 
       if (parsedProfile && typeof parsedProfile === 'object' && 'address' in parsedProfile) {
@@ -113,7 +113,7 @@ export default function ProfilePage({ profile }: ProfilePageProps) {
     );
   }
 
-  const address = profile.address && typeof profile.address === 'object' ? profile.address.value : profile.address;
+  const address = typeof profile.address === 'string' ? profile.address : 'Address not available';
 
   return (
     <Container maxW="container.md" centerContent>
