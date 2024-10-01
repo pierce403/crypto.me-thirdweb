@@ -1,13 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  async rewrites() {
-    return [
-      {
-        source: '/:ens',
-        destination: '/[ens]',
-      },
-    ];
-  },
+  // Remove the rewrites section as we'll handle routing directly
 };
 
 export default nextConfig;
