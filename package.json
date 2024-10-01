@@ -9,8 +9,12 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@chakra-ui/react": "^2.9.1",
+    "@emotion/react": "^11.13.3",
+    "@emotion/styled": "^11.13.0",
     "@ensdomains/ensjs": "^4.0.1-alpha.0",
     "@prisma/client": "^5.20.0",
+    "framer-motion": "^11.9.0",
     "next": "14.2.13",
     "pg": "^8.13.0",
     "react": "^18",

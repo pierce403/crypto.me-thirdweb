@@ -26,8 +26,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       where: { ens_name },
     });
 
-    if (!profile || new Date(profile.updated_at) < new Date(Date.now() - 3600000)) {
-      const address = await ensClient.getAddress({ name: ens_name });
+    if (!profile || (profile.updated_at && new Date(profile.updated_at) < new Date(Date.now() - 3600000))) {
+      const address = await ensClient.getAddressRecord({ name: ens_name });
       const profileData = {
         ens_name,
         address: address || 'Address not found',
