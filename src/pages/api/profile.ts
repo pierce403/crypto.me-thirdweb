@@ -22,57 +22,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // Fetch profile data from the database using Prisma
-    let profile = await prisma.cached_profiles.findFirst({
-      where: {
-        ens_name: ens_name
-      }
+    let profile = await prisma.cached_profiles.findUnique({
+      where: { ens_name },
     });
 
-    if (profile) {
-      res.status(200).json(profile.profile_data);
-    } else {
-      // Profile not found, attempt to look up ENS name
-      try {
-        const address = await ensClient.getAddressRecord({ name: ens_name });
-        if (address) {
-          // ENS name resolved, print it and create a new profile
-          console.log('ENS name resolved:', ens_name);
-          const newProfile = {
-            ens_name: ens_name,
-            profile_data: {
-              address: address,
-              // Add any other default profile data here
-            }
-          };
+    if (!profile || new Date(profile.updated_at) < new Date(Date.now() - 3600000)) {
+      const address = await ensClient.getAddress({ name: ens_name });
+      const profileData = {
+        ens_name,
+        address: address || 'Address not found',
+        // Add more fields as you expand the profile data
+      };
 
-          try {
-            // Save the new profile to the database
-            profile = await prisma.cached_profiles.create({
-              data: newProfile
-            });
-
-            res.status(200).json(profile.profile_data);
-          } catch (dbError) {
-            console.error('Error saving new profile to database:', dbError);
-            res.status(500).json({ error: 'Failed to save new profile', details: 'Database operation failed' });
-          }
-        } else {
-          res.status(404).json({ error: 'ENS name not found', details: 'The provided ENS name does not resolve to an address' });
-        }
-      } catch (ensError) {
-        console.error('Error looking up ENS name:', ensError);
-        res.status(404).json({ error: 'ENS name lookup failed', details: 'Unable to resolve the provided ENS name' });
-      }
+      profile = await prisma.cached_profiles.upsert({
+        where: { ens_name },
+        update: { profile_data: profileData, updated_at: new Date() },
+        create: { ens_name, profile_data: profileData },
+      });
     }
+
+    res.status(200).json(profile.profile_data);
   } catch (error) {
-    console.error('Error fetching or creating profile:', error);
-    res.status(500).json({ error: 'Internal server error', details: 'An unexpected error occurred' });
-  } finally {
-    try {
-      await prisma.$disconnect();
-    } catch (disconnectError) {
-      console.error('Error disconnecting from Prisma:', disconnectError);
-    }
+    console.error('Error fetching profile:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 }
