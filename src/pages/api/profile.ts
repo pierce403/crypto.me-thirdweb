@@ -109,10 +109,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         });
       }
 
-    } catch (upsertError) {
+    } catch (upsertError: unknown) {
       console.error(`Error upserting profile for ${ens_name}:`, upsertError);
       console.error(`Error details:`, JSON.stringify(upsertError, null, 2));
-      console.error(`Stack trace:`, upsertError.stack);
+      if (upsertError instanceof Error) {
+        console.error(`Stack trace:`, upsertError.stack);
+      }
       throw upsertError;
     }
     console.log(`Updated/created profile:`, JSON.stringify(profile, null, 2));
@@ -151,10 +153,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         },
       });
       console.log(`Updated last_sync_status for ${ens_name} to:`, newLastSyncStatus);
-    } catch (dbError) {
+    } catch (dbError: unknown) {
       console.error('Error updating last_sync_status:', dbError);
       console.error('Error details:', JSON.stringify(dbError, null, 2));
-      console.error('Stack trace:', dbError.stack);
+      if (dbError instanceof Error) {
+        console.error('Stack trace:', dbError.stack);
+      }
     }
     res.status(500).json({ error: 'Internal server error', last_sync_status: `Error: ${errorMessage}` });
   }
