@@ -136,6 +136,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   } catch (error) {
     console.error('Error fetching profile:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.log('DATABASE_URL:', process.env.DATABASE_URL);
+    console.log('Prisma Database URL:', prisma.$databaseUrl);
+    console.log('Node.js version:', process.version);
+    console.log('Prisma version:', prisma._engineConfig.version);
     try {
       console.log(`Updating last_sync_status for ${ens_name} due to error`);
       const newLastSyncStatus = `Error: ${errorMessage}`;
