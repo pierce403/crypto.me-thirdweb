@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { createEnsPublicClient } from '@ensdomains/ensjs';
 import { http } from 'viem';
 import { mainnet } from 'viem/chains';
@@ -138,7 +138,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.log('DATABASE_URL:', process.env.DATABASE_URL);
     console.log('Node.js version:', process.version);
-    console.log('Prisma version:', require('@prisma/client').Prisma.prismaVersion.client);
+    console.log('Prisma version:', Prisma.prismaVersion.client);
 
     try {
       console.log(`Updating last_sync_status for ${ens_name} due to error`);
