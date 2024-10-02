@@ -137,7 +137,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.error('Error fetching profile:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.log('DATABASE_URL:', process.env.DATABASE_URL);
-    console.log('Prisma Database URL:', prisma.$databaseUrl);
     console.log('Node.js version:', process.version);
     console.log('Prisma version:', prisma._engineConfig.version);
     try {
@@ -162,6 +161,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.error('Error details:', JSON.stringify(dbError, null, 2));
       if (dbError instanceof Error) {
         console.error('Stack trace:', dbError.stack);
+      } else {
+        console.error('Stack trace unavailable: dbError is not an instance of Error');
       }
     }
     res.status(500).json({ error: 'Internal server error', last_sync_status: `Error: ${errorMessage}` });
