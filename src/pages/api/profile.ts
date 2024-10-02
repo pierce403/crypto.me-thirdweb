@@ -136,6 +136,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   } catch (error) {
     console.error('Error fetching profile:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.log('DATABASE_URL:', process.env.DATABASE_URL);
+    console.log('Node.js version:', process.version);
+    console.log('Prisma version:', prisma._engineConfig.version);
     try {
       console.log(`Updating last_sync_status for ${ens_name} due to error`);
       const newLastSyncStatus = `Error: ${errorMessage}`;
@@ -158,6 +161,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.error('Error details:', JSON.stringify(dbError, null, 2));
       if (dbError instanceof Error) {
         console.error('Stack trace:', dbError.stack);
+      } else {
+        console.error('Stack trace unavailable: dbError is not an instance of Error');
       }
     }
     res.status(500).json({ error: 'Internal server error', last_sync_status: `Error: ${errorMessage}` });
