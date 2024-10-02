@@ -3,8 +3,13 @@
 # fix_database.sh
 # This script checks the integrity of the SQLite database and attempts to repair any issues.
 
+# Read the database file path from the .env file
+if [ -f .env ]; then
+    export $(grep -v '^#' .env | xargs)
+fi
+
 # Set the database file path
-DB_FILE="data.db"
+DB_FILE="${DATABASE_URL#file:}"
 
 # Check if the database file exists
 if [ ! -f "$DB_FILE" ]; then
@@ -51,3 +56,9 @@ fi
 rm integrity_check_result.txt new_integrity_check_result.txt 2>/dev/null
 
 echo "Database fix process completed."
+
+# Run Prisma migrations
+echo "Running Prisma migrations..."
+npx prisma migrate deploy
+
+echo "Database fix and migration process completed."
