@@ -138,7 +138,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.log('DATABASE_URL:', process.env.DATABASE_URL);
     console.log('Node.js version:', process.version);
-    console.log('Prisma version:', prisma._engineConfig.version);
+    console.log('Prisma version:', require('@prisma/client').Prisma.prismaVersion.client);
+
     try {
       console.log(`Updating last_sync_status for ${ens_name} due to error`);
       const newLastSyncStatus = `Error: ${errorMessage}`;
