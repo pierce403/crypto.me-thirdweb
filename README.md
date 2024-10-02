@@ -1,24 +1,64 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Crypto.me Thirdweb
+
+Crypto.me Thirdweb is a central profile page for web3 identities. It allows users to view and manage their Ethereum Name Service (ENS) profiles, displaying the last error or the last successful sync time.
+
+## Tech Stack
+
+- [Next.js](https://nextjs.org): A React framework for building web applications.
+- [Prisma](https://www.prisma.io): An open-source database toolkit for TypeScript and Node.js. It is used for database access and management.
+- [SQLite](https://www.sqlite.org): A self-contained, high-reliability, embedded, full-featured, public-domain, SQL database engine. It is used as the default database for local testing.
 
 ## Getting Started
 
-First, run the development server:
+To set up a local version of the app, follow these steps:
+
+1. Clone the repository:
+
+```bash
+git clone https://github.com/pierce403/crypto.me-thirdweb.git
+cd crypto.me-thirdweb
+```
+
+2. Install the dependencies:
+
+```bash
+npm install
+# or
+yarn install
+```
+
+3. Set up the database:
+
+The project uses SQLite for local testing. The database file `data.db` is automatically created in the project root directory. No additional setup is required.
+
+4. Run the development server:
 
 ```bash
 npm run dev
 # or
 yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Database Setup and Maintenance
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The project uses SQLite as the default database for local testing. The database file `data.db` is automatically created in the project root directory. To manage the database schema, Prisma is used. Here are some useful commands:
+
+- To apply database migrations:
+  ```bash
+  npx prisma migrate dev
+  ```
+
+- To generate Prisma client:
+  ```bash
+  npx prisma generate
+  ```
+
+- To open the Prisma Studio for database management:
+  ```bash
+  npx prisma studio
+  ```
 
 ## Learn More
 

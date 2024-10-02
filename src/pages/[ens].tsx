@@ -9,6 +9,7 @@ import { Box, Container, Heading, Text, VStack, Divider, useColorModeValue } fro
 interface Profile {
   ens_name: string;
   address: string;
+  last_sync_status: string;
   // Add more fields as you expand the profile data
 }
 
@@ -52,6 +53,7 @@ export const getServerSideProps: GetServerSideProps<ProfilePageProps> = async (c
       const profileData: Profile = {
         ens_name,
         address: addressRecord?.value || 'Address not found',
+        last_sync_status: `Successfully updated at ${now.toISOString()}`,
         // Add more fields as you expand the profile data
       };
 
@@ -60,8 +62,8 @@ export const getServerSideProps: GetServerSideProps<ProfilePageProps> = async (c
       console.log('Stringified profile data:', stringifiedProfileData);
       profile = await prisma.cached_profiles.upsert({
         where: { ens_name },
-        update: { profile_data: stringifiedProfileData, updated_at: now },
-        create: { ens_name, profile_data: stringifiedProfileData, updated_at: now },
+        update: { profile_data: stringifiedProfileData, updated_at: now, last_sync_status: profileData.last_sync_status },
+        create: { ens_name, profile_data: stringifiedProfileData, updated_at: now, last_sync_status: profileData.last_sync_status },
       });
     }
 
@@ -76,12 +78,18 @@ export const getServerSideProps: GetServerSideProps<ProfilePageProps> = async (c
 
       if (parsedProfile && typeof parsedProfile === 'object' && 'address' in parsedProfile) {
         parsedProfile = parsedProfile as Profile;
+        parsedProfile.last_sync_status = profile.last_sync_status || parsedProfile.last_sync_status || 'No sync status available';
       } else {
         console.error('Invalid profile data structure');
         parsedProfile = null;
       }
     } catch (parseError) {
       console.error('Error parsing profile data:', parseError);
+    }
+
+    // Ensure last_sync_status is always a string
+    if (parsedProfile && typeof parsedProfile.last_sync_status !== 'string') {
+      parsedProfile.last_sync_status = 'No sync status available';
     }
 
     return {
@@ -131,6 +139,10 @@ export default function ProfilePage({ profile }: ProfilePageProps) {
           <Box>
             <Text fontSize="lg" fontWeight="bold" color={textColor}>ETH Address:</Text>
             <Text fontSize="md" color={textColor} wordBreak="break-all">{address}</Text>
+          </Box>
+          <Box>
+            <Text fontSize="lg" fontWeight="bold" color={textColor}>Last Sync Status:</Text>
+            <Text fontSize="md" color={textColor}>{profile.last_sync_status || 'No sync status available'}</Text>
           </Box>
           {/* Add more profile information here as you expand the data */}
         </VStack>
