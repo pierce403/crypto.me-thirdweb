@@ -63,9 +63,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    const parsedProfileData = typeof profile.profile_data === 'string'
+    const parsedProfileData = typeof profile?.profile_data === 'string'
       ? JSON.parse(profile.profile_data)
-      : profile.profile_data;
+      : profile?.profile_data;
 
     res.status(200).json({
       ...parsedProfileData,
