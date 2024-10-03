@@ -69,7 +69,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     res.status(200).json({
       ...parsedProfileData,
-      last_sync_status: profile.last_sync_status
+      last_sync_status: profile?.last_sync_status
     });
   } catch (error) {
     console.error('Error fetching profile:', error);
