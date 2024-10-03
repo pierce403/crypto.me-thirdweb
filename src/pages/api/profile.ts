@@ -33,21 +33,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.log(`Syncing profile for ${ens_name}`);
       const address = await ensClient.getAddressRecord({ name: ens_name });
       console.log(`Address for ${ens_name}:`, address);
-      
+
       const avatarRecord = await ensClient.getTextRecord({ name: ens_name, key: 'avatar' });
       const avatar = avatarRecord?.value || null;
       console.log(`Avatar for ${ens_name}:`, avatar);
-      
+
       const profileData = {
         ens_name,
         address: address?.value || 'Address not found',
-        avatar: avatar,
+        avatar: avatar, // Store the full IPFS URL
         // Add more fields as you expand the profile data
       };
 
       console.log(`Updating/creating profile for ${ens_name}`);
       const newLastSyncStatus = `Successfully ${profile ? 'updated' : 'created'} at ${new Date().toISOString()}`;
-      
+
       profile = await prisma.cached_profiles.upsert({
         where: { ens_name },
         update: {

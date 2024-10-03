@@ -6,6 +6,18 @@ import { createEnsPublicClient } from '@ensdomains/ensjs';
 import { http } from 'viem';
 import { mainnet } from 'viem/chains';
 import { Box, Container, Heading, Text, VStack, Divider, useColorModeValue, Button } from '@chakra-ui/react';
+import Image from 'next/image';
+
+// Add this function
+function convertToGatewayUrl(ipfsUrl: string | null): string | null {
+  if (!ipfsUrl) return null;
+  const ipfsPrefix = 'ipfs://';
+  if (ipfsUrl.startsWith(ipfsPrefix)) {
+    const cid = ipfsUrl.slice(ipfsPrefix.length);
+    return `https://gateway.pinata.cloud/ipfs/${cid}`;
+  }
+  return ipfsUrl; // Return original URL if it's not an IPFS URL
+}
 
 interface Profile {
   ens_name: string;
@@ -101,6 +113,7 @@ export default function ProfilePage({ profile }: ProfilePageProps) {
   }
 
   const address = typeof profile.address === 'string' ? profile.address : 'Address not available';
+  const avatarUrl = convertToGatewayUrl(profile.avatar);
 
   return (
     <Container maxW="container.md" centerContent>
@@ -109,6 +122,17 @@ export default function ProfilePage({ profile }: ProfilePageProps) {
       </Head>
       <Box p={8} mt={10} bg={bgColor} borderRadius="lg" boxShadow="md" width="100%">
         <VStack spacing={4} align="stretch">
+          {avatarUrl && (
+            <Box alignSelf="center">
+              <Image
+                src={avatarUrl}
+                alt={`${profile.ens_name} avatar`}
+                width={150}
+                height={150}
+                style={{ borderRadius: '50%' }}
+              />
+            </Box>
+          )}
           <Heading as="h1" size="2xl" color={textColor}>{profile.ens_name}</Heading>
           <Divider />
           <Box>
