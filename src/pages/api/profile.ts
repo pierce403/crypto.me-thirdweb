@@ -27,18 +27,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       where: { ens_name },
     });
 
-    console.log(`Profile for ${ens_name}:`, profile);
-
     const shouldRefresh = refresh === 'true' || !profile;
 
     if (shouldRefresh) {
       console.log(`Syncing profile for ${ens_name}`);
       const address = await ensClient.getAddressRecord({ name: ens_name });
-      console.log(`Address for ${ens_name}:`, address);
-
       const avatarRecord = await ensClient.getTextRecord({ name: ens_name, key: 'avatar' });
       const avatar = typeof avatarRecord === 'string' ? avatarRecord : null;
-      console.log(`Avatar for ${ens_name}:`, avatar);
 
       const profileData = {
         ens_name,
@@ -49,7 +44,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         last_sync_status: `Successfully updated at ${new Date().toISOString()}`,
       };
 
-      console.log(`Updating/creating profile for ${ens_name}`);
       profile = await prisma.cached_profiles.upsert({
         where: { ens_name },
         update: {
@@ -65,7 +59,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    // Ensure profile_data is parsed as an object
     const parsedProfileData = JSON.parse(profile?.profile_data ?? '{}');
 
     res.status(200).json({
@@ -74,6 +67,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   } catch (error) {
     console.error('Error fetching profile:', error);
-    res.status(500).json({ error: 'Failed to fetch profile' });
+    
+    // Delete the profile from the database
+    if (ens_name) {
+      await prisma.cached_profiles.delete({
+        where: { ens_name },
+      });
+    }
+    
+    res.status(500).json({ error: 'Error fetching profile' });
   }
 }
