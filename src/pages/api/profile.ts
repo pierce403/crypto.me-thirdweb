@@ -35,11 +35,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.log(`Syncing profile for ${ens_name}`);
       const address = await ensClient.getAddressRecord({ name: ens_name });
       console.log(`Address for ${ens_name}:`, address);
-      
+
       const avatarRecord = await ensClient.getTextRecord({ name: ens_name, key: 'avatar' });
       const avatar = typeof avatarRecord === 'string' ? avatarRecord : null;
       console.log(`Avatar for ${ens_name}:`, avatar);
-      
+
       const profileData = {
         ens_name,
         address: address?.value || 'Address not found',
@@ -65,13 +65,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    const parsedProfileData = typeof profile.profile_data === 'string'
-      ? JSON.parse(profile.profile_data)
-      : profile.profile_data;
+    // Ensure profile_data is parsed as an object
+    const parsedProfileData = JSON.parse(profile?.profile_data ?? '{}');
 
     res.status(200).json({
       ...parsedProfileData,
-      last_sync_status: profile.last_sync_status
+      last_sync_status: profile?.last_sync_status ?? 'Unknown'
     });
   } catch (error) {
     console.error('Error fetching profile:', error);
