@@ -29,74 +29,52 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     console.log(`Profile for ${ens_name}:`, profile);
 
-    // Always update the profile to ensure last_sync_status is set
-    console.log(`Syncing profile for ${ens_name}`);
-    const address = await ensClient.getAddressRecord({ name: ens_name });
-    console.log(`Address for ${ens_name}:`, address);
-    
-    // Fetch avatar using getTextRecord
-    const avatarRecord = await ensClient.getTextRecord({ name: ens_name, key: 'avatar' });
-    const avatar = typeof avatarRecord === 'string' ? avatarRecord : avatarRecord?.value || null;
-    console.log(`Avatar for ${ens_name}:`, avatar);
-    
-    const profileData = {
-      ens_name,
-      address: address?.value || 'Address not found',
-      profile_data: {
-        ens_avatar: avatar,
-      },
-      // Add more fields as you expand the profile data
-    };
+    const shouldRefresh = refresh === 'true' || !profile;
 
-    console.log(`Updating/creating profile for ${ens_name}`);
-    const newLastSyncStatus = `Successfully ${profile ? 'updated' : 'created'} at ${new Date().toISOString()}`;
-
-    profile = await prisma.cached_profiles.upsert({
-      where: { ens_name },
-      update: {
-        profile_data: JSON.stringify(profileData),
-        updated_at: new Date(),
-        last_sync_status: newLastSyncStatus
-      },
-      create: {
+    if (shouldRefresh) {
+      console.log(`Syncing profile for ${ens_name}`);
+      const address = await ensClient.getAddressRecord({ name: ens_name });
+      console.log(`Address for ${ens_name}:`, address);
+      
+      const avatarRecord = await ensClient.getTextRecord({ name: ens_name, key: 'avatar' });
+      const avatar = typeof avatarRecord === 'string' ? avatarRecord : avatarRecord?.value || null;
+      console.log(`Avatar for ${ens_name}:`, avatar);
+      
+      const profileData = {
         ens_name,
-        profile_data: JSON.stringify(profileData),
-        last_sync_status: newLastSyncStatus
-      },
-    });
-  } catch (error) {
-    console.error('Error fetching profile:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.log('DATABASE_URL:', process.env.DATABASE_URL);
-    console.log('Node.js version:', process.version);
-    console.log('Prisma version:', Prisma.prismaVersion.client);
+        address: address?.value || 'Address not found',
+        profile_data: {
+          ens_avatar: avatar,
+        },
+        last_sync_status: `Successfully updated at ${new Date().toISOString()}`,
+      };
 
-    try {
-      console.log(`Updating last_sync_status for ${ens_name} due to error`);
-      const newLastSyncStatus = `Error: ${errorMessage}`;
-      await prisma.cached_profiles.upsert({
+      console.log(`Updating/creating profile for ${ens_name}`);
+      profile = await prisma.cached_profiles.upsert({
         where: { ens_name },
         update: {
-          last_sync_status: newLastSyncStatus,
-          updated_at: new Date()
+          profile_data: JSON.stringify(profileData),
+          updated_at: new Date(),
+          last_sync_status: profileData.last_sync_status
         },
         create: {
           ens_name,
-          profile_data: '{}',
-          last_sync_status: newLastSyncStatus,
-          updated_at: new Date()
+          profile_data: JSON.stringify(profileData),
+          last_sync_status: profileData.last_sync_status
         },
       });
-      console.log(`Updated last_sync_status for ${ens_name} to:`, newLastSyncStatus);
-    } catch (dbError: unknown) {
-      console.error('Error updating last_sync_status:', dbError);
-      console.error('Error details:', JSON.stringify(dbError, null, 2));
-      if (dbError instanceof Error) {
-        console.error('Stack trace:', dbError.stack);
-      } else {
-        console.error('Stack trace unavailable: dbError is not an instance of Error');
-      }
     }
-    res.status(500).json({ error: 'Internal server error', last_sync_status: `Error: ${errorMessage}` });
+
+    const parsedProfileData = typeof profile.profile_data === 'string'
+      ? JSON.parse(profile.profile_data)
+      : profile.profile_data;
+
+    res.status(200).json({
+      ...parsedProfileData,
+      last_sync_status: profile.last_sync_status
+    });
+  } catch (error) {
+    console.error('Error fetching profile:', error);
+    res.status(500).json({ error: 'Failed to fetch profile' });
   }
 }
