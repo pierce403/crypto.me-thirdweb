@@ -149,7 +149,6 @@ export default function ProfilePage({ profile }: ProfilePageProps) {
             <Text fontSize="lg" fontWeight="bold" color={textColor}>ETH Address:</Text>
             <Text fontSize="md" color={textColor} wordBreak="break-all">{address}</Text>
           </Box>
-          // avatar string box
           <Box>
             <Text fontSize="lg" fontWeight="bold" color={textColor}>Avatar:</Text>
             <Text fontSize="md" color={textColor}>{profile.profile_data.ens_avatar}</Text>
