@@ -50,61 +50,44 @@ const Home: React.FC = () => {
   };
 
   return (
-    <Container maxW="container.xl" py={8}>
+    <Container maxW="container.md" py={16} centerContent>
       <Head>
         <title>Crypto.me Profile</title>
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <VStack spacing={8} align="stretch">
-        <Heading as="h1" size="2xl">Crypto.me Profile</Heading>
+      <VStack spacing={8} align="center">
+        <Heading as="h1" size="2xl" textAlign="center">Crypto.me Profile</Heading>
 
-        <Box>
-          <Heading as="h2" size="lg" mb={2}>About Crypto.me</Heading>
-          <Text>
-            Crypto.me is a central profile page for web3 identities. It allows you to view and manage your decentralized identity across various blockchain networks.
-          </Text>
-        </Box>
-
-        <Box>
-          <Heading as="h2" size="lg" mb={2}>Health Status</Heading>
-          <Text>{health ? `Status: ${health}` : 'Loading...'}</Text>
-        </Box>
-
-        <Box>
-          <Heading as="h2" size="lg" mb={2}>View Profile</Heading>
+        <Box width="100%">
           <form onSubmit={handleSubmit}>
-            <HStack>
+            <HStack justify="center">
               <Input
+                width="60%"
                 type="text"
                 value={ensName}
                 onChange={(e) => setEnsName(e.target.value)}
                 placeholder="Enter ENS name"
+                size="lg"
               />
-              <Button type="submit" colorScheme="blue">
+              <Button type="submit" colorScheme="blue" size="lg">
                 View Profile
               </Button>
             </HStack>
           </form>
         </Box>
 
-        <Box>
-          <Heading as="h2" size="lg" mb={2}>Recently Updated Profiles</Heading>
-          <UnorderedList>
+        <Box width="100%" mt={8}>
+          <Heading as="h2" size="lg" textAlign="center">Recently Updated Profiles</Heading>
+          <UnorderedList styleType="none" spacing={2} mt={4}>
             {recentProfiles.map((profile, index) => (
-              <ListItem key={index}>
-                <Link href={`/${profile}`} color="blue.500">
+              <ListItem key={index} textAlign="center">
+                <Link href={`/${profile}`} color="blue.500" fontSize="lg">
                   {profile}
                 </Link>
               </ListItem>
             ))}
           </UnorderedList>
-        </Box>
-
-        <Box>
-          <Link href="https://github.com/pierce403/crypto.me-thirdweb" isExternal color="blue.500">
-            View Project on GitHub
-          </Link>
         </Box>
       </VStack>
     </Container>
