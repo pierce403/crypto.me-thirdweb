@@ -37,7 +37,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.log(`Address for ${ens_name}:`, address);
       
       const avatarRecord = await ensClient.getTextRecord({ name: ens_name, key: 'avatar' });
-      const avatar = typeof avatarRecord === 'string' ? avatarRecord : avatarRecord?.value || null;
+      const avatar = typeof avatarRecord === 'string' ? avatarRecord : null;
       console.log(`Avatar for ${ens_name}:`, avatar);
       
       const profileData = {
