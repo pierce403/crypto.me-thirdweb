@@ -57,7 +57,7 @@ const Home: React.FC = () => {
       </Head>
 
       <VStack spacing={8} align="center">
-        <Heading as="h1" size="2xl" textAlign="center">Crypto.me Profile</Heading>
+        <Heading as="h1" size="2xl" textAlign="center">crypto.me</Heading>
 
         <Box width="100%">
           <form onSubmit={handleSubmit}>
