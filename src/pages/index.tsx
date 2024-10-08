@@ -1,27 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import { Box, Container, Heading, Text, Input, Button, VStack, HStack, Link, UnorderedList, ListItem } from '@chakra-ui/react';
+import { Box, Container, Heading, Input, Button, VStack, HStack, Link, UnorderedList, ListItem } from '@chakra-ui/react';
 
 const Home: React.FC = () => {
-  const [health, setHealth] = useState<string>('');
+  //const [health, setHealth] = useState<string>('');
   const [ensName, setEnsName] = useState<string>('');
   const [recentProfiles, setRecentProfiles] = useState<string[]>([]);
   const router = useRouter();
-
-  const fetchHealth = async () => {
-    try {
-      const response = await fetch('/api/health');
-      if (response.ok) {
-        const data = await response.json();
-        setHealth(data.status);
-      } else {
-        console.error('Failed to fetch health status');
-      }
-    } catch (error) {
-      console.error('Error fetching health status:', error);
-    }
-  };
 
   const fetchRecentProfiles = async () => {
     try {
