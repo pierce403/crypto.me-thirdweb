@@ -58,7 +58,7 @@ export const getServerSideProps: GetServerSideProps<ProfilePageProps> = async (c
           ens_name,
           address: addressRecord?.value || 'Address not found',
           profile_data: {
-            ens_avatar: typeof avatarRecord === 'string' ? avatarRecord : avatarRecord?.value || null,
+            ens_avatar: typeof avatarRecord === 'string' ? avatarRecord : null,
           },
           last_sync_status: `Successfully updated at ${now.toISOString()}`,
         };
