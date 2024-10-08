@@ -24,7 +24,7 @@ const Home: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchHealth();
+    //fetchHealth();
     fetchRecentProfiles();
   }, []);
 
