@@ -117,7 +117,9 @@ export default function ProfilePage({ profile }: ProfilePageProps) {
   }
 
   const address = typeof profile.address === 'string' ? profile.address : 'Address not available';
-  const avatarUrl = convertToGatewayUrl(profile.profile_data.ens_avatar);
+
+  // make sure ens_avatar starts with ipfs://
+  const avatarUrl = profile.profile_data.ens_avatar.startsWith('ipfs://') ? convertToGatewayUrl(profile.profile_data.ens_avatar) : null;
 
   return (
     <Container maxW="container.md" centerContent>
@@ -146,6 +148,11 @@ export default function ProfilePage({ profile }: ProfilePageProps) {
           <Box>
             <Text fontSize="lg" fontWeight="bold" color={textColor}>ETH Address:</Text>
             <Text fontSize="md" color={textColor} wordBreak="break-all">{address}</Text>
+          </Box>
+          // avatar string box
+          <Box>
+            <Text fontSize="lg" fontWeight="bold" color={textColor}>Avatar:</Text>
+            <Text fontSize="md" color={textColor}>{profile.profile_data.ens_avatar}</Text>
           </Box>
           <Box>
             <Text fontSize="lg" fontWeight="bold" color={textColor}>Last Sync Status:</Text>
