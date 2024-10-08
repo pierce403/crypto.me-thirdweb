@@ -23,8 +23,10 @@ interface Profile {
   ens_name: string;
   address: string;
   last_sync_status: string;
-  avatar: string | null;
-  // Add more fields as you expand the profile data
+  profile_data: {
+    ens_avatar: string | null;
+    // Add more fields as you expand the profile data
+  };
 }
 
 interface ProfilePageProps {
@@ -55,7 +57,9 @@ export const getServerSideProps: GetServerSideProps<ProfilePageProps> = async (c
         const profileData = {
           ens_name,
           address: addressRecord?.value || 'Address not found',
-          avatar: avatarRecord,
+          profile_data: {
+            ens_avatar: typeof avatarRecord === 'string' ? avatarRecord : avatarRecord?.value || null,
+          },
           last_sync_status: `Successfully updated at ${now.toISOString()}`,
         };
 
@@ -113,7 +117,7 @@ export default function ProfilePage({ profile }: ProfilePageProps) {
   }
 
   const address = typeof profile.address === 'string' ? profile.address : 'Address not available';
-  const avatarUrl = convertToGatewayUrl(profile.avatar);
+  const avatarUrl = convertToGatewayUrl(profile.profile_data.ens_avatar);
 
   return (
     <Container maxW="container.md" centerContent>

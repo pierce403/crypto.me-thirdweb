@@ -14,5 +14,4 @@ model cached_profiles {
   created_at       DateTime  @default(now())
   updated_at       DateTime  @default(now())
   last_sync_status String?
-  avatar           String?
 }

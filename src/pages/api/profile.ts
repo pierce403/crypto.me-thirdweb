@@ -27,49 +27,42 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       where: { ens_name },
     });
 
-    const shouldRefresh = refresh === 'true' || !profile;
+    console.log(`Profile for ${ens_name}:`, profile);
 
-    if (shouldRefresh) {
-      console.log(`Syncing profile for ${ens_name}`);
-      const address = await ensClient.getAddressRecord({ name: ens_name });
-      console.log(`Address for ${ens_name}:`, address);
+    // Always update the profile to ensure last_sync_status is set
+    console.log(`Syncing profile for ${ens_name}`);
+    const address = await ensClient.getAddressRecord({ name: ens_name });
+    console.log(`Address for ${ens_name}:`, address);
+    
+    // Fetch avatar using getTextRecord
+    const avatarRecord = await ensClient.getTextRecord({ name: ens_name, key: 'avatar' });
+    const avatar = typeof avatarRecord === 'string' ? avatarRecord : avatarRecord?.value || null;
+    console.log(`Avatar for ${ens_name}:`, avatar);
+    
+    const profileData = {
+      ens_name,
+      address: address?.value || 'Address not found',
+      profile_data: {
+        ens_avatar: avatar,
+      },
+      // Add more fields as you expand the profile data
+    };
 
-      const avatarRecord = await ensClient.getTextRecord({ name: ens_name, key: 'avatar' });
-      const avatar = avatarRecord;
-      console.log(`Avatar for ${ens_name}:`, avatar);
+    console.log(`Updating/creating profile for ${ens_name}`);
+    const newLastSyncStatus = `Successfully ${profile ? 'updated' : 'created'} at ${new Date().toISOString()}`;
 
-      const profileData = {
+    profile = await prisma.cached_profiles.upsert({
+      where: { ens_name },
+      update: {
+        profile_data: JSON.stringify(profileData),
+        updated_at: new Date(),
+        last_sync_status: newLastSyncStatus
+      },
+      create: {
         ens_name,
-        address: address?.value || 'Address not found',
-        avatar: avatar, // Store the full IPFS URL
-        // Add more fields as you expand the profile data
-      };
-
-      console.log(`Updating/creating profile for ${ens_name}`);
-      const newLastSyncStatus = `Successfully ${profile ? 'updated' : 'created'} at ${new Date().toISOString()}`;
-
-      profile = await prisma.cached_profiles.upsert({
-        where: { ens_name },
-        update: {
-          profile_data: JSON.stringify(profileData),
-          updated_at: new Date(),
-          last_sync_status: newLastSyncStatus
-        },
-        create: {
-          ens_name,
-          profile_data: JSON.stringify(profileData),
-          last_sync_status: newLastSyncStatus
-        },
-      });
-    }
-
-    const parsedProfileData = typeof profile?.profile_data === 'string'
-      ? JSON.parse(profile.profile_data)
-      : profile?.profile_data;
-
-    res.status(200).json({
-      ...parsedProfileData,
-      last_sync_status: profile?.last_sync_status
+        profile_data: JSON.stringify(profileData),
+        last_sync_status: newLastSyncStatus
+      },
     });
   } catch (error) {
     console.error('Error fetching profile:', error);
