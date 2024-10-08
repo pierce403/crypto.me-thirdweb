@@ -119,7 +119,7 @@ export default function ProfilePage({ profile }: ProfilePageProps) {
   const address = typeof profile.address === 'string' ? profile.address : 'Address not available';
 
   // make sure ens_avatar starts with ipfs://
-  const avatarUrl = profile.profile_data.ens_avatar.startsWith('ipfs://') ? convertToGatewayUrl(profile.profile_data.ens_avatar) : null;
+  const avatarUrl = profile.profile_data.ens_avatar && profile.profile_data.ens_avatar.startsWith('ipfs://') ? convertToGatewayUrl(profile.profile_data.ens_avatar) : null;
 
   return (
     <Container maxW="container.md" centerContent>
