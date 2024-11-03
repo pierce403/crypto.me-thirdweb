@@ -5,6 +5,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method === 'GET') {
     try {
       const recentProfiles = await prisma.cached_profiles.findMany({
+        where: {
+          last_sync_status: {
+            contains: 'Successfully updated',
+          },
+        },
         orderBy: {
           updated_at: 'desc',
         },
