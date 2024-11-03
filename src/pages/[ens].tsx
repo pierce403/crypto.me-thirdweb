@@ -44,6 +44,20 @@ export const getServerSideProps: GetServerSideProps<ProfilePageProps> = async (c
 
   const fetchProfile = async (forceRefresh = false) => {
     try {
+      console.log(`[DEBUG] Starting ENS resolution for: ${ens_name}`);
+      const addressRecord = await ensClient.getAddressRecord({ name: ens_name });
+      console.log(`[DEBUG] Raw ENS response:`, JSON.stringify(addressRecord, null, 2));
+
+      // Check for valid ENS resolution first
+      if (!addressRecord?.value || addressRecord.value === '0x0000000000000000000000000000000000000000') {
+        console.log(`[DEBUG] ENS resolution failed for ${ens_name}`);
+        // Clean up any existing invalid profile
+        await prisma.cached_profiles.delete({
+          where: { ens_name },
+        }).catch(() => { });
+        return null;
+      }
+
       let profile = await prisma.cached_profiles.findUnique({
         where: { ens_name },
       });
@@ -51,12 +65,11 @@ export const getServerSideProps: GetServerSideProps<ProfilePageProps> = async (c
       const now = new Date();
 
       if (forceRefresh || !profile || (profile.updated_at && new Date(profile.updated_at) < new Date(now.getTime() - 3600000))) {
-        const addressRecord = await ensClient.getAddressRecord({ name: ens_name });
         const avatarRecord = await ensClient.getTextRecord({ name: ens_name, key: 'avatar' });
 
         const profileData = {
           ens_name,
-          address: addressRecord?.value || 'Address not found',
+          address: addressRecord.value,
           profile_data: {
             ens_avatar: typeof avatarRecord === 'string' ? avatarRecord : null,
           },
@@ -73,6 +86,10 @@ export const getServerSideProps: GetServerSideProps<ProfilePageProps> = async (c
       return JSON.parse(profile.profile_data);
     } catch (error) {
       console.error('Error fetching profile:', error);
+      // Clean up on error
+      await prisma.cached_profiles.delete({
+        where: { ens_name },
+      }).catch(() => { });
       return null;
     }
   };

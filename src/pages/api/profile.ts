@@ -22,35 +22,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // First check if ENS resolves
-    console.log(`Attempting to resolve ENS address for ${ens_name}...`);
+    console.log(`[DEBUG] Starting ENS resolution for: ${ens_name}`);
     const address = await ensClient.getAddressRecord({ name: ens_name });
-    console.log(`ENS resolution result for ${ens_name}:`, address);
+    console.log(`[DEBUG] Raw ENS response:`, JSON.stringify(address, null, 2));
+    console.log(`[DEBUG] address?.value:`, address?.value);
+    console.log(`[DEBUG] typeof address:`, typeof address);
+    console.log(`[DEBUG] address null check:`, address === null);
+    console.log(`[DEBUG] address undefined check:`, address === undefined);
 
-    if (!address?.value) {
-      console.log(`ENS resolution failed for ${ens_name} - no valid address found`);
-      // If ENS doesn't resolve, delete any existing profile and return 404
+    if (!address || !address.value || address.value === '0x0000000000000000000000000000000000000000') {
+      console.log(`[DEBUG] ENS resolution failed - invalid or null address`);
       await prisma.cached_profiles.delete({
         where: { ens_name },
-      }).catch((deleteError) => {
-        console.log(`Failed to delete profile for ${ens_name}:`, deleteError);
-      });
+      }).catch((e) => console.log('[DEBUG] Delete error:', e));
       return res.status(404).json({ error: 'ENS name not found' });
     }
 
-    console.log(`Successfully resolved ${ens_name} to address ${address.value}`);
     let profile = await prisma.cached_profiles.findUnique({
       where: { ens_name },
     });
 
     const shouldRefresh = refresh === 'true' || !profile;
-    console.log(`Should refresh profile for ${ens_name}?`, shouldRefresh, 
-      `(refresh param: ${refresh}, existing profile: ${!!profile})`);
 
     if (shouldRefresh) {
-      console.log(`Fetching avatar record for ${ens_name}...`);
       const avatarRecord = await ensClient.getTextRecord({ name: ens_name, key: 'avatar' });
-      console.log(`Avatar record for ${ens_name}:`, avatarRecord);
       const avatar = typeof avatarRecord === 'string' ? avatarRecord : null;
 
       const profileData = {
@@ -61,7 +56,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         },
         last_sync_status: `Successfully updated at ${new Date().toISOString()}`,
       };
-      console.log(`Updating profile data for ${ens_name}:`, profileData);
 
       profile = await prisma.cached_profiles.upsert({
         where: { ens_name },
@@ -76,29 +70,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           last_sync_status: profileData.last_sync_status
         },
       });
-      console.log(`Profile upsert complete for ${ens_name}`);
     }
 
     const parsedProfileData = JSON.parse(profile?.profile_data ?? '{}');
-    console.log(`Returning profile data for ${ens_name}:`, parsedProfileData);
 
     res.status(200).json({
       ...parsedProfileData,
       last_sync_status: profile?.last_sync_status ?? 'Unknown'
     });
   } catch (error) {
-    console.error(`Error processing ${ens_name}:`, error);
-    
-    // Delete the profile from the database on any error
-    if (ens_name) {
-      console.log(`Attempting to delete failed profile for ${ens_name}`);
-      await prisma.cached_profiles.delete({
-        where: { ens_name },
-      }).catch((deleteError) => {
-        console.log(`Failed to delete profile for ${ens_name}:`, deleteError);
-      });
-    }
-    
+    console.error('Error fetching profile:', error);
+    await prisma.cached_profiles.delete({
+      where: { ens_name },
+    }).catch(() => { });
     res.status(500).json({ error: 'Error fetching profile' });
   }
 }
