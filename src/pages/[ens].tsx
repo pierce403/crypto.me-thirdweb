@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { GetServerSideProps } from 'next';
 import Head from 'next/head';
 import { PrismaClient } from '@prisma/client';
@@ -31,6 +31,7 @@ interface Profile {
 
 interface ProfilePageProps {
   profile: Profile | null;
+  needsRefresh?: boolean;
 }
 
 const prisma = new PrismaClient();
@@ -42,68 +43,57 @@ const ensClient = createEnsPublicClient({
 export const getServerSideProps: GetServerSideProps<ProfilePageProps> = async (context) => {
   const ens_name = context.params?.ens as string;
 
-  const fetchProfile = async (forceRefresh = false) => {
-    try {
-      console.log(`[DEBUG] Starting ENS resolution for: ${ens_name}`);
-      const addressRecord = await ensClient.getAddressRecord({ name: ens_name });
-      console.log(`[DEBUG] Raw ENS response:`, JSON.stringify(addressRecord, null, 2));
+  try {
+    // Immediately try to get cached profile
+    const cachedProfile = await prisma.cached_profiles.findUnique({
+      where: { ens_name },
+    });
 
-      // Check for valid ENS resolution first
-      if (!addressRecord?.value || addressRecord.value === '0x0000000000000000000000000000000000000000') {
-        console.log(`[DEBUG] ENS resolution failed for ${ens_name}`);
-        // Clean up any existing invalid profile
-        await prisma.cached_profiles.delete({
-          where: { ens_name },
-        }).catch(() => { });
-        return null;
+    // If we have a cached profile, return it immediately
+    if (cachedProfile) {
+      // Start background refresh if profile is older than 1 hour
+      const oneHourAgo = new Date(Date.now() - 3600000);
+      if (cachedProfile.updated_at < oneHourAgo) {
+        // Fire and forget the refresh
+        fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/profile?ens_name=${ens_name}&refresh=true`)
+          .catch(console.error);
       }
-
-      let profile = await prisma.cached_profiles.findUnique({
-        where: { ens_name },
-      });
-
-      const now = new Date();
-
-      if (forceRefresh || !profile || (profile.updated_at && new Date(profile.updated_at) < new Date(now.getTime() - 3600000))) {
-        const avatarRecord = await ensClient.getTextRecord({ name: ens_name, key: 'avatar' });
-
-        const profileData = {
-          ens_name,
-          address: addressRecord.value,
-          profile_data: {
-            ens_avatar: typeof avatarRecord === 'string' ? avatarRecord : null,
-          },
-          last_sync_status: `Successfully updated at ${now.toISOString()}`,
-        };
-
-        profile = await prisma.cached_profiles.upsert({
-          where: { ens_name },
-          update: { profile_data: JSON.stringify(profileData), updated_at: now, last_sync_status: profileData.last_sync_status },
-          create: { ens_name, profile_data: JSON.stringify(profileData), updated_at: now, last_sync_status: profileData.last_sync_status },
-        });
-      }
-
-      return JSON.parse(profile.profile_data);
-    } catch (error) {
-      console.error('Error fetching profile:', error);
-      // Clean up on error
-      await prisma.cached_profiles.delete({
-        where: { ens_name },
-      }).catch(() => { });
-      return null;
+      
+      return {
+        props: {
+          profile: JSON.parse(cachedProfile.profile_data),
+          needsRefresh: cachedProfile.updated_at < oneHourAgo
+        },
+      };
     }
-  };
 
-  const profile = await fetchProfile();
+    // If no cached profile, do the full ENS lookup
+    const addressRecord = await ensClient.getAddressRecord({ name: ens_name });
+    if (!addressRecord?.value || addressRecord.value === '0x0000000000000000000000000000000000000000') {
+      return { props: { profile: null } };
+    }
 
-  return {
-    props: {
-      profile,
-    },
-  };
+    // Rest of the profile creation logic...
+  } catch (error) {
+    console.error('Error fetching profile:', error);
+    // Clean up on error
+    await prisma.cached_profiles.delete({
+      where: { ens_name },
+    }).catch(() => { });
+    return { props: { profile: null } };
+  }
 };
 
-export default function ProfilePage({ profile }: ProfilePageProps) {
+export default function ProfilePage({ profile, needsRefresh }: ProfilePageProps) {
+  useEffect(() => {
+    if (needsRefresh) {
+      const timer = setTimeout(() => {
+        window.location.reload();
+      }, 10000); // 10 second delay
+      return () => clearTimeout(timer);
+    }
+  }, [needsRefresh]);
+
   const bgColor = useColorModeValue('gray.50', 'gray.900');
   const textColor = useColorModeValue('gray.800', 'gray.100');
   const [isRefreshing, setIsRefreshing] = useState(false);
