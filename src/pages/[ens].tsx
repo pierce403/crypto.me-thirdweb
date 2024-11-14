@@ -70,17 +70,45 @@ export const getServerSideProps: GetServerSideProps<ProfilePageProps> = async (c
     // If no cached profile, do the full ENS lookup
     const addressRecord = await ensClient.getAddressRecord({ name: ens_name });
     if (!addressRecord?.value || addressRecord.value === '0x0000000000000000000000000000000000000000') {
-      return { props: { profile: null } };
+      return { props: { profile: null, needsRefresh: false } };
     }
 
-    // Rest of the profile creation logic...
+    // Create initial profile
+    const avatarRecord = await ensClient.getTextRecord({ name: ens_name, key: 'avatar' });
+    const avatar = typeof avatarRecord === 'string' ? avatarRecord : null;
+
+    const profileData = {
+      ens_name,
+      address: addressRecord.value,
+      profile_data: {
+        ens_avatar: avatar,
+      },
+      last_sync_status: `Successfully updated at ${new Date().toISOString()}`,
+    };
+
+    const profile = await prisma.cached_profiles.create({
+      data: {
+        ens_name,
+        profile_data: JSON.stringify(profileData),
+        last_sync_status: profileData.last_sync_status
+      },
+    });
+
+    return {
+      props: {
+        profile: JSON.parse(profile.profile_data),
+        needsRefresh: false
+      },
+    };
+
   } catch (error) {
-    console.error('Error fetching profile:', error);
-    // Clean up on error
-    await prisma.cached_profiles.delete({
-      where: { ens_name },
-    }).catch(() => { });
-    return { props: { profile: null } };
+    console.error('Error in getServerSideProps:', error);
+    return {
+      props: {
+        profile: null,
+        needsRefresh: false
+      },
+    };
   }
 };
 
