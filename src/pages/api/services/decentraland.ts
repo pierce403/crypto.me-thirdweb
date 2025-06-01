@@ -3,7 +3,6 @@ import { NextApiRequest, NextApiResponse } from 'next';
 // Correct Decentraland contract addresses
 const LAND_CONTRACT = '0xF87E31492Faf9A91B02Ee0dEAAd50d51d56D5d4d'; // Official LAND NFT contract
 const ESTATE_CONTRACT = '0x959e104E1a4dB6317fA58F8295F586e1A978c297'; // Estate contract
-const WEARABLES_CONTRACT = '0xb7F7F6C52F2e2fdb1963Eab30438024864c313F6'; // Collection store contract
 
 interface DecentralandNFT {
   id?: string;
@@ -21,13 +20,62 @@ interface DecentralandNFT {
 
 interface DecentralandNFTItem {
   nft: DecentralandNFT;
-  order?: any;
-  rental?: any;
+  order?: Record<string, unknown>;
+  rental?: Record<string, unknown>;
 }
 
 interface DecentralandNFTResponse {
   data?: DecentralandNFTItem[];
   total?: number;
+}
+
+interface DebugInfo {
+  peerAPI: {
+    status: string;
+    count?: number;
+    statusCode?: number;
+    message?: string;
+  };
+  nftServer: {
+    status: string;
+    totalNFTs?: number;
+    categories?: string[];
+    landCount?: number;
+    estateCount?: number;
+    totalEstateParcelCount?: number;
+    wearableCount?: number;
+    sample?: Array<{
+      category?: string;
+      name?: string;
+      contractAddress?: string;
+    }>;
+    statusCode?: number;
+    response?: string;
+    message?: string;
+  };
+  theGraph: {
+    status: string;
+    reason?: string;
+    nftCount?: number;
+    landCount?: number;
+    statusCode?: number;
+    message?: string;
+  };
+  openSea: {
+    status: string;
+    reason?: string;
+    assetsCount?: number;
+    statusCode?: number;
+    blocked?: boolean;
+    message?: string;
+  };
+  alchemy: {
+    status: string;
+    reason?: string;
+    count?: number;
+    statusCode?: number;
+    message?: string;
+  };
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -48,7 +96,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let landParcels = 0;
     let wearables = 0;
     let lastActive = null;
-    let debugInfo: any = {};
+    const debugInfo: DebugInfo = {
+      peerAPI: { status: 'not-started' },
+      nftServer: { status: 'not-started' },
+      theGraph: { status: 'not-started' },
+      openSea: { status: 'not-started' },
+      alchemy: { status: 'not-started' }
+    };
 
     // Method 1: Try to get profile data from Catalyst peer API
     try {
@@ -97,27 +151,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         debugInfo.nftServer = { 
           status: 'success', 
           totalNFTs: nfts.length,
-          categories: nfts.map(item => item.nft?.category).filter(Boolean)
+          categories: nfts.map(item => item.nft?.category).filter(Boolean) as string[]
         };
         
         // Count LAND parcels and estates (data is nested under .nft property)
-        const landCount = nfts.filter((item: any) => 
+        const landCount = nfts.filter((item: DecentralandNFTItem) => 
           item.nft?.category === 'parcel' || 
           item.nft?.contractAddress?.toLowerCase() === LAND_CONTRACT.toLowerCase()
         ).length;
         
-        const estateCount = nfts.filter((item: any) => 
+        const estateCount = nfts.filter((item: DecentralandNFTItem) => 
           item.nft?.category === 'estate' || 
           item.nft?.contractAddress?.toLowerCase() === ESTATE_CONTRACT.toLowerCase()
         ).length;
         
-        const wearableCount = nfts.filter((item: any) => 
+        const wearableCount = nfts.filter((item: DecentralandNFTItem) => 
           item.nft?.category === 'wearable'
         ).length;
         
         // For estates, also count the total parcel count within estates
         let totalEstateParcelCount = 0;
-        nfts.forEach((item: any) => {
+        nfts.forEach((item: DecentralandNFTItem) => {
           if (item.nft?.category === 'estate' && item.nft?.data?.estate?.size) {
             totalEstateParcelCount += item.nft.data.estate.size;
           }
@@ -181,7 +235,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           const graphData = await graphResponse.json();
           if (graphData.data && graphData.data.nfts) {
             const graphNfts = graphData.data.nfts;
-            const graphLandCount = graphNfts.filter((nft: any) => 
+            const graphLandCount = graphNfts.filter((nft: { category: string }) => 
               nft.category === 'parcel' || nft.category === 'estate'
             ).length;
             
