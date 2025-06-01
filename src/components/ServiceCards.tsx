@@ -360,10 +360,25 @@ export const FarcasterCard: React.FC<ServiceCardProps> = ({ address }) => {
               </VStack>
               
               <VStack align="start" gap={1}>
-                <Text fontSize="sm" color="gray.500">Neynar Score</Text>
-                <Badge colorPalette={data.neynarScore > 0.5 ? "green" : "yellow"} variant="subtle">
-                  {data.neynarScore.toFixed(2)}
-                </Badge>
+                <Text fontSize="sm" color="gray.500">Neynar Trust Score</Text>
+                <HStack gap={2}>
+                  <Badge 
+                    colorPalette={
+                      data.neynarScore >= 0.7 ? "green" : 
+                      data.neynarScore >= 0.4 ? "yellow" : 
+                      "red"
+                    } 
+                    variant="solid"
+                    size="lg"
+                  >
+                    {(data.neynarScore * 100).toFixed(0)}%
+                  </Badge>
+                  <Text fontSize="xs" color="gray.500">
+                    {data.neynarScore >= 0.7 ? "High" : 
+                     data.neynarScore >= 0.4 ? "Medium" : 
+                     "Low"} Trust
+                  </Text>
+                </HStack>
               </VStack>
             </HStack>
             
