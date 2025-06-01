@@ -1,4 +1,22 @@
 import { NextApiRequest, NextApiResponse } from 'next';
+import { createEnsPublicClient } from '@ensdomains/ensjs';
+import { http } from 'viem';
+import { mainnet } from 'viem/chains';
+
+const ensClient = createEnsPublicClient({
+  chain: mainnet,
+  transport: http(),
+});
+
+// Helper function to check if a string is an ENS name
+function isEnsName(input: string): boolean {
+  return input.includes('.') && !input.startsWith('0x');
+}
+
+// Helper function to check if a string is an Ethereum address
+function isEthereumAddress(input: string): boolean {
+  return /^0x[a-fA-F0-9]{40}$/.test(input);
+}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
@@ -9,7 +27,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const { address } = req.query;
 
   if (!address || typeof address !== 'string') {
-    return res.status(400).json({ error: 'Address is required' });
+    return res.status(400).json({ error: 'Address or ENS name is required' });
+  }
+
+  let resolvedAddress = address;
+
+  // If input looks like an ENS name, resolve it to an address
+  if (isEnsName(address)) {
+    try {
+      const addressRecord = await ensClient.getAddressRecord({ name: address });
+      if (!addressRecord?.value || addressRecord.value === '0x0000000000000000000000000000000000000000') {
+        return res.status(404).json({ error: 'ENS name not found or not resolved to a valid address' });
+      }
+      resolvedAddress = addressRecord.value;
+    } catch (error) {
+      console.error('Error resolving ENS name:', error);
+      return res.status(400).json({ error: 'Invalid ENS name or resolution failed' });
+    }
+  } else if (!isEthereumAddress(address)) {
+    return res.status(400).json({ error: 'Invalid Ethereum address or ENS name format' });
   }
 
   const apiKey = process.env.NEYNAR_API_KEY;
@@ -21,8 +57,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // First, get user by verified address
-    const userResponse = await fetch(`https://api.neynar.com/v2/farcaster/user/by_verified_address?address=${address}`, {
+    // First, get user by verified address (now using resolved address)
+    const userResponse = await fetch(`https://api.neynar.com/v2/farcaster/user/by_verified_address?address=${resolvedAddress}`, {
       headers: {
         'accept': 'application/json',
         'api_key': apiKey,
@@ -109,6 +145,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       connectedAddresses: detailedUser.verified_addresses?.eth_addresses || [],
       followerCount: followerCount,
       neynarScore: Math.min(neynarScore, 1.0), // Cap at 1.0
+      resolvedAddress: resolvedAddress, // Include the resolved address for debugging
     };
 
     res.status(200).json(result);
