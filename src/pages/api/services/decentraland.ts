@@ -6,12 +6,28 @@ const ESTATE_CONTRACT = '0x959e104E1a4dB6317fA58F8295F586e1A978c297'; // Estate 
 const WEARABLES_CONTRACT = '0xb7F7F6C52F2e2fdb1963Eab30438024864c313F6'; // Collection store contract
 
 interface DecentralandNFT {
-  category?: string;
   id?: string;
+  tokenId?: string;
+  contractAddress?: string;
+  category?: string;
+  name?: string;
+  data?: {
+    estate?: {
+      size?: number;
+      parcels?: Array<{ x: number; y: number }>;
+    };
+  };
+}
+
+interface DecentralandNFTItem {
+  nft: DecentralandNFT;
+  order?: any;
+  rental?: any;
 }
 
 interface DecentralandNFTResponse {
-  nfts?: DecentralandNFT[];
+  data?: DecentralandNFTItem[];
+  total?: number;
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -62,70 +78,171 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       debugInfo.peerAPI = { status: 'error', message: error instanceof Error ? error.message : 'Unknown error' };
     }
 
-    // Method 2: Try OpenSea API with proper headers to avoid blocking
+    // Method 2: Use Decentraland's official nft-server API
     try {
-      const openSeaResponse = await fetch(
-        `https://api.opensea.io/api/v1/assets?owner=${address}&asset_contract_address=${LAND_CONTRACT}&limit=20`,
+      const nftServerResponse = await fetch(
+        `https://nft-api.decentraland.org/v1/nfts?owner=${address.toLowerCase()}&first=100`,
         {
           headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Accept': 'application/json'
+            'Accept': 'application/json',
+            'User-Agent': 'Mozilla/5.0 (compatible; DecentralandAPI/1.0)'
           }
         }
       );
       
-      if (openSeaResponse.ok) {
-        const openSeaData = await openSeaResponse.json();
-        debugInfo.openSeaLand = { status: 'success', assetsCount: openSeaData.assets?.length || 0 };
-        if (openSeaData.assets) {
-          landParcels += openSeaData.assets.length;
-        }
-      } else {
-        const responseText = await openSeaResponse.text();
-        const isBlocked = responseText.includes('Cloudflare') || responseText.includes('blocked');
-        debugInfo.openSeaLand = { 
-          status: 'failed', 
-          statusCode: openSeaResponse.status,
-          blocked: isBlocked,
-          response: responseText.substring(0, 200) + '...'
+      if (nftServerResponse.ok) {
+        const nftData: DecentralandNFTResponse = await nftServerResponse.json();
+        const nfts = nftData.data || [];
+        
+        debugInfo.nftServer = { 
+          status: 'success', 
+          totalNFTs: nfts.length,
+          categories: nfts.map(item => item.nft?.category).filter(Boolean)
         };
-      }
-    } catch (error) {
-      debugInfo.openSeaLand = { status: 'error', message: error instanceof Error ? error.message : 'Unknown error' };
-    }
-
-    // Method 3: Check Estates contract
-    try {
-      const openSeaEstateResponse = await fetch(
-        `https://api.opensea.io/api/v1/assets?owner=${address}&asset_contract_address=${ESTATE_CONTRACT}&limit=20`,
-        {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Accept': 'application/json'
+        
+        // Count LAND parcels and estates (data is nested under .nft property)
+        const landCount = nfts.filter((item: any) => 
+          item.nft?.category === 'parcel' || 
+          item.nft?.contractAddress?.toLowerCase() === LAND_CONTRACT.toLowerCase()
+        ).length;
+        
+        const estateCount = nfts.filter((item: any) => 
+          item.nft?.category === 'estate' || 
+          item.nft?.contractAddress?.toLowerCase() === ESTATE_CONTRACT.toLowerCase()
+        ).length;
+        
+        const wearableCount = nfts.filter((item: any) => 
+          item.nft?.category === 'wearable'
+        ).length;
+        
+        // For estates, also count the total parcel count within estates
+        let totalEstateParcelCount = 0;
+        nfts.forEach((item: any) => {
+          if (item.nft?.category === 'estate' && item.nft?.data?.estate?.size) {
+            totalEstateParcelCount += item.nft.data.estate.size;
           }
-        }
-      );
-      
-      if (openSeaEstateResponse.ok) {
-        const openSeaEstateData = await openSeaEstateResponse.json();
-        debugInfo.openSeaEstates = { status: 'success', assetsCount: openSeaEstateData.assets?.length || 0 };
-        if (openSeaEstateData.assets) {
-          landParcels += openSeaEstateData.assets.length;
-        }
+        });
+        
+        landParcels = landCount + estateCount;
+        wearables = wearableCount;
+        
+        debugInfo.nftServer.landCount = landCount;
+        debugInfo.nftServer.estateCount = estateCount;
+        debugInfo.nftServer.totalEstateParcelCount = totalEstateParcelCount;
+        debugInfo.nftServer.wearableCount = wearableCount;
+        debugInfo.nftServer.sample = nfts.slice(0, 2).map(item => ({
+          category: item.nft?.category,
+          name: item.nft?.name,
+          contractAddress: item.nft?.contractAddress
+        }));
+        
       } else {
-        const responseText = await openSeaEstateResponse.text();
-        const isBlocked = responseText.includes('Cloudflare') || responseText.includes('blocked');
-        debugInfo.openSeaEstates = { 
+        const responseText = await nftServerResponse.text();
+        debugInfo.nftServer = { 
           status: 'failed', 
-          statusCode: openSeaEstateResponse.status,
-          blocked: isBlocked
+          statusCode: nftServerResponse.status,
+          response: responseText.substring(0, 300) + '...'
         };
       }
     } catch (error) {
-      debugInfo.openSeaEstates = { status: 'error', message: error instanceof Error ? error.message : 'Unknown error' };
+      debugInfo.nftServer = { status: 'error', message: error instanceof Error ? error.message : 'Unknown error' };
     }
 
-    // Method 4: Try alternative APIs if available
+    // Method 3: Fallback to The Graph subgraph (if nft-server fails)
+    if (landParcels === 0) {
+      try {
+        const graphResponse = await fetch('https://api.thegraph.com/subgraphs/name/decentraland/marketplace', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            query: `
+              query GetNFTs($owner: String!) {
+                nfts(where: { owner: $owner }, first: 100) {
+                  id
+                  category
+                  tokenId
+                  contractAddress
+                  parcel {
+                    x
+                    y
+                  }
+                }
+              }
+            `,
+            variables: {
+              owner: address.toLowerCase()
+            }
+          })
+        });
+
+        if (graphResponse.ok) {
+          const graphData = await graphResponse.json();
+          if (graphData.data && graphData.data.nfts) {
+            const graphNfts = graphData.data.nfts;
+            const graphLandCount = graphNfts.filter((nft: any) => 
+              nft.category === 'parcel' || nft.category === 'estate'
+            ).length;
+            
+            debugInfo.theGraph = { 
+              status: 'success', 
+              nftCount: graphNfts.length,
+              landCount: graphLandCount
+            };
+            
+            if (graphLandCount > landParcels) {
+              landParcels = graphLandCount;
+            }
+          } else {
+            debugInfo.theGraph = { status: 'success', nftCount: 0 };
+          }
+        } else {
+          debugInfo.theGraph = { status: 'failed', statusCode: graphResponse.status };
+        }
+      } catch (error) {
+        debugInfo.theGraph = { status: 'error', message: error instanceof Error ? error.message : 'Unknown error' };
+      }
+    } else {
+      debugInfo.theGraph = { status: 'skipped', reason: 'Already found land via nft-server' };
+    }
+
+    // Method 4: Try OpenSea as final fallback (for comparison)
+    if (landParcels === 0) {
+      try {
+        const openSeaResponse = await fetch(
+          `https://api.opensea.io/api/v1/assets?owner=${address}&asset_contract_address=${LAND_CONTRACT}&limit=20`,
+          {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+              'Accept': 'application/json'
+            }
+          }
+        );
+        
+        if (openSeaResponse.ok) {
+          const openSeaData = await openSeaResponse.json();
+          debugInfo.openSea = { status: 'success', assetsCount: openSeaData.assets?.length || 0 };
+          if (openSeaData.assets) {
+            landParcels += openSeaData.assets.length;
+          }
+        } else {
+          const responseText = await openSeaResponse.text();
+          const isBlocked = responseText.includes('Cloudflare') || responseText.includes('blocked');
+          debugInfo.openSea = { 
+            status: 'failed', 
+            statusCode: openSeaResponse.status,
+            blocked: isBlocked
+          };
+        }
+      } catch (error) {
+        debugInfo.openSea = { status: 'error', message: error instanceof Error ? error.message : 'Unknown error' };
+      }
+    } else {
+      debugInfo.openSea = { status: 'skipped', reason: 'Already found land via other APIs' };
+    }
+
+    // Method 5: Try alternative APIs if available
     if (process.env.ALCHEMY_API_KEY && landParcels === 0) {
       try {
         const alchemyResponse = await fetch(
@@ -146,54 +263,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         debugInfo.alchemy = { status: 'error', message: error instanceof Error ? error.message : 'Unknown error' };
       }
     } else {
-      debugInfo.alchemy = { status: 'skipped', reason: 'No API key or already found land' };
-    }
-
-    // Method 5: Alternative approach using direct contract calls (if Infura available)
-    if (process.env.INFURA_API_KEY && landParcels === 0) {
-      try {
-        // Get balance of LAND tokens for the address
-        const infuraResponse = await fetch(
-          `https://mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              jsonrpc: '2.0',
-              method: 'eth_call',
-              params: [
-                {
-                  to: LAND_CONTRACT,
-                  data: `0x70a08231000000000000000000000000${address.slice(2).toLowerCase()}`
-                },
-                'latest'
-              ],
-              id: 1
-            })
-          }
-        );
-        
-        if (infuraResponse.ok) {
-          const infuraData = await infuraResponse.json();
-          if (infuraData.result && infuraData.result !== '0x0') {
-            const balance = parseInt(infuraData.result, 16);
-            debugInfo.infura = { status: 'success', balance };
-            if (balance > landParcels) {
-              landParcels = balance;
-            }
-          } else {
-            debugInfo.infura = { status: 'success', balance: 0 };
-          }
-        } else {
-          debugInfo.infura = { status: 'failed', statusCode: infuraResponse.status };
-        }
-      } catch (error) {
-        debugInfo.infura = { status: 'error', message: error instanceof Error ? error.message : 'Unknown error' };
-      }
-    } else {
-      debugInfo.infura = { status: 'skipped', reason: process.env.INFURA_API_KEY ? 'Already found land' : 'No API key' };
+      debugInfo.alchemy = { status: 'skipped', reason: process.env.ALCHEMY_API_KEY ? 'Already found land' : 'No API key' };
     }
 
     const result = {
