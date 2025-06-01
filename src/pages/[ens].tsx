@@ -5,8 +5,9 @@ import { PrismaClient } from '@prisma/client';
 import { createEnsPublicClient } from '@ensdomains/ensjs';
 import { http } from 'viem';
 import { mainnet } from 'viem/chains';
-import { Box, Container, Heading, Text, VStack, Separator, Button } from '@chakra-ui/react';
+import { Box, Container, Heading, Text, VStack, Separator, Button, SimpleGrid } from '@chakra-ui/react';
 import Image from 'next/image';
+import { ENSCard, IcebreakerCard, FarcasterCard } from '../components/ServiceCards';
 
 // Add this function
 function convertToGatewayUrl(ipfsUrl: string | null): string | null {
@@ -155,11 +156,13 @@ export default function ProfilePage({ profile, needsRefresh }: ProfilePageProps)
   const avatarUrl = profile.profile_data.ens_avatar && profile.profile_data.ens_avatar.startsWith('ipfs://') ? convertToGatewayUrl(profile.profile_data.ens_avatar) : null;
 
   return (
-    <Container maxW="container.md" centerContent>
+    <Container maxW="container.xl" centerContent py={8}>
       <Head>
         <title>{profile.ens_name} | Crypto.me Profile</title>
       </Head>
-      <Box p={8} mt={10} bg="gray.50" borderRadius="lg" boxShadow="md" width="100%">
+      
+      {/* Main Profile Header */}
+      <Box p={8} mb={8} bg="gray.50" borderRadius="lg" boxShadow="md" width="100%" maxW="container.md">
         <VStack gap={4} align="stretch">
           {avatarUrl && (
             <Box alignSelf="center">
@@ -172,7 +175,7 @@ export default function ProfilePage({ profile, needsRefresh }: ProfilePageProps)
               />
             </Box>
           )}
-          <Heading as="h1" size="2xl" color="gray.800">{profile.ens_name}</Heading>
+          <Heading as="h1" size="2xl" color="gray.800" textAlign="center">{profile.ens_name}</Heading>
           <Separator />
           <Box>
             <Text fontSize="lg" fontWeight="bold" color="gray.800">ENS Name:</Text>
@@ -194,6 +197,18 @@ export default function ProfilePage({ profile, needsRefresh }: ProfilePageProps)
             Refresh Profile
           </Button>
         </VStack>
+      </Box>
+
+      {/* Service Cards */}
+      <Box width="100%">
+        <Heading as="h2" size="lg" color="gray.800" textAlign="center" mb={6}>
+          Connected Services
+        </Heading>
+        <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={6}>
+          <ENSCard address={address} ensName={profile.ens_name} />
+          <IcebreakerCard address={address} ensName={profile.ens_name} />
+          <FarcasterCard address={address} ensName={profile.ens_name} />
+        </SimpleGrid>
       </Box>
     </Container>
   );
