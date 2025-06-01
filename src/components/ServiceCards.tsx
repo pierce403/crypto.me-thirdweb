@@ -56,8 +56,11 @@ interface OpenSeaData {
     value: number;
     currency: string;
     permalink: string;
+    description?: string;
   }>;
   totalValue: number;
+  source?: string;
+  error?: string;
 }
 
 interface DecentralandData {
@@ -557,19 +560,76 @@ export const OpenSeaCard: React.FC<ServiceCardProps> = ({ address }) => {
     return (
       <Card.Root>
         <Card.Header>
-          <Heading size="md">OpenSea NFTs</Heading>
+          <Heading size="md">NFT Collection</Heading>
         </Card.Header>
         <Card.Body>
           <Box p={4} bg="red.50" borderRadius="md" borderWidth="1px" borderColor="red.200">
-            {error.includes('API key') ? (
-              <VStack align="start" gap={2}>
-                <Text fontWeight="bold" color="red.600">OpenSea API Key Required</Text>
-                <Text fontSize="sm" color="red.500">Please configure OPENSEA_API_KEY in your environment variables to display NFT data.</Text>
-              </VStack>
-            ) : (
-              <Text color="red.600">{error}</Text>
-            )}
+            <VStack align="start" gap={2}>
+              <Text fontWeight="bold" color="red.600">API Error</Text>
+              <Text fontSize="sm" color="red.500">{error}</Text>
+            </VStack>
           </Box>
+        </Card.Body>
+      </Card.Root>
+    );
+  }
+
+  // Handle API key errors gracefully
+  if (data?.error) {
+    return (
+      <Card.Root>
+        <Card.Header>
+          <VStack align="start" gap={1}>
+            <Heading size="md">NFT Collection</Heading>
+            <Text fontSize="xs" color="gray.500">
+              OpenSea integration available
+            </Text>
+          </VStack>
+        </Card.Header>
+        <Card.Body>
+          {data.error === 'OPENSEA_API_KEY_REQUIRED' ? (
+            <Box p={4} bg="blue.50" borderRadius="md" borderWidth="1px" borderColor="blue.200">
+              <VStack align="start" gap={3}>
+                <VStack align="start" gap={1}>
+                  <Text fontWeight="bold" color="blue.600">OpenSea API Available</Text>
+                  <Text fontSize="sm" color="blue.500">
+                    Configure OPENSEA_API_KEY to display NFT collections and metadata from OpenSea.
+                  </Text>
+                </VStack>
+                <Link href={data.profileUrl} target="_blank" color="blue.500" fontSize="sm">
+                  View NFTs on OpenSea →
+                </Link>
+              </VStack>
+            </Box>
+          ) : data.error === 'INVALID_API_KEY' ? (
+            <Box p={4} bg="orange.50" borderRadius="md" borderWidth="1px" borderColor="orange.200">
+              <VStack align="start" gap={3}>
+                <VStack align="start" gap={1}>
+                  <Text fontWeight="bold" color="orange.600">Invalid OpenSea API Key</Text>
+                  <Text fontSize="sm" color="orange.500">
+                    Please check your OPENSEA_API_KEY configuration. You may need to request a new API key.
+                  </Text>
+                </VStack>
+                <Link href={data.profileUrl} target="_blank" color="blue.500" fontSize="sm">
+                  View NFTs on OpenSea →
+                </Link>
+              </VStack>
+            </Box>
+          ) : (
+            <Box p={4} bg="gray.50" borderRadius="md" borderWidth="1px" borderColor="gray.200">
+              <VStack align="start" gap={3}>
+                <VStack align="start" gap={1}>
+                  <Text fontWeight="bold" color="gray.600">NFT Data Unavailable</Text>
+                  <Text fontSize="sm" color="gray.500">
+                    Unable to fetch NFT data at this time. The service may be temporarily unavailable.
+                  </Text>
+                </VStack>
+                <Link href={data.profileUrl} target="_blank" color="blue.500" fontSize="sm">
+                  View NFTs on OpenSea →
+                </Link>
+              </VStack>
+            </Box>
+          )}
         </Card.Body>
       </Card.Root>
     );
@@ -579,7 +639,14 @@ export const OpenSeaCard: React.FC<ServiceCardProps> = ({ address }) => {
     <Card.Root>
       <Card.Header>
         <HStack justify="space-between">
-          <Heading size="md">OpenSea NFTs</Heading>
+          <VStack align="start" gap={1}>
+            <Heading size="md">NFT Collection</Heading>
+            {data?.source && (
+              <Text fontSize="xs" color="gray.500">
+                Powered by {data.source === 'opensea' ? 'OpenSea' : data.source === 'alchemy' ? 'Alchemy' : 'Multiple Sources'}
+              </Text>
+            )}
+          </VStack>
           <Link href={data?.profileUrl} target="_blank" color="blue.500" fontSize="sm">
             View Profile →
           </Link>
@@ -588,37 +655,62 @@ export const OpenSeaCard: React.FC<ServiceCardProps> = ({ address }) => {
       <Card.Body>
         {data?.topNFTs && data.topNFTs.length > 0 ? (
           <VStack align="start" gap={4}>
-            <Text fontWeight="semibold">Top 5 Most Valuable NFTs:</Text>
+            <Text fontWeight="semibold">Recent NFTs ({data.topNFTs.length}):</Text>
             {data.topNFTs.map((nft, index) => (
               <HStack key={index} gap={3} width="full">
-                <Image
-                  src={nft.image}
-                  alt={nft.name}
-                  boxSize="40px"
-                  borderRadius="md"
-                  objectFit="cover"
-                />
+                {nft.image ? (
+                  <Image
+                    src={nft.image}
+                    alt={nft.name}
+                    boxSize="50px"
+                    borderRadius="md"
+                    objectFit="cover"
+                  />
+                ) : (
+                  <Box
+                    boxSize="50px"
+                    borderRadius="md"
+                    bg="gray.100"
+                    display="flex"
+                    alignItems="center"
+                    justifyContent="center"
+                  >
+                    <Text fontSize="xs" color="gray.500">NFT</Text>
+                  </Box>
+                )}
                 <VStack align="start" gap={0} flex={1}>
                   <Link href={nft.permalink} target="_blank" color="blue.500" fontSize="sm" fontWeight="bold">
                     {nft.name}
                   </Link>
                   <Text fontSize="xs" color="gray.500">{nft.collection}</Text>
-                  <Text fontSize="xs" fontWeight="bold" color="green.600">
-                    {nft.value} {nft.currency}
-                  </Text>
+                  {nft.description && (
+                    <Text fontSize="xs" color="gray.400" truncate>
+                      {nft.description}
+                    </Text>
+                  )}
+                  {nft.value > 0 && (
+                    <Text fontSize="xs" fontWeight="bold" color="green.600">
+                      {nft.value.toFixed(3)} {nft.currency}
+                    </Text>
+                  )}
                 </VStack>
               </HStack>
             ))}
             {data.totalValue > 0 && (
               <Box width="full" pt={2} borderTopWidth="1px" borderColor="gray.200">
                 <Text fontSize="sm" fontWeight="bold">
-                  Total Portfolio Value: <Text as="span" color="green.600">{data.totalValue.toFixed(2)} ETH</Text>
+                  Estimated Total: <Text as="span" color="green.600">{data.totalValue.toFixed(2)} ETH</Text>
                 </Text>
               </Box>
             )}
           </VStack>
         ) : (
-          <Text color="gray.500">No NFTs found or portfolio is private</Text>
+          <VStack align="start" gap={3}>
+            <Text color="gray.500">No NFTs found or collection is private</Text>
+            <Text fontSize="sm" color="gray.400">
+              This address may not own any NFTs on Ethereum mainnet or the collection may be private.
+            </Text>
+          </VStack>
         )}
       </Card.Body>
     </Card.Root>

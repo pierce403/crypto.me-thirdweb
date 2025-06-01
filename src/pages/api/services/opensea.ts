@@ -1,24 +1,43 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 
-interface OpenSeaNFT {
-  name?: string;
-  collection?: {
-    name?: string;
-    floor_price?: {
-      value?: number;
-    };
-  };
-  image_url?: string;
-  display_image_url?: string;
-  contract?: string;
-  identifier?: string;
-  last_sale?: {
-    total_price?: number;
-  };
+// Helper function to check if a string is an ENS name
+function isENSName(address: string): boolean {
+  return address.toLowerCase().endsWith('.eth');
 }
 
-interface OpenSeaResponse {
-  nfts?: OpenSeaNFT[];
+// Helper function to resolve ENS to address
+async function resolveENSToAddress(ensName: string): Promise<string> {
+  try {
+    const response = await fetch(`https://api.ensideas.com/ens/resolve/${ensName}`);
+    if (response.ok) {
+      const data = await response.json();
+      return data.address || ensName;
+    }
+  } catch (error) {
+    console.error('ENS resolution error:', error);
+  }
+  return ensName;
+}
+
+// Updated interfaces for OpenSea v2 API
+interface OpenSeaNFTv2 {
+  identifier: string;
+  collection: string;
+  contract: string;
+  name?: string;
+  description?: string;
+  image_url?: string;
+  display_image_url?: string;
+  metadata_url?: string;
+  opensea_url?: string;
+  updated_at?: string;
+  is_disabled?: boolean;
+  is_nsfw?: boolean;
+}
+
+interface OpenSeaResponsev2 {
+  nfts: OpenSeaNFTv2[];
+  next?: string;
 }
 
 interface ProcessedNFT {
@@ -28,6 +47,7 @@ interface ProcessedNFT {
   value: number;
   currency: string;
   permalink: string;
+  description?: string;
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -42,17 +62,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ error: 'Address is required' });
   }
 
+  // Resolve ENS to address if needed
+  let resolvedAddress = address;
+  if (isENSName(address)) {
+    resolvedAddress = await resolveENSToAddress(address);
+    console.log(`Resolved ${address} to ${resolvedAddress}`);
+  }
+
+  console.log(`Fetching NFTs for address: ${resolvedAddress}`);
+
   const apiKey = process.env.OPENSEA_API_KEY;
   
   if (!apiKey) {
-    return res.status(500).json({ 
-      error: 'OpenSea API key not configured. Please set OPENSEA_API_KEY environment variable.' 
+    return res.status(200).json({
+      profileUrl: `https://opensea.io/${resolvedAddress}`,
+      topNFTs: [],
+      totalValue: 0,
+      source: 'none',
+      error: 'OPENSEA_API_KEY_REQUIRED'
     });
   }
 
   try {
-    // Get NFTs owned by the address
-    const response = await fetch(`https://api.opensea.io/api/v2/chain/ethereum/account/${address}/nfts?limit=50`, {
+    // Use OpenSea v2 API
+    const response = await fetch(`https://api.opensea.io/api/v2/chain/ethereum/account/${resolvedAddress}/nfts?limit=20`, {
       headers: {
         'X-API-KEY': apiKey,
         'accept': 'application/json',
@@ -61,53 +94,58 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (!response.ok) {
       if (response.status === 404) {
-        return res.status(200).json({ 
-          profileUrl: `https://opensea.io/${address}`,
+        return res.status(200).json({
+          profileUrl: `https://opensea.io/${resolvedAddress}`,
           topNFTs: [],
-          totalValue: 0
+          totalValue: 0,
+          source: 'opensea'
         });
       }
+      console.error(`OpenSea API error: ${response.status} ${response.statusText}`);
+      
+      if (response.status === 401 || response.status === 403) {
+        return res.status(200).json({
+          profileUrl: `https://opensea.io/${resolvedAddress}`,
+          topNFTs: [],
+          totalValue: 0,
+          source: 'none',
+          error: 'INVALID_API_KEY'
+        });
+      }
+      
       throw new Error(`OpenSea API error: ${response.status}`);
     }
 
-    const data: OpenSeaResponse = await response.json();
-    const nfts = data.nfts || [];
+    const data: OpenSeaResponsev2 = await response.json();
+    console.log(`OpenSea found ${data.nfts?.length || 0} NFTs`);
 
-    // Process and sort NFTs by estimated value
-    const processedNFTs: ProcessedNFT[] = nfts
-      .filter((nft: OpenSeaNFT) => nft && nft.name && nft.collection)
-      .map((nft: OpenSeaNFT): ProcessedNFT => {
-        // Get collection floor price or last sale price as value estimation
-        const floorPrice = nft.collection?.floor_price?.value || 0;
-        const lastSalePrice = nft.last_sale?.total_price || 0;
-        const estimatedValue = Math.max(floorPrice, lastSalePrice) / 1e18; // Convert from wei to ETH
+    const processedNFTs: ProcessedNFT[] = (data.nfts || [])
+      .filter((nft: OpenSeaNFTv2) => nft && nft.name && !nft.is_disabled && !nft.is_nsfw)
+      .slice(0, 5)
+      .map((nft: OpenSeaNFTv2): ProcessedNFT => ({
+        name: nft.name || 'Unnamed NFT',
+        collection: nft.collection || 'Unknown Collection',
+        image: nft.image_url || nft.display_image_url || '',
+        value: 0, // OpenSea v2 doesn't include pricing in this endpoint
+        currency: 'ETH',
+        permalink: nft.opensea_url || `https://opensea.io/assets/ethereum/${nft.contract}/${nft.identifier}`,
+        description: nft.description
+      }));
 
-        return {
-          name: nft.name || 'Unnamed NFT',
-          collection: nft.collection?.name || 'Unknown Collection',
-          image: nft.image_url || nft.display_image_url || '',
-          value: estimatedValue,
-          currency: 'ETH',
-          permalink: `https://opensea.io/assets/ethereum/${nft.contract}/${nft.identifier}`,
-        };
-      })
-      .filter((nft: ProcessedNFT) => nft.value > 0) // Only include NFTs with estimated value
-      .sort((a: ProcessedNFT, b: ProcessedNFT) => b.value - a.value) // Sort by value descending
-      .slice(0, 5); // Take top 5
-
-    const totalValue = processedNFTs.reduce((sum: number, nft: ProcessedNFT) => sum + nft.value, 0);
-
-    const result = {
-      profileUrl: `https://opensea.io/${address}`,
+    return res.status(200).json({
+      profileUrl: `https://opensea.io/${resolvedAddress}`,
       topNFTs: processedNFTs,
-      totalValue,
-    };
-
-    res.status(200).json(result);
+      totalValue: 0,
+      source: 'opensea'
+    });
   } catch (error) {
-    console.error('Error fetching OpenSea data:', error);
-    res.status(500).json({ 
-      error: 'Failed to fetch OpenSea data. Please check your API key and try again.' 
+    console.error('OpenSea API error:', error);
+    return res.status(200).json({
+      profileUrl: `https://opensea.io/${resolvedAddress}`,
+      topNFTs: [],
+      totalValue: 0,
+      source: 'none',
+      error: 'API_ERROR'
     });
   }
 } 
