@@ -14,11 +14,28 @@ interface ENSData {
 }
 
 interface IcebreakerData {
+  profileID: string;
+  walletAddress: string;
+  displayName: string | null;
+  bio: string | null;
+  location: string | null;
+  avatarUrl: string | null;
   socialIdentities: Array<{
     platform: string;
     username: string;
     verified: boolean;
+    url?: string;
   }>;
+  credentials: Array<{
+    name: string;
+    chain?: string;
+    source?: string;
+    reference?: string;
+  }>;
+  profileUrl: string;
+  verifiedChannelsCount: number;
+  totalChannelsCount: number;
+  credentialsCount: number;
 }
 
 interface FarcasterData {
@@ -206,12 +223,12 @@ export const IcebreakerCard: React.FC<ServiceCardProps> = ({ address }) => {
     return (
       <Card.Root>
         <Card.Header>
-          <Heading size="md">Icebreaker Social</Heading>
+          <Heading size="md">Icebreaker Profile</Heading>
         </Card.Header>
         <Card.Body>
           <HStack justify="center">
             <Spinner />
-            <Text>Loading social identities...</Text>
+            <Text>Loading profile data...</Text>
           </HStack>
         </Card.Body>
       </Card.Root>
@@ -222,14 +239,14 @@ export const IcebreakerCard: React.FC<ServiceCardProps> = ({ address }) => {
     return (
       <Card.Root>
         <Card.Header>
-          <Heading size="md">Icebreaker Social</Heading>
+          <Heading size="md">Icebreaker Profile</Heading>
         </Card.Header>
         <Card.Body>
           <Box p={4} bg="red.50" borderRadius="md" borderWidth="1px" borderColor="red.200">
             {error.includes('API key') ? (
               <VStack align="start" gap={2}>
                 <Text fontWeight="bold" color="red.600">Icebreaker API Key Required</Text>
-                <Text fontSize="sm" color="red.500">Please configure ICEBREAKER_API_KEY in your environment variables to display social identities.</Text>
+                <Text fontSize="sm" color="red.500">Please configure ICEBREAKER_API_KEY in your environment variables to display profile data.</Text>
               </VStack>
             ) : (
               <Text color="red.600">{error}</Text>
@@ -243,28 +260,104 @@ export const IcebreakerCard: React.FC<ServiceCardProps> = ({ address }) => {
   return (
     <Card.Root>
       <Card.Header>
-        <Heading size="md">Icebreaker Social</Heading>
+        <HStack justify="space-between">
+          <Heading size="md">Icebreaker Profile</Heading>
+          {data?.profileUrl && (
+            <Link href={data.profileUrl} target="_blank" color="blue.500" fontSize="sm">
+              View Profile →
+            </Link>
+          )}
+        </HStack>
       </Card.Header>
       <Card.Body>
-        {data?.socialIdentities && data.socialIdentities.length > 0 ? (
-          <VStack align="start" gap={3}>
-            <Text fontWeight="semibold">Connected Social Identities:</Text>
-            {data.socialIdentities.map((identity, index) => (
-              <HStack key={index} justify="space-between" width="full">
-                <HStack gap={2}>
-                  <Text fontWeight="medium" textTransform="capitalize">{identity.platform}:</Text>
-                  <Text>{identity.username}</Text>
-                </HStack>
-                {identity.verified && (
-                  <Badge colorPalette="green" variant="subtle" size="sm">
-                    Verified
-                  </Badge>
+        {data ? (
+          <VStack align="start" gap={4}>
+            {/* Profile Info */}
+            {(data.displayName || data.bio || data.location) && (
+              <VStack align="start" gap={2}>
+                {data.displayName && (
+                  <Text fontWeight="bold" fontSize="lg">{data.displayName}</Text>
                 )}
-              </HStack>
-            ))}
+                {data.bio && (
+                  <Text fontSize="sm" color="gray.600">{data.bio}</Text>
+                )}
+                {data.location && (
+                  <Text fontSize="sm" color="gray.500">📍 {data.location}</Text>
+                )}
+              </VStack>
+            )}
+
+            {/* Stats */}
+            <HStack wrap="wrap" gap={4}>
+              <VStack align="start" gap={1}>
+                <Text fontSize="sm" color="gray.500">Connected Accounts</Text>
+                <Text fontSize="sm" fontWeight="bold">{data.totalChannelsCount}</Text>
+              </VStack>
+              
+              <VStack align="start" gap={1}>
+                <Text fontSize="sm" color="gray.500">Verified Accounts</Text>
+                <Text fontSize="sm" fontWeight="bold" color="green.600">{data.verifiedChannelsCount}</Text>
+              </VStack>
+              
+              <VStack align="start" gap={1}>
+                <Text fontSize="sm" color="gray.500">Credentials</Text>
+                <Text fontSize="sm" fontWeight="bold">{data.credentialsCount}</Text>
+              </VStack>
+            </HStack>
+
+            {/* Social Identities */}
+            {data.socialIdentities && data.socialIdentities.length > 0 && (
+              <VStack align="start" gap={3} width="full">
+                <Text fontWeight="semibold">Connected Social Accounts:</Text>
+                {data.socialIdentities.map((identity, index) => (
+                  <HStack key={index} justify="space-between" width="full">
+                    <HStack gap={2}>
+                      <Text fontWeight="medium" textTransform="capitalize">{identity.platform}:</Text>
+                      {identity.url ? (
+                        <Link href={identity.url} target="_blank" color="blue.500" fontSize="sm">
+                          {identity.username}
+                        </Link>
+                      ) : (
+                        <Text>{identity.username}</Text>
+                      )}
+                    </HStack>
+                    {identity.verified && (
+                      <Badge colorPalette="green" variant="subtle" size="sm">
+                        ✓ Verified
+                      </Badge>
+                    )}
+                  </HStack>
+                ))}
+              </VStack>
+            )}
+
+            {/* Credentials */}
+            {data.credentials && data.credentials.length > 0 && (
+              <VStack align="start" gap={3} width="full">
+                <Text fontWeight="semibold">Verifiable Credentials:</Text>
+                {data.credentials.slice(0, 5).map((credential, index) => (
+                  <HStack key={index} justify="space-between" width="full">
+                    <VStack align="start" gap={0}>
+                      <Text fontSize="sm" fontWeight="medium">{credential.name}</Text>
+                      {credential.chain && (
+                        <Text fontSize="xs" color="gray.500">{credential.chain}</Text>
+                      )}
+                    </VStack>
+                    <Badge colorPalette="blue" variant="subtle" size="sm">
+                      Credential
+                    </Badge>
+                  </HStack>
+                ))}
+                {data.credentials.length > 5 && (
+                  <Text fontSize="xs" color="gray.500">
+                    +{data.credentials.length - 5} more credentials
+                  </Text>
+                )}
+              </VStack>
+            )}
           </VStack>
         ) : (
-          <Text color="gray.500">No social identities found on Icebreaker</Text>
+          <Text color="gray.500">No Icebreaker profile found for this address</Text>
         )}
       </Card.Body>
     </Card.Root>
