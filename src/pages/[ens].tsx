@@ -32,7 +32,6 @@ interface Profile {
 
 interface ProfilePageProps {
   profile: Profile | null;
-  needsRefresh?: boolean;
 }
 
 const prisma = new PrismaClient();
@@ -63,7 +62,6 @@ export const getServerSideProps: GetServerSideProps<ProfilePageProps> = async (c
       return {
         props: {
           profile: JSON.parse(cachedProfile.profile_data),
-          needsRefresh: cachedProfile.updated_at < oneHourAgo
         },
       };
     }
@@ -71,7 +69,7 @@ export const getServerSideProps: GetServerSideProps<ProfilePageProps> = async (c
     // If no cached profile, do the full ENS lookup
     const addressRecord = await ensClient.getAddressRecord({ name: ens_name });
     if (!addressRecord?.value || addressRecord.value === '0x0000000000000000000000000000000000000000') {
-      return { props: { profile: null, needsRefresh: false } };
+      return { props: { profile: null } };
     }
 
     // Create initial profile
@@ -98,7 +96,6 @@ export const getServerSideProps: GetServerSideProps<ProfilePageProps> = async (c
     return {
       props: {
         profile: JSON.parse(profile.profile_data),
-        needsRefresh: false
       },
     };
 
@@ -107,21 +104,22 @@ export const getServerSideProps: GetServerSideProps<ProfilePageProps> = async (c
     return {
       props: {
         profile: null,
-        needsRefresh: false
       },
     };
   }
 };
 
-export default function ProfilePage({ profile, needsRefresh }: ProfilePageProps) {
+export default function ProfilePage({ profile }: ProfilePageProps) {
   useEffect(() => {
-    if (needsRefresh) {
-      const timer = setTimeout(() => {
-        window.location.reload();
-      }, 10000); // 10 second delay
-      return () => clearTimeout(timer);
-    }
-  }, [needsRefresh]);
+    // Existing useEffect logic can be removed or adapted if it's no longer needed.
+    // For now, let's keep it commented out to show where it was.
+    // if (needsRefresh) {
+    //   const timer = setTimeout(() => {
+    //     window.location.reload();
+    //   }, 10000); // 10 second delay
+    //   return () => clearTimeout(timer);
+    // }
+  }, []); // Adjusted dependencies if needsRefresh is removed
 
   const [isRefreshing, setIsRefreshing] = useState(false);
 
