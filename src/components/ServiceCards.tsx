@@ -373,11 +373,16 @@ export const FarcasterCard: React.FC<ServiceCardProps> = ({ address }) => {
                   >
                     {(data.neynarScore * 100).toFixed(0)}%
                   </Badge>
-                  <Text fontSize="xs" color="gray.500">
-                    {data.neynarScore >= 0.7 ? "High" : 
-                     data.neynarScore >= 0.4 ? "Medium" : 
-                     "Low"} Trust
-                  </Text>
+                  <VStack align="start" gap={0}>
+                    <Text fontSize="xs" color="gray.500">
+                      {data.neynarScore >= 0.7 ? "High" : 
+                       data.neynarScore >= 0.4 ? "Medium" : 
+                       "Low"} Trust
+                    </Text>
+                    <Text fontSize="xs" color="gray.400" fontFamily="mono">
+                      {data.neynarScore.toFixed(3)}
+                    </Text>
+                  </VStack>
                 </HStack>
               </VStack>
             </HStack>
