@@ -13,52 +13,109 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // Decentraland doesn't require an API key for basic profile data
-    // Get profile information
-    const profileResponse = await fetch(`https://profile.decentraland.org/profile/${address.toLowerCase()}`);
-    
-    let profileData = null;
-    if (profileResponse.ok) {
-      profileData = await profileResponse.json();
-    }
-
-    // Get avatar data
+    // Initialize result object
     let avatar = null;
-    if (profileData && profileData.avatar) {
-      avatar = {
-        name: profileData.avatar.name || 'Avatar',
-        image: profileData.avatar.avatar?.snapshots?.face256 || profileData.avatar.avatar?.snapshots?.body || ''
-      };
-    }
-
-    // Get land parcels owned by the address
     let landParcels = 0;
-    try {
-      const landResponse = await fetch(`https://api.decentraland.org/v1/parcels?owner=${address.toLowerCase()}`);
-      if (landResponse.ok) {
-        const landData = await landResponse.json();
-        landParcels = landData.data?.length || 0;
-      }
-    } catch (error) {
-      console.error('Error fetching land data:', error);
-    }
-
-    // Get wearables owned by the address
     let wearables = 0;
+    let lastActive = null;
+
+    // Try to get profile information from Decentraland's profile service
     try {
-      const wearablesResponse = await fetch(`https://wearable-api.decentraland.org/v2/addresses/${address.toLowerCase()}/wearables`);
-      if (wearablesResponse.ok) {
-        const wearablesData = await wearablesResponse.json();
-        wearables = wearablesData.wearables?.length || 0;
+      const profileResponse = await fetch(`https://profile.decentraland.org/profile/${address.toLowerCase()}`);
+      
+      if (profileResponse.ok) {
+        const profileData = await profileResponse.json();
+        
+        // Get avatar data
+        if (profileData && profileData.avatar) {
+          avatar = {
+            name: profileData.avatar.name || 'Avatar',
+            image: profileData.avatar.avatar?.snapshots?.face256 || 
+                   profileData.avatar.avatar?.snapshots?.body ||
+                   profileData.avatar.snapshots?.face256 ||
+                   profileData.avatar.snapshots?.body || ''
+          };
+        }
+        
+        // Check for timestamp
+        if (profileData && profileData.timestamp) {
+          lastActive = new Date(profileData.timestamp).toISOString();
+        }
       }
-    } catch (error) {
-      console.error('Error fetching wearables data:', error);
+    } catch {
+      // Profile fetch failed, continue with other data
     }
 
-    // Get last activity (this might not be available from public APIs)
-    let lastActive = null;
-    if (profileData && profileData.timestamp) {
-      lastActive = new Date(profileData.timestamp).toISOString();
+    // Try to get land parcels using The Graph
+    try {
+      const landQuery = `
+        query getLandByOwner($owner: String!) {
+          nfts(where: { owner: $owner, category: parcel }) {
+            id
+            tokenId
+            parcel {
+              x
+              y
+            }
+          }
+        }
+      `;
+      
+      const graphResponse = await fetch('https://api.thegraph.com/subgraphs/name/decentraland/marketplace', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: landQuery,
+          variables: { owner: address.toLowerCase() }
+        }),
+      });
+
+      if (graphResponse.ok) {
+        const graphData = await graphResponse.json();
+        landParcels = graphData.data?.nfts?.length || 0;
+      }
+    } catch {
+      // Land query failed, try fallback
+      try {
+        const landResponse = await fetch(`https://api.decentraland.org/v2/tiles?owner=${address.toLowerCase()}`);
+        if (landResponse.ok) {
+          const landData = await landResponse.json();
+          landParcels = landData.data?.length || 0;
+        }
+      } catch {
+        // Both failed, keep landParcels as 0
+      }
+    }
+
+    // Try to get wearables using The Graph
+    try {
+      const wearablesQuery = `
+        query getWearablesByOwner($owner: String!) {
+          nfts(where: { owner: $owner, category: wearable }) {
+            id
+          }
+        }
+      `;
+      
+      const wearablesGraphResponse = await fetch('https://api.thegraph.com/subgraphs/name/decentraland/marketplace', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: wearablesQuery,
+          variables: { owner: address.toLowerCase() }
+        }),
+      });
+
+      if (wearablesGraphResponse.ok) {
+        const wearablesGraphData = await wearablesGraphResponse.json();
+        wearables = wearablesGraphData.data?.nfts?.length || 0;
+      }
+    } catch {
+      // Wearables query failed, keep as 0
     }
 
     const result = {
@@ -71,7 +128,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     res.status(200).json(result);
   } catch (error) {
-    console.error('Error fetching Decentraland data:', error);
+    console.error('Error in Decentraland API handler:', error);
     res.status(500).json({ 
       error: 'Failed to fetch Decentraland data. Please try again later.' 
     });

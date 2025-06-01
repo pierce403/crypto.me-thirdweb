@@ -557,14 +557,7 @@ export const DecentralandCard: React.FC<ServiceCardProps> = ({ address }) => {
         </Card.Header>
         <Card.Body>
           <Box p={4} bg="red.50" borderRadius="md" borderWidth="1px" borderColor="red.200">
-            {error.includes('API key') ? (
-              <VStack align="start" gap={2}>
-                <Text fontWeight="bold" color="red.600">Decentraland API Key Required</Text>
-                <Text fontSize="sm" color="red.500">Please configure DECENTRALAND_API_KEY in your environment variables to display Decentraland data.</Text>
-              </VStack>
-            ) : (
-              <Text color="red.600">{error}</Text>
-            )}
+            <Text color="red.600">{error}</Text>
           </Box>
         </Card.Body>
       </Card.Root>
@@ -582,7 +575,7 @@ export const DecentralandCard: React.FC<ServiceCardProps> = ({ address }) => {
         </HStack>
       </Card.Header>
       <Card.Body>
-        {data ? (
+        {data && (data.avatar || data.landParcels > 0 || data.wearables > 0 || data.lastActive) ? (
           <VStack align="start" gap={4}>
             {data.avatar && (
               <HStack gap={3}>
@@ -619,7 +612,23 @@ export const DecentralandCard: React.FC<ServiceCardProps> = ({ address }) => {
             )}
           </VStack>
         ) : (
-          <Text color="gray.500">No Decentraland profile found for this address</Text>
+          <VStack align="start" gap={3}>
+            <Text color="gray.500">No Decentraland profile or assets found for this address</Text>
+            <Text fontSize="sm" color="gray.400">
+              This address may not have interacted with Decentraland or may not have a public profile.
+            </Text>
+            <HStack gap={4}>
+              <VStack align="start" gap={1}>
+                <Text fontSize="sm" color="gray.500">Land Parcels</Text>
+                <Text fontSize="lg" fontWeight="bold" color="purple.600">0</Text>
+              </VStack>
+              
+              <VStack align="start" gap={1}>
+                <Text fontSize="sm" color="gray.500">Wearables</Text>
+                <Text fontSize="lg" fontWeight="bold" color="purple.600">0</Text>
+              </VStack>
+            </HStack>
+          </VStack>
         )}
       </Card.Body>
     </Card.Root>
