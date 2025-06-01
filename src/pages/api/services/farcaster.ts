@@ -30,10 +30,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     if (!userResponse.ok) {
+      // Check for invalid API key specifically
+      if (userResponse.status === 401) {
+        return res.status(500).json({ 
+          error: 'Invalid Neynar API key. Please check your NEYNAR_API_KEY environment variable.' 
+        });
+      }
+      if (userResponse.status === 403) {
+        return res.status(500).json({ 
+          error: 'Neynar API key access denied. Please verify your API key permissions.' 
+        });
+      }
       if (userResponse.status === 404) {
         return res.status(200).json(null);
       }
-      throw new Error(`Neynar API error: ${userResponse.status}`);
+      
+      // Try to get more details about the error
+      let errorMessage = `Neynar API error: ${userResponse.status}`;
+      try {
+        const errorData = await userResponse.json();
+        if (errorData.message) {
+          errorMessage += ` - ${errorData.message}`;
+        }
+      } catch {
+        // Ignore JSON parsing errors for error responses
+      }
+      
+      throw new Error(errorMessage);
     }
 
     const userData = await userResponse.json();
@@ -56,6 +79,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const profileData = await profileResponse.json();
       if (profileData.users && profileData.users.length > 0) {
         detailedUser = profileData.users[0];
+      }
+    } else {
+      // Check for API key issues in the second call too
+      if (profileResponse.status === 401 || profileResponse.status === 403) {
+        return res.status(500).json({ 
+          error: 'Invalid Neynar API key detected during profile fetch. Please check your NEYNAR_API_KEY environment variable.' 
+        });
       }
     }
 
@@ -84,6 +114,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     res.status(200).json(result);
   } catch (error) {
     console.error('Error fetching Farcaster data:', error);
+    
+    // Check if the error message contains API key related issues
+    const errorMessage = error instanceof Error ? error.message.toLowerCase() : '';
+    if (errorMessage.includes('unauthorized') || errorMessage.includes('401') || 
+        errorMessage.includes('forbidden') || errorMessage.includes('403') ||
+        errorMessage.includes('invalid api key') || errorMessage.includes('api key')) {
+      return res.status(500).json({ 
+        error: 'Invalid or expired Neynar API key. Please check your NEYNAR_API_KEY environment variable.' 
+      });
+    }
+    
     res.status(500).json({ 
       error: 'Failed to fetch Farcaster data. Please check your API key and try again.' 
     });
