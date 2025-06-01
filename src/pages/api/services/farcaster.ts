@@ -58,10 +58,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     // First, get user by verified address (now using resolved address)
-    const userResponse = await fetch(`https://api.neynar.com/v2/farcaster/user/by_verified_address?address=${resolvedAddress}`, {
+    const userResponse = await fetch(`https://api.neynar.com/v2/farcaster/user/bulk-by-address?addresses=${resolvedAddress}`, {
       headers: {
         'accept': 'application/json',
-        'api_key': apiKey,
+        'x-api-key': apiKey,
       },
     });
 
@@ -96,55 +96,40 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const userData = await userResponse.json();
-    const user = userData.user;
+    
+    // The new bulk-by-address endpoint returns an object with address keys (in lowercase)
+    const usersByAddress = userData[resolvedAddress.toLowerCase()];
+    const user = usersByAddress && usersByAddress.length > 0 ? usersByAddress[0] : null;
 
     if (!user) {
       return res.status(200).json(null);
     }
 
-    // Get additional profile data and compute Neynar score
-    const profileResponse = await fetch(`https://api.neynar.com/v2/farcaster/user/bulk?fids=${user.fid}`, {
-      headers: {
-        'accept': 'application/json',
-        'api_key': apiKey,
-      },
-    });
-
-    let detailedUser = user;
-    if (profileResponse.ok) {
-      const profileData = await profileResponse.json();
-      if (profileData.users && profileData.users.length > 0) {
-        detailedUser = profileData.users[0];
-      }
-    } else {
-      // Check for API key issues in the second call too
-      if (profileResponse.status === 401 || profileResponse.status === 403) {
-        return res.status(500).json({ 
-          error: 'Invalid Neynar API key detected during profile fetch. Please check your NEYNAR_API_KEY environment variable.' 
-        });
-      }
+    // Calculate a simple Neynar score based on available metrics
+    // Note: The API now includes a 'score' field directly, but let's also calculate our own for consistency
+    const followerCount = user.follower_count || 0;
+    const followingCount = user.following_count || 0;
+    const powerBadge = user.power_badge || false;
+    
+    // Use the official Neynar score if available, otherwise calculate our own
+    let neynarScore = user.score || user.experimental?.neynar_user_score || 0;
+    
+    // If no official score, calculate our simplified version
+    if (!neynarScore) {
+      neynarScore += Math.min(followerCount / 1000, 0.4); // Up to 0.4 for followers
+      neynarScore += Math.min(followingCount / 500, 0.2);  // Up to 0.2 for following
+      neynarScore += powerBadge ? 0.3 : 0;                 // 0.3 for power badge
+      neynarScore += user.verified_addresses?.eth_addresses?.length > 0 ? 0.1 : 0; // 0.1 for verified addresses
+      neynarScore = Math.min(neynarScore, 1.0); // Cap at 1.0
     }
 
-    // Calculate a simple Neynar score based on available metrics
-    // This is a simplified version - actual Neynar scoring may be more complex
-    const followerCount = detailedUser.follower_count || 0;
-    const followingCount = detailedUser.following_count || 0;
-    const powerBadge = detailedUser.power_badge || false;
-    
-    // Simple scoring algorithm (you can adjust this)
-    let neynarScore = 0;
-    neynarScore += Math.min(followerCount / 1000, 0.4); // Up to 0.4 for followers
-    neynarScore += Math.min(followingCount / 500, 0.2);  // Up to 0.2 for following
-    neynarScore += powerBadge ? 0.3 : 0;                 // 0.3 for power badge
-    neynarScore += detailedUser.verified_addresses?.eth_addresses?.length > 0 ? 0.1 : 0; // 0.1 for verified addresses
-
     const result = {
-      username: detailedUser.username,
-      displayName: detailedUser.display_name || detailedUser.username,
-      createdAt: detailedUser.created_at ? new Date(detailedUser.created_at).toISOString() : new Date().toISOString(),
-      connectedAddresses: detailedUser.verified_addresses?.eth_addresses || [],
+      username: user.username,
+      displayName: user.display_name || user.username,
+      createdAt: user.created_at ? new Date(user.created_at).toISOString() : new Date().toISOString(),
+      connectedAddresses: user.verified_addresses?.eth_addresses || [],
       followerCount: followerCount,
-      neynarScore: Math.min(neynarScore, 1.0), // Cap at 1.0
+      neynarScore: neynarScore,
       resolvedAddress: resolvedAddress, // Include the resolved address for debugging
     };
 
