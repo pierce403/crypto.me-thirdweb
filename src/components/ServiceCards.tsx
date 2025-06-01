@@ -171,20 +171,25 @@ export const ENSCard: React.FC<ServiceCardProps> = ({ address, ensName }) => {
           </HStack>
           
           {data?.otherNames && data.otherNames.length > 0 && (
-            <Box>
-              <Text fontWeight="semibold" mb={2}>Other ENS Names:</Text>
+            <Box width="full">
+              <Text fontWeight="semibold" mb={2}>Other ENS Names ({data.otherNames.length}):</Text>
               <HStack wrap="wrap" gap={2}>
-                {data.otherNames.slice(0, 5).map((name, index) => (
-                  <Badge key={index} colorPalette="blue" variant="subtle">
+                {data.otherNames.slice(0, 10).map((name, index) => (
+                  <Badge key={index} colorPalette="blue" variant="subtle" size="md">
                     {name}
                   </Badge>
                 ))}
-                {data.otherNames.length > 5 && (
-                  <Badge colorPalette="gray" variant="subtle">
-                    +{data.otherNames.length - 5} more
+                {data.otherNames.length > 10 && (
+                  <Badge colorPalette="gray" variant="subtle" size="md">
+                    +{data.otherNames.length - 10} more
                   </Badge>
                 )}
               </HStack>
+              {data.otherNames.length > 10 && (
+                <Text fontSize="xs" color="gray.500" mt={2}>
+                  Total: {data.otherNames.length + 1} ENS names owned
+                </Text>
+              )}
             </Box>
           )}
         </VStack>

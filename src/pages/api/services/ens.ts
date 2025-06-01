@@ -8,6 +8,48 @@ const ensClient = createEnsPublicClient({
   transport: http(),
 });
 
+// Helper function to fetch all ENS names owned by an address using the ENS subgraph
+async function fetchAllEnsNames(address: string): Promise<string[]> {
+  try {
+    const query = `
+      query GetDomains($address: String!) {
+        domains(where: {owner: $address}, first: 100, orderBy: createdAt, orderDirection: desc) {
+          name
+          createdAt
+        }
+      }
+    `;
+
+    const response = await fetch('https://api.thegraph.com/subgraphs/name/ensdomains/ens', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query,
+        variables: { address: address.toLowerCase() }
+      })
+    });
+
+    if (!response.ok) {
+      console.error('ENS subgraph error:', response.status, response.statusText);
+      return [];
+    }
+
+    const data = await response.json();
+    
+    if (data.errors) {
+      console.error('ENS subgraph query errors:', data.errors);
+      return [];
+    }
+
+    return data.data?.domains?.map((domain: { name: string }) => domain.name) || [];
+  } catch (error) {
+    console.error('Error fetching ENS names from subgraph:', error);
+    return [];
+  }
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', ['GET']);
@@ -23,7 +65,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     let primaryName = '';
     let avatar = null;
-    const otherNames: string[] = [];
+    let otherNames: string[] = [];
 
     // Get primary name if we have an address
     if (address && typeof address === 'string') {
@@ -34,6 +76,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       } catch (error) {
         console.error('Error getting primary name:', error);
+      }
+
+      // Fetch all ENS names owned by this address
+      try {
+        const allNames = await fetchAllEnsNames(address);
+        console.log(`Found ${allNames.length} ENS names for address ${address}:`, allNames);
+        
+        // Filter out the primary name from other names
+        otherNames = allNames.filter(name => name !== primaryName);
+      } catch (error) {
+        console.error('Error fetching all ENS names:', error);
       }
     }
 
@@ -58,10 +111,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       } catch (error) {
         console.error('Error getting avatar:', error);
       }
-
-      // For now, we can't easily get all names owned by an address without more complex queries
-      // This would require additional ENS subgraph queries or other APIs
-      // For demonstration, we'll leave otherNames empty for now
     }
 
     const profileUrl = primaryName ? `https://app.ens.domains/name/${primaryName}` : '';
@@ -73,6 +122,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       profileUrl
     };
 
+    console.log('ENS API result:', JSON.stringify(result, null, 2));
     res.status(200).json(result);
   } catch (error) {
     console.error('Error fetching ENS data:', error);
