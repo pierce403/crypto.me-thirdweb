@@ -7,7 +7,7 @@ import { http } from 'viem';
 import { mainnet } from 'viem/chains';
 import { Box, Container, Heading, Text, VStack, Separator, Button, SimpleGrid } from '@chakra-ui/react';
 import Image from 'next/image';
-import { ENSCard, IcebreakerCard, FarcasterCard } from '../components/ServiceCards';
+import { ENSCard, IcebreakerCard, FarcasterCard, OpenSeaCard, DecentralandCard, GitcoinPassportCard } from '../components/ServiceCards';
 
 // Add this function
 function convertToGatewayUrl(ipfsUrl: string | null): string | null {
@@ -208,6 +208,9 @@ export default function ProfilePage({ profile, needsRefresh }: ProfilePageProps)
           <ENSCard address={address} ensName={profile.ens_name} />
           <IcebreakerCard address={address} ensName={profile.ens_name} />
           <FarcasterCard address={address} ensName={profile.ens_name} />
+          <OpenSeaCard address={address} ensName={profile.ens_name} />
+          <DecentralandCard address={address} ensName={profile.ens_name} />
+          <GitcoinPassportCard address={address} ensName={profile.ens_name} />
         </SimpleGrid>
       </Box>
     </Container>
