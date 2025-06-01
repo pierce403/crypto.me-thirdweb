@@ -5,6 +5,7 @@
       "dom.iterable",
       "esnext"
     ],
+    "types": [],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -26,7 +27,8 @@
         "./*"
       ]
     },
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "target": "ES2017"
   },
   "include": [
     "next-env.d.ts",

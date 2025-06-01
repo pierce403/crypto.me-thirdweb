@@ -5,7 +5,7 @@ import { PrismaClient } from '@prisma/client';
 import { createEnsPublicClient } from '@ensdomains/ensjs';
 import { http } from 'viem';
 import { mainnet } from 'viem/chains';
-import { Box, Container, Heading, Text, VStack, Divider, useColorModeValue, Button } from '@chakra-ui/react';
+import { Box, Container, Heading, Text, VStack, Separator, Button } from '@chakra-ui/react';
 import Image from 'next/image';
 
 // Add this function
@@ -122,8 +122,6 @@ export default function ProfilePage({ profile, needsRefresh }: ProfilePageProps)
     }
   }, [needsRefresh]);
 
-  const bgColor = useColorModeValue('gray.50', 'gray.900');
-  const textColor = useColorModeValue('gray.800', 'gray.100');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const handleRefresh = async () => {
@@ -144,8 +142,8 @@ export default function ProfilePage({ profile, needsRefresh }: ProfilePageProps)
   if (!profile) {
     return (
       <Container maxW="container.md" centerContent>
-        <Box p={8} mt={10} bg={bgColor} borderRadius="lg" boxShadow="md">
-          <Text fontSize="xl" color={textColor}>Profile not found</Text>
+        <Box p={8} mt={10} bg="gray.50" borderRadius="lg" boxShadow="md">
+          <Text fontSize="xl" color="gray.800">Profile not found</Text>
         </Box>
       </Container>
     );
@@ -161,8 +159,8 @@ export default function ProfilePage({ profile, needsRefresh }: ProfilePageProps)
       <Head>
         <title>{profile.ens_name} | Crypto.me Profile</title>
       </Head>
-      <Box p={8} mt={10} bg={bgColor} borderRadius="lg" boxShadow="md" width="100%">
-        <VStack spacing={4} align="stretch">
+      <Box p={8} mt={10} bg="gray.50" borderRadius="lg" boxShadow="md" width="100%">
+        <VStack gap={4} align="stretch">
           {avatarUrl && (
             <Box alignSelf="center">
               <Image
@@ -174,25 +172,25 @@ export default function ProfilePage({ profile, needsRefresh }: ProfilePageProps)
               />
             </Box>
           )}
-          <Heading as="h1" size="2xl" color={textColor}>{profile.ens_name}</Heading>
-          <Divider />
+          <Heading as="h1" size="2xl" color="gray.800">{profile.ens_name}</Heading>
+          <Separator />
           <Box>
-            <Text fontSize="lg" fontWeight="bold" color={textColor}>ENS Name:</Text>
-            <Text fontSize="md" color={textColor}>{profile.ens_name}</Text>
+            <Text fontSize="lg" fontWeight="bold" color="gray.800">ENS Name:</Text>
+            <Text fontSize="md" color="gray.800">{profile.ens_name}</Text>
           </Box>
           <Box>
-            <Text fontSize="lg" fontWeight="bold" color={textColor}>ETH Address:</Text>
-            <Text fontSize="md" color={textColor} wordBreak="break-all">{address}</Text>
+            <Text fontSize="lg" fontWeight="bold" color="gray.800">ETH Address:</Text>
+            <Text fontSize="md" color="gray.800" wordBreak="break-all">{address}</Text>
           </Box>
           <Box>
-            <Text fontSize="lg" fontWeight="bold" color={textColor}>Avatar:</Text>
-            <Text fontSize="md" color={textColor}>{profile.profile_data.ens_avatar}</Text>
+            <Text fontSize="lg" fontWeight="bold" color="gray.800">Avatar:</Text>
+            <Text fontSize="md" color="gray.800">{profile.profile_data.ens_avatar}</Text>
           </Box>
           <Box>
-            <Text fontSize="lg" fontWeight="bold" color={textColor}>Last Sync Status:</Text>
-            <Text fontSize="md" color={textColor}>{profile.last_sync_status || 'No sync status available'}</Text>
+            <Text fontSize="lg" fontWeight="bold" color="gray.800">Last Sync Status:</Text>
+            <Text fontSize="md" color="gray.800">{profile.last_sync_status || 'No sync status available'}</Text>
           </Box>
-          <Button onClick={handleRefresh} isLoading={isRefreshing} loadingText="Refreshing">
+          <Button onClick={handleRefresh} loading={isRefreshing}>
             Refresh Profile
           </Button>
         </VStack>

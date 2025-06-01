@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import { Box, Container, Heading, Input, Button, VStack, HStack, Link, UnorderedList, ListItem } from '@chakra-ui/react';
+import { Box, Container, Heading, Input, Button, VStack, HStack, Link } from '@chakra-ui/react';
 
 const Home: React.FC = () => {
   //const [health, setHealth] = useState<string>('');
@@ -42,7 +42,7 @@ const Home: React.FC = () => {
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <VStack spacing={8} align="center">
+      <VStack gap={8} align="center">
         <Heading as="h1" size="2xl" textAlign="center">crypto.me</Heading>
 
         <Box width="100%">
@@ -56,7 +56,7 @@ const Home: React.FC = () => {
                 placeholder="Enter ENS name"
                 size="lg"
               />
-              <Button type="submit" colorScheme="blue" size="lg">
+              <Button type="submit" colorPalette="blue" size="lg">
                 View Profile
               </Button>
             </HStack>
@@ -65,15 +65,15 @@ const Home: React.FC = () => {
 
         <Box width="100%" mt={8}>
           <Heading as="h2" size="lg" textAlign="center">Recently Updated Profiles</Heading>
-          <UnorderedList styleType="none" spacing={2} mt={4}>
+          <VStack gap={2} mt={4}>
             {recentProfiles.map((profile, index) => (
-              <ListItem key={index} textAlign="center">
+              <Box key={index} textAlign="center">
                 <Link href={`/${profile}`} color="blue.500" fontSize="lg">
                   {profile}
                 </Link>
-              </ListItem>
+              </Box>
             ))}
-          </UnorderedList>
+          </VStack>
         </Box>
       </VStack>
     </Container>
