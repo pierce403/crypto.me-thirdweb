@@ -83,6 +83,9 @@ interface GitcoinPassportData {
   }>;
   lastUpdated: string;
   trustLevel: string;
+  source?: string;
+  error?: string;
+  humanPassportUrl?: string;
 }
 
 export const ENSCard: React.FC<ServiceCardProps> = ({ address, ensName }) => {
@@ -865,7 +868,7 @@ export const GitcoinPassportCard: React.FC<ServiceCardProps> = ({ address }) => 
         const result = await response.json();
         
         if (!response.ok) {
-          throw new Error(result.error || 'Failed to fetch Gitcoin Passport data');
+          throw new Error(result.error || 'Failed to fetch Human Passport data');
         }
         
         setData(result);
@@ -883,7 +886,18 @@ export const GitcoinPassportCard: React.FC<ServiceCardProps> = ({ address }) => 
     return (
       <Card.Root>
         <Card.Header>
-          <Heading size="md">Gitcoin Passport</Heading>
+          <HStack justify="space-between">
+            <Heading size="md">Human Passport</Heading>
+            {data?.source && (
+              <Text fontSize="xs" color="gray.500">
+                Powered by {
+                  data.source === 'human-passport' ? 'Human Passport' : 
+                  data.source === 'educational' ? 'Educational Info' :
+                  'Multiple Sources'
+                }
+              </Text>
+            )}
+          </HStack>
         </Card.Header>
         <Card.Body>
           <HStack justify="center">
@@ -899,18 +913,21 @@ export const GitcoinPassportCard: React.FC<ServiceCardProps> = ({ address }) => 
     return (
       <Card.Root>
         <Card.Header>
-          <Heading size="md">Gitcoin Passport</Heading>
+          <HStack justify="space-between">
+            <Heading size="md">Human Passport</Heading>
+            <Link href="https://passport.human.tech/" target="_blank" color="blue.500" fontSize="sm">
+              Create Passport →
+            </Link>
+          </HStack>
         </Card.Header>
         <Card.Body>
           <Box p={4} bg="red.50" borderRadius="md" borderWidth="1px" borderColor="red.200">
-            {error.includes('API key') ? (
-              <VStack align="start" gap={2}>
-                <Text fontWeight="bold" color="red.600">Gitcoin Passport API Key Required</Text>
-                <Text fontSize="sm" color="red.500">Please configure GITCOIN_PASSPORT_API_KEY in your environment variables to display passport data.</Text>
-              </VStack>
-            ) : (
-              <Text color="red.600">{error}</Text>
-            )}
+            <VStack align="start" gap={2}>
+              <Text fontWeight="bold" color="red.600">Service Temporarily Unavailable</Text>
+              <Text fontSize="sm" color="red.500">
+                Unable to fetch passport data at this time. Please try again later.
+              </Text>
+            </VStack>
           </Box>
         </Card.Body>
       </Card.Root>
@@ -920,20 +937,67 @@ export const GitcoinPassportCard: React.FC<ServiceCardProps> = ({ address }) => 
   return (
     <Card.Root>
       <Card.Header>
-        <Heading size="md">Gitcoin Passport</Heading>
+        <HStack justify="space-between">
+          <Heading size="md">Human Passport</Heading>
+          <VStack align="end" gap={1}>
+            <Link href={data?.humanPassportUrl || "https://passport.human.tech/"} target="_blank" color="blue.500" fontSize="sm">
+              View Passport →
+            </Link>
+            {data?.source && (
+              <Text fontSize="xs" color="gray.500">
+                Powered by {
+                  data.source === 'human-passport' ? 'Human Passport API' : 
+                  data.source === 'educational' ? 'Educational Info' :
+                  'Multiple Sources'
+                }
+              </Text>
+            )}
+          </VStack>
+        </HStack>
       </Card.Header>
       <Card.Body>
-        {data ? (
+        {data?.error === 'NO_API_ACCESS' ? (
+          <Box p={4} bg="blue.50" borderRadius="md" borderWidth="1px" borderColor="blue.200">
+            <VStack align="start" gap={3}>
+              <VStack align="start" gap={1}>
+                <Text fontWeight="bold" color="blue.600">Human Passport Score System</Text>
+                <Text fontSize="sm" color="blue.500">
+                  Human Passport (formerly Gitcoin Passport) uses identity verification to prevent Sybil attacks and boost trust scores.
+                </Text>
+              </VStack>
+              
+              <VStack align="start" gap={2} width="full">
+                <Text fontSize="sm" fontWeight="semibold" color="blue.700">Score Thresholds:</Text>
+                <HStack justify="space-between" width="full">
+                  <Text fontSize="sm" color="blue.600">• 0-10: Low Trust</Text>
+                  <Text fontSize="sm" color="blue.600">• 10-20: Medium Trust</Text>
+                  <Text fontSize="sm" color="blue.600">• 20+: High Trust</Text>
+                </HStack>
+              </VStack>
+              
+              <VStack align="start" gap={2} width="full">
+                <Text fontSize="sm" fontWeight="semibold" color="blue.700">Available Stamps:</Text>
+                <HStack wrap="wrap" gap={1}>
+                  {data.stamps.map((stamp, index) => (
+                    <Badge key={index} colorPalette="blue" variant="subtle" size="sm">
+                      {stamp.provider}
+                    </Badge>
+                  ))}
+                </HStack>
+              </VStack>
+            </VStack>
+          </Box>
+        ) : data ? (
           <VStack align="start" gap={4}>
             <HStack gap={4} width="full">
               <VStack align="start" gap={1}>
                 <Text fontSize="sm" color="gray.500">Passport Score</Text>
                 <HStack gap={2}>
-                  <Text fontSize="2xl" fontWeight="bold" color={data.score > 15 ? "green.600" : data.score > 10 ? "yellow.600" : "red.600"}>
+                  <Text fontSize="2xl" fontWeight="bold" color={data.score > 20 ? "green.600" : data.score > 10 ? "yellow.600" : "red.600"}>
                     {data.score.toFixed(1)}
                   </Text>
                   <Badge colorPalette={data.trustLevel === 'High' ? "green" : data.trustLevel === 'Medium' ? "yellow" : "red"} variant="subtle">
-                    {data.trustLevel}
+                    {data.trustLevel} Trust
                   </Badge>
                 </HStack>
               </VStack>
@@ -946,9 +1010,9 @@ export const GitcoinPassportCard: React.FC<ServiceCardProps> = ({ address }) => 
             
             {data.stamps.length > 0 && (
               <Box width="full">
-                <Text fontWeight="semibold" mb={2}>Recent Stamps:</Text>
+                <Text fontWeight="semibold" mb={2}>Identity Stamps:</Text>
                 <VStack align="start" gap={2}>
-                  {data.stamps.slice(0, 4).map((stamp, index) => (
+                  {data.stamps.slice(0, 5).map((stamp, index) => (
                     <HStack key={index} justify="space-between" width="full">
                       <HStack gap={2}>
                         <Text fontSize="sm" textTransform="capitalize">{stamp.provider}</Text>
@@ -957,13 +1021,13 @@ export const GitcoinPassportCard: React.FC<ServiceCardProps> = ({ address }) => 
                         </Badge>
                       </HStack>
                       <Badge colorPalette={stamp.verified ? "green" : "gray"} variant="subtle" size="sm">
-                        {stamp.verified ? "✓" : "○"}
+                        {stamp.verified ? "✓ Verified" : "○ Unverified"}
                       </Badge>
                     </HStack>
                   ))}
-                  {data.stamps.length > 4 && (
+                  {data.stamps.length > 5 && (
                     <Text fontSize="xs" color="gray.500">
-                      +{data.stamps.length - 4} more stamps
+                      +{data.stamps.length - 5} more stamps available
                     </Text>
                   )}
                 </VStack>
@@ -975,7 +1039,17 @@ export const GitcoinPassportCard: React.FC<ServiceCardProps> = ({ address }) => 
             </Text>
           </VStack>
         ) : (
-          <Text color="gray.500">No Gitcoin Passport found for this address</Text>
+          <VStack align="start" gap={3}>
+            <Text color="gray.500">No Human Passport found for this address</Text>
+            <Text fontSize="sm" color="gray.400">
+              This address may not have created a Human Passport or may not have any verified stamps.
+            </Text>
+            <Box p={3} bg="gray.50" borderRadius="md" borderWidth="1px" borderColor="gray.200">
+              <Text fontSize="sm" color="gray.600">
+                Create a Human Passport to verify your identity and build trust with web3 applications.
+              </Text>
+            </Box>
+          </VStack>
         )}
       </Card.Body>
     </Card.Root>
