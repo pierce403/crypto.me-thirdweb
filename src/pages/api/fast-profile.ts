@@ -102,7 +102,10 @@ async function backgroundFetchRealData(address: string): Promise<void> {
 
       for (const service of services) {
         try {
-          const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+          // Use VERCEL_URL in production, fallback to localhost in dev
+          const baseUrl =
+            process.env.NEXT_PUBLIC_BASE_URL ||
+            (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 10000);
           
