@@ -3,7 +3,7 @@ import {
   profileCache,
   globalFetchLock,
   recentUpdatesLog,
-  CacheEntry,
+  // CacheEntry, // Removed unused import
   RecentUpdateEvent
 } from '../../lib/cacheStore';
 
