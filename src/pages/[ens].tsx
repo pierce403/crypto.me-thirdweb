@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { GetServerSideProps } from 'next';
 import Head from 'next/head';
 import { createEnsPublicClient } from '@ensdomains/ensjs';
@@ -75,7 +75,6 @@ export const getServerSideProps: GetServerSideProps<ProfilePageProps> = async (c
 export default function ProfilePage({ ensName, address, avatar }: ProfilePageProps) {
   // Use the fast profile hook for instant loading
   const {
-    data: fastProfile,
     loading,
     error,
     refresh,
@@ -110,7 +109,7 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
           <title>{ensName} | Crypto.me Profile</title>
         </Head>
         <Box p={8} mt={10} bg="gray.50" borderRadius="lg" boxShadow="md">
-          <Text fontSize="xl" color="gray.800">ENS name "{ensName}" not found or has no address</Text>
+          <Text fontSize="xl" color="gray.800">ENS name &quot;{ensName}&quot; not found or has no address</Text>
         </Box>
       </Container>
     );
