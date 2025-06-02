@@ -123,27 +123,52 @@ async function backgroundFetchRealData(address: string): Promise<void> {
               addRecentUpdateEvent({ address: normalizedAddress, status: 'service_updated', serviceName: service.name });
             }
           } else {
+            let serviceErrorMessage = `Service returned ${response.status}`;
+            let errorName = `HTTPError${response.status}`;
+            try {
+              const errorData = await response.json();
+              if (errorData.error) { // Assuming error structure like { error: "message" }
+                serviceErrorMessage = typeof errorData.error === 'string' ? errorData.error : JSON.stringify(errorData.error);
+              } else if (typeof errorData === 'string') {
+                serviceErrorMessage = errorData;
+              } else if (errorData.message && typeof errorData.message === 'string') {
+                serviceErrorMessage = errorData.message;
+              }
+            } catch (e) {
+              // Failed to parse error JSON, stick with the status code message
+            }
             addRecentUpdateEvent({ 
               address: normalizedAddress, 
               status: 'service_failed', 
               serviceName: service.name, 
-              message: `Service returned ${response.status}` 
+              message: serviceErrorMessage,
+              errorName: errorName
             });
           }
           if (services.indexOf(service) < services.length - 1) {
             await new Promise(resolve => setTimeout(resolve, 1000));
           }
         } catch (error) {
-          const message = error instanceof Error ? error.message : 'Unknown error';
-          if (error instanceof Error && error.name === 'AbortError') {
-            addRecentUpdateEvent({ address: normalizedAddress, status: 'service_failed', serviceName: service.name, message: 'Request timed out' });
-          } else {
-            addRecentUpdateEvent({ address: normalizedAddress, status: 'service_failed', serviceName: service.name, message });
-          }
+          const err = error instanceof Error ? error : new Error('Unknown fetch error');
+          const message = err.message;
+          const errorName = err.name === 'AbortError' ? 'TimeoutError' : err.name;
+          addRecentUpdateEvent({ 
+            address: normalizedAddress, 
+            status: 'service_failed', 
+            serviceName: service.name, 
+            message,
+            errorName
+          });
         }
       }
     } catch (error) {
-      addRecentUpdateEvent({ address: normalizedAddress, status: 'fetch_failed', message: error instanceof Error ? error.message : 'Outer fetch error' });
+      const err = error instanceof Error ? error : new Error('Outer background fetch error');
+      addRecentUpdateEvent({ 
+        address: normalizedAddress, 
+        status: 'fetch_failed', 
+        message: err.message,
+        errorName: err.name 
+      });
     } finally {
       const finalCached = profileCache.get(normalizedAddress);
       if (finalCached) {
@@ -186,8 +211,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       
       if (shouldTriggerBackground) {
         // addRecentUpdateEvent({ address: normalizedAddress, status: 'fetch_started', message: 'Triggering background refresh from cache hit' }); // Logged in backgroundFetchRealData
-        backgroundFetchRealData(normalizedAddress).catch(error => {
-          addRecentUpdateEvent({ address: normalizedAddress, status: 'fetch_failed', message: `Background refresh error: ${error instanceof Error ? error.message : error}` });
+        backgroundFetchRealData(normalizedAddress).catch(err => {
+          const errorInstance = err instanceof Error ? err : new Error(String(err));
+          addRecentUpdateEvent({ 
+            address: normalizedAddress, 
+            status: 'fetch_failed', 
+            message: `Background refresh error: ${errorInstance.message}`,
+            errorName: errorInstance.name
+          });
         });
       }
       return res.status(200).json({
@@ -209,8 +240,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     profileCache.set(normalizedAddress, newCacheEntry);
     
     // addRecentUpdateEvent({ address: normalizedAddress, status: 'fetch_started', message: 'Initial fetch' }); // Logged in backgroundFetchRealData
-    backgroundFetchRealData(normalizedAddress).catch(error => {
-      addRecentUpdateEvent({ address: normalizedAddress, status: 'fetch_failed', message: `Initial background fetch error: ${error instanceof Error ? error.message : error}` });
+    backgroundFetchRealData(normalizedAddress).catch(err => {
+      const errorInstance = err instanceof Error ? err : new Error(String(err));
+      addRecentUpdateEvent({ 
+        address: normalizedAddress, 
+        status: 'fetch_failed', 
+        message: `Initial background fetch error: ${errorInstance.message}`,
+        errorName: errorInstance.name
+      });
     });
 
     return res.status(200).json({
@@ -219,8 +256,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     });
 
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    addRecentUpdateEvent({ address: normalizedAddress, status: 'fetch_failed', message: `Handler error: ${errorMessage}` });
+    const errorInstance = error instanceof Error ? error : new Error(String(error));
+    addRecentUpdateEvent({ 
+      address: normalizedAddress, 
+      status: 'fetch_failed', 
+      message: `Handler error: ${errorInstance.message}`,
+      errorName: errorInstance.name
+    });
     const fallbackData = getInstantProfileData(normalizedAddress);
     return res.status(200).json({
       ...fallbackData,

@@ -36,6 +36,7 @@ export interface RecentUpdateEvent {
   status: 'fetch_started' | 'fetch_completed' | 'fetch_failed' | 'service_updated' | 'service_failed';
   serviceName?: string; 
   message?: string;
+  errorName?: string; // Added field for error name (e.g., TypeError, HTTPError500)
 }
 
 export const recentUpdatesLog: RecentUpdateEvent[] = [];
