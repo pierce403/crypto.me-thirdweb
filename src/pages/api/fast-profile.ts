@@ -134,7 +134,7 @@ async function backgroundFetchRealData(address: string): Promise<void> {
               } else if (errorData.message && typeof errorData.message === 'string') {
                 serviceErrorMessage = errorData.message;
               }
-            } catch (_e) {
+            } catch {
               // Failed to parse error JSON, stick with the status code message
             }
             addRecentUpdateEvent({ 
