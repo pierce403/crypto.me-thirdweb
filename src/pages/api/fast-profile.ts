@@ -21,10 +21,15 @@ const profileCache = new Map<string, {
   data: FastProfileData; 
   timestamp: number; 
   backgroundFetchInProgress: boolean;
+  lastBackgroundFetch: number;
 }>();
+
+// Global rate limiting map to prevent multiple concurrent fetches
+const globalFetchLock = new Map<string, Promise<void>>();
 
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const BACKGROUND_FETCH_COOLDOWN = 30 * 1000; // 30 seconds between background fetches
+const MIN_FETCH_INTERVAL = 10 * 1000; // 10 seconds minimum between ANY fetches for same address
 
 // Mock instant data (simulating what would come from database)
 function getInstantProfileData(address: string): FastProfileData {
@@ -69,61 +74,112 @@ function getInstantProfileData(address: string): FastProfileData {
   };
 }
 
-// Background fetch to populate real data
+// Background fetch to populate real data with proper rate limiting
 async function backgroundFetchRealData(address: string): Promise<void> {
-  const cached = profileCache.get(address.toLowerCase());
-  if (!cached) return;
+  const normalizedAddress = address.toLowerCase();
+  const now = Date.now();
+  
+  // Check if there's already a fetch in progress for this address
+  if (globalFetchLock.has(normalizedAddress)) {
+    console.log(`🚫 Background fetch already in progress for ${address}`);
+    return;
+  }
+
+  const cached = profileCache.get(normalizedAddress);
+  if (!cached) {
+    console.log(`❌ No cache entry found for ${address}, skipping background fetch`);
+    return;
+  }
+
+  // Check if we've fetched too recently
+  const timeSinceLastFetch = now - (cached.lastBackgroundFetch || 0);
+  if (timeSinceLastFetch < MIN_FETCH_INTERVAL) {
+    console.log(`⏰ Skipping background fetch for ${address} - only ${timeSinceLastFetch}ms since last fetch (min: ${MIN_FETCH_INTERVAL}ms)`);
+    return;
+  }
 
   // Mark background fetch as in progress
   cached.backgroundFetchInProgress = true;
+  cached.lastBackgroundFetch = now;
 
-  try {
-    console.log(`🔄 Starting background fetch for ${address}`);
-    
-    // Fetch real data from existing APIs (in parallel, don't await)
-    const services = [
-      { name: 'farcaster', url: `/api/services/farcaster?address=${address}` },
-      { name: 'icebreaker', url: `/api/services/icebreaker?address=${address}` },
-      // Add more services as needed
-    ];
+  // Create a promise to track this fetch operation
+  const fetchPromise = (async () => {
+    try {
+      console.log(`🔄 Starting background fetch for ${address}`);
+      
+      // Fetch real data from existing APIs with timeout
+      const services = [
+        { name: 'farcaster', url: `/api/services/farcaster?address=${address}` },
+        { name: 'icebreaker', url: `/api/services/icebreaker?address=${address}` },
+      ];
 
-    // Start all fetches in parallel without waiting
-    const fetchPromises = services.map(async service => {
-      try {
-        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-        const response = await fetch(`${baseUrl}${service.url}`);
-        if (response.ok) {
-          const data = await response.json();
+      // Fetch services one by one with delays to avoid overwhelming APIs
+      for (const service of services) {
+        try {
+          const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
           
-          // Update cache with real data
-          const currentCached = profileCache.get(address.toLowerCase());
-          if (currentCached) {
-            currentCached.data.services[service.name as keyof typeof currentCached.data.services] = data;
-            currentCached.data.lastContentUpdate = new Date().toISOString();
-            currentCached.data.cacheStatus = 'hit';
-            currentCached.timestamp = Date.now();
+          // Add timeout to prevent hanging requests
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+          
+          const response = await fetch(`${baseUrl}${service.url}`, {
+            signal: controller.signal,
+            headers: {
+              'User-Agent': 'CryptoMe-FastProfile/1.0'
+            }
+          });
+          
+          clearTimeout(timeoutId);
+          
+          if (response.ok) {
+            const data = await response.json();
             
-            console.log(`✅ Updated ${service.name} data for ${address}`);
+            // Update cache with real data
+            const currentCached = profileCache.get(normalizedAddress);
+            if (currentCached) {
+              currentCached.data.services[service.name as keyof typeof currentCached.data.services] = data;
+              currentCached.data.lastContentUpdate = new Date().toISOString();
+              currentCached.data.cacheStatus = 'hit';
+              currentCached.timestamp = Date.now();
+              
+              console.log(`✅ Updated ${service.name} data for ${address}`);
+            }
+          } else {
+            console.log(`⚠️  Service ${service.name} returned ${response.status} for ${address}`);
+          }
+          
+          // Add small delay between service calls to be respectful
+          if (services.indexOf(service) < services.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
+          }
+          
+        } catch (error) {
+          if (error instanceof Error && error.name === 'AbortError') {
+            console.log(`⏱️  ${service.name} request timed out for ${address}`);
+          } else {
+            console.log(`❌ Failed to fetch ${service.name} for ${address}:`, error instanceof Error ? error.message : 'Unknown error');
           }
         }
-      } catch (error) {
-        console.log(`❌ Failed to fetch ${service.name} for ${address}:`, error instanceof Error ? error.message : 'Unknown error');
       }
-    });
 
-    // Don't await - let them run in background
-    Promise.all(fetchPromises).finally(() => {
-      const finalCached = profileCache.get(address.toLowerCase());
+    } catch (error) {
+      console.error(`Background fetch error for ${address}:`, error);
+    } finally {
+      // Clean up
+      const finalCached = profileCache.get(normalizedAddress);
       if (finalCached) {
         finalCached.backgroundFetchInProgress = false;
       }
+      globalFetchLock.delete(normalizedAddress);
       console.log(`🏁 Background fetch completed for ${address}`);
-    });
+    }
+  })();
 
-  } catch (error) {
-    console.error(`Background fetch error for ${address}:`, error);
-    cached.backgroundFetchInProgress = false;
-  }
+  // Store the fetch promise to prevent concurrent fetches
+  globalFetchLock.set(normalizedAddress, fetchPromise);
+  
+  // Execute the fetch
+  await fetchPromise;
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -150,9 +206,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Return cached data immediately
       const loadTime = Date.now() - startTime;
       
-      // Trigger background refresh if not already in progress
-      if (!cached.backgroundFetchInProgress && (now - cached.timestamp) > BACKGROUND_FETCH_COOLDOWN) {
-        backgroundFetchRealData(normalizedAddress);
+      // Trigger background refresh if conditions are met
+      const timeSinceLastBackground = now - (cached.lastBackgroundFetch || 0);
+      const shouldTriggerBackground = !cached.backgroundFetchInProgress && 
+                                    !globalFetchLock.has(normalizedAddress) &&
+                                    timeSinceLastBackground > BACKGROUND_FETCH_COOLDOWN;
+      
+      if (shouldTriggerBackground) {
+        console.log(`🔄 Triggering background refresh for ${address} (last fetch: ${timeSinceLastBackground}ms ago)`);
+        // Don't await - let it run in background
+        backgroundFetchRealData(normalizedAddress).catch(error => {
+          console.error(`Background fetch failed for ${address}:`, error);
+        });
+      } else if (cached.backgroundFetchInProgress) {
+        console.log(`⏳ Background fetch already in progress for ${address}`);
+      } else if (globalFetchLock.has(normalizedAddress)) {
+        console.log(`🔒 Global fetch lock active for ${address}`);
+      } else {
+        console.log(`⏰ Too soon for background fetch for ${address} (${timeSinceLastBackground}ms < ${BACKGROUND_FETCH_COOLDOWN}ms)`);
       }
 
       return res.status(200).json({
@@ -171,10 +242,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       data: instantData,
       timestamp: now,
       backgroundFetchInProgress: false,
+      lastBackgroundFetch: 0,
     });
 
-    // Start background fetch
-    backgroundFetchRealData(normalizedAddress);
+    // Start background fetch (don't await)
+    backgroundFetchRealData(normalizedAddress).catch(error => {
+      console.error(`Initial background fetch failed for ${address}:`, error);
+    });
 
     return res.status(200).json({
       ...instantData,
