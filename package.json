@@ -13,6 +13,7 @@
     "@emotion/react": "^11.13.3",
     "@emotion/styled": "^11.13.0",
     "@ensdomains/ensjs": "^4.0.2",
+    "@playwright/test": "^1.52.0",
     "@prisma/client": "^6.8.2",
     "@tailwindcss/postcss": "^4.1.8",
     "framer-motion": "^12.15.0",

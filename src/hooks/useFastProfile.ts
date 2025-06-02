@@ -201,13 +201,20 @@ export function useFastProfile(
 
   // Helper to get service data
   const getServiceData = useCallback((service: string) => {
-    return data?.services?.[service as keyof typeof data.services] || null;
+    const result = data?.services?.[service as keyof typeof data.services] || null;
+    console.log(`🔍 getServiceData("${service}"):`, result);
+    return result;
   }, [data]);
 
   // Helper to check if any service has data
   const hasAnyData = useCallback(() => {
-    if (!data?.services) return false;
-    return Object.values(data.services).some(service => service !== null);
+    if (!data?.services) {
+      console.log(`🔍 hasAnyData: false (no data.services)`);
+      return false;
+    }
+    const hasData = Object.values(data.services).some(service => service !== null);
+    console.log(`🔍 hasAnyData:`, hasData, data.services);
+    return hasData;
   }, [data]);
 
   // Helper to get cache stats
