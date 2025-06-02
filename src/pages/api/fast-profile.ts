@@ -1,38 +1,28 @@
 import { NextApiRequest, NextApiResponse } from 'next';
+import {
+  profileCache,
+  globalFetchLock,
+  CACHE_TTL,
+  BACKGROUND_FETCH_COOLDOWN,
+  MIN_FETCH_INTERVAL,
+  addRecentUpdateEvent,
+  FastProfileData, // Import FastProfileData from the shared store
+  CacheEntry
+} from '../../lib/cacheStore';
 
-interface FastProfileData {
-  address: string;
-  services: {
-    ens?: Record<string, unknown> | null;
-    farcaster?: Record<string, unknown> | null;
-    opensea?: Record<string, unknown> | null;
-    icebreaker?: Record<string, unknown> | null;
-    'gitcoin-passport'?: Record<string, unknown> | null;
-    decentraland?: Record<string, unknown> | null;
-  };
-  lastContentUpdate: string;
-  cacheStatus: 'hit' | 'miss' | 'partial';
-  source: string;
-  loadTime: number;
-}
+// The FastProfileData interface is now imported from cacheStore, so it can be removed from here.
+// interface FastProfileData { ... }
 
-// Simple in-memory cache for demonstration
-const profileCache = new Map<string, { 
-  data: FastProfileData; 
-  timestamp: number; 
-  backgroundFetchInProgress: boolean;
-  lastBackgroundFetch: number;
-}>();
-
-// Global rate limiting map to prevent multiple concurrent fetches
-const globalFetchLock = new Map<string, Promise<void>>();
-
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-const BACKGROUND_FETCH_COOLDOWN = 30 * 1000; // 30 seconds between background fetches
-const MIN_FETCH_INTERVAL = 10 * 1000; // 10 seconds minimum between ANY fetches for same address
+// Simple in-memory cache, global fetch lock, and constants are now imported from cacheStore.
+// const profileCache = new Map<string, { ... }>();
+// const globalFetchLock = new Map<string, Promise<void>>();
+// const CACHE_TTL = ...;
+// const BACKGROUND_FETCH_COOLDOWN = ...;
+// const MIN_FETCH_INTERVAL = ...;
 
 // Mock instant data (simulating what would come from database)
 function getInstantProfileData(address: string): FastProfileData {
+  // This function now returns FastProfileData from cacheStore
   return {
     address: address.toLowerCase(),
     services: {
@@ -79,114 +69,99 @@ async function backgroundFetchRealData(address: string): Promise<void> {
   const normalizedAddress = address.toLowerCase();
   const now = Date.now();
   
-  // Check if there's already a fetch in progress for this address
   if (globalFetchLock.has(normalizedAddress)) {
-    console.log(`🚫 Background fetch already in progress for ${address}`);
+    // console.log(`🚫 Background fetch already in progress for ${address}`); // Logging handled by addRecentUpdateEvent
     return;
   }
 
   const cached = profileCache.get(normalizedAddress);
   if (!cached) {
-    console.log(`❌ No cache entry found for ${address}, skipping background fetch`);
+    // console.log(`❌ No cache entry found for ${address}, skipping background fetch`);
+    addRecentUpdateEvent({ address: normalizedAddress, status: 'fetch_failed', message: 'No cache entry found for background fetch' });
     return;
   }
 
-  // Check if we've fetched too recently
   const timeSinceLastFetch = now - (cached.lastBackgroundFetch || 0);
   if (timeSinceLastFetch < MIN_FETCH_INTERVAL) {
-    console.log(`⏰ Skipping background fetch for ${address} - only ${timeSinceLastFetch}ms since last fetch (min: ${MIN_FETCH_INTERVAL}ms)`);
+    // console.log(`⏰ Skipping background fetch for ${address} ...`);
     return;
   }
-
-  // Mark background fetch as in progress
+  
+  addRecentUpdateEvent({ address: normalizedAddress, status: 'fetch_started' });
   cached.backgroundFetchInProgress = true;
   cached.lastBackgroundFetch = now;
 
-  // Create a promise to track this fetch operation
   const fetchPromise = (async () => {
     try {
-      console.log(`🔄 Starting background fetch for ${address}`);
-      
-      // Fetch real data from existing APIs with timeout
+      // console.log(`🔄 Starting background fetch for ${address}`); // Logged above
       const services = [
         { name: 'ens', url: `/api/services/ens?address=${address}` },
         { name: 'farcaster', url: `/api/services/farcaster?address=${address}` },
         { name: 'icebreaker', url: `/api/services/icebreaker?address=${address}` },
       ];
 
-      // Fetch services one by one with delays to avoid overwhelming APIs
       for (const service of services) {
         try {
           const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-          
-          // Add timeout to prevent hanging requests
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+          const timeoutId = setTimeout(() => controller.abort(), 10000);
           
           const response = await fetch(`${baseUrl}${service.url}`, {
             signal: controller.signal,
-            headers: {
-              'User-Agent': 'CryptoMe-FastProfile/1.0'
-            }
+            headers: { 'User-Agent': 'CryptoMe-FastProfile/1.0' }
           });
-          
           clearTimeout(timeoutId);
           
           if (response.ok) {
             const data = await response.json();
-            
-            // Update cache with real data
             const currentCached = profileCache.get(normalizedAddress);
             if (currentCached) {
               currentCached.data.services[service.name as keyof typeof currentCached.data.services] = data;
               currentCached.data.lastContentUpdate = new Date().toISOString();
-              currentCached.data.cacheStatus = 'hit';
+              currentCached.data.cacheStatus = 'hit'; // Or determine if still partial
               currentCached.timestamp = Date.now();
-              
-              console.log(`✅ Updated ${service.name} data for ${address}`);
+              addRecentUpdateEvent({ address: normalizedAddress, status: 'service_updated', serviceName: service.name });
             }
           } else {
-            console.log(`⚠️  Service ${service.name} returned ${response.status} for ${address}`);
+            addRecentUpdateEvent({ 
+              address: normalizedAddress, 
+              status: 'service_failed', 
+              serviceName: service.name, 
+              message: `Service returned ${response.status}` 
+            });
           }
-          
-          // Add small delay between service calls to be respectful
           if (services.indexOf(service) < services.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
+            await new Promise(resolve => setTimeout(resolve, 1000));
           }
-          
         } catch (error) {
+          const message = error instanceof Error ? error.message : 'Unknown error';
           if (error instanceof Error && error.name === 'AbortError') {
-            console.log(`⏱️  ${service.name} request timed out for ${address}`);
+            addRecentUpdateEvent({ address: normalizedAddress, status: 'service_failed', serviceName: service.name, message: 'Request timed out' });
           } else {
-            console.log(`❌ Failed to fetch ${service.name} for ${address}:`, error instanceof Error ? error.message : 'Unknown error');
+            addRecentUpdateEvent({ address: normalizedAddress, status: 'service_failed', serviceName: service.name, message });
           }
         }
       }
-
     } catch (error) {
-      console.error(`Background fetch error for ${address}:`, error);
+      addRecentUpdateEvent({ address: normalizedAddress, status: 'fetch_failed', message: error instanceof Error ? error.message : 'Outer fetch error' });
     } finally {
-      // Clean up
       const finalCached = profileCache.get(normalizedAddress);
       if (finalCached) {
         finalCached.backgroundFetchInProgress = false;
       }
       globalFetchLock.delete(normalizedAddress);
-      console.log(`🏁 Background fetch completed for ${address}`);
+      addRecentUpdateEvent({ address: normalizedAddress, status: 'fetch_completed' });
     }
   })();
 
-  // Store the fetch promise to prevent concurrent fetches
   globalFetchLock.set(normalizedAddress, fetchPromise);
-  
-  // Execute the fetch
   await fetchPromise;
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse<FastProfileData | { error: string }>) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', ['GET']);
-    return res.status(405).end(`Method ${req.method} Not Allowed`);
+    return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
   }
 
   const { address } = req.query;
@@ -199,34 +174,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const normalizedAddress = address.toLowerCase();
 
   try {
-    // Check cache first
     const cached = profileCache.get(normalizedAddress);
     const now = Date.now();
 
     if (cached && (now - cached.timestamp) < CACHE_TTL) {
-      // Return cached data immediately
       const loadTime = Date.now() - startTime;
-      
-      // Trigger background refresh if conditions are met
       const timeSinceLastBackground = now - (cached.lastBackgroundFetch || 0);
       const shouldTriggerBackground = !cached.backgroundFetchInProgress && 
                                     !globalFetchLock.has(normalizedAddress) &&
                                     timeSinceLastBackground > BACKGROUND_FETCH_COOLDOWN;
       
       if (shouldTriggerBackground) {
-        console.log(`🔄 Triggering background refresh for ${address} (last fetch: ${timeSinceLastBackground}ms ago)`);
-        // Don't await - let it run in background
+        // addRecentUpdateEvent({ address: normalizedAddress, status: 'fetch_started', message: 'Triggering background refresh from cache hit' }); // Logged in backgroundFetchRealData
         backgroundFetchRealData(normalizedAddress).catch(error => {
-          console.error(`Background fetch failed for ${address}:`, error);
+          addRecentUpdateEvent({ address: normalizedAddress, status: 'fetch_failed', message: `Background refresh error: ${error instanceof Error ? error.message : error}` });
         });
-      } else if (cached.backgroundFetchInProgress) {
-        console.log(`⏳ Background fetch already in progress for ${address}`);
-      } else if (globalFetchLock.has(normalizedAddress)) {
-        console.log(`🔒 Global fetch lock active for ${address}`);
-      } else {
-        console.log(`⏰ Too soon for background fetch for ${address} (${timeSinceLastBackground}ms < ${BACKGROUND_FETCH_COOLDOWN}ms)`);
       }
-
       return res.status(200).json({
         ...cached.data,
         source: 'memory-cache',
@@ -234,21 +197,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    // No cache or expired - return instant data and start background fetch
     const instantData = getInstantProfileData(normalizedAddress);
     const loadTime = Date.now() - startTime;
-
-    // Cache the instant data
-    profileCache.set(normalizedAddress, {
-      data: instantData,
-      timestamp: now,
-      backgroundFetchInProgress: false,
-      lastBackgroundFetch: 0,
-    });
-
-    // Start background fetch (don't await)
+    
+    const newCacheEntry: CacheEntry = {
+        data: instantData,
+        timestamp: now,
+        backgroundFetchInProgress: false, // Will be set true by backgroundFetchRealData
+        lastBackgroundFetch: 0, // Will be set by backgroundFetchRealData
+    };
+    profileCache.set(normalizedAddress, newCacheEntry);
+    
+    // addRecentUpdateEvent({ address: normalizedAddress, status: 'fetch_started', message: 'Initial fetch' }); // Logged in backgroundFetchRealData
     backgroundFetchRealData(normalizedAddress).catch(error => {
-      console.error(`Initial background fetch failed for ${address}:`, error);
+      addRecentUpdateEvent({ address: normalizedAddress, status: 'fetch_failed', message: `Initial background fetch error: ${error instanceof Error ? error.message : error}` });
     });
 
     return res.status(200).json({
@@ -257,15 +219,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
   } catch (error) {
-    console.error('Fast profile fetch error:', error);
-    
-    // Even on error, return basic structure
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    addRecentUpdateEvent({ address: normalizedAddress, status: 'fetch_failed', message: `Handler error: ${errorMessage}` });
     const fallbackData = getInstantProfileData(normalizedAddress);
-    
     return res.status(200).json({
       ...fallbackData,
       source: 'fallback',
-      error: 'Cache temporarily unavailable',
+      error: 'Cache temporarily unavailable', // Consider more specific error
       loadTime: Date.now() - startTime,
     });
   }
