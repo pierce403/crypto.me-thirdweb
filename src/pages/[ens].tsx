@@ -21,7 +21,7 @@ function convertToGatewayUrl(ipfsUrl: string | null): string | null {
   if (!ipfsUrl) return null;
   const ipfsPrefix = 'ipfs://';
   if (ipfsUrl.startsWith(ipfsPrefix)) {
-    const cid = ipfsUrl.slice(ipfsPrefix.length);
+    const cid = ipfsUrl.substring(ipfsPrefix.length);
     return `https://gateway.pinata.cloud/ipfs/${cid}`;
   }
   return ipfsUrl; // Return original URL if it's not an IPFS URL
@@ -75,6 +75,7 @@ export const getServerSideProps: GetServerSideProps<ProfilePageProps> = async (c
 export default function ProfilePage({ ensName, address, avatar }: ProfilePageProps) {
   // Use the fast profile hook for instant loading
   const {
+    data,
     loading,
     error,
     refresh,
@@ -117,6 +118,9 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
 
   const avatarUrl = avatar ? convertToGatewayUrl(avatar) : null;
   const cacheStats = getCacheStats();
+  
+  // Only show loading when we have no data at all (not even cached data)
+  const isInitialLoading = loading && !data;
 
   return (
     <Container maxW="container.xl" centerContent py={8}>
@@ -182,10 +186,10 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
 
           <Button 
             onClick={handleRefresh} 
-            disabled={isRefreshing || loading}
+            disabled={isRefreshing || isInitialLoading}
             colorScheme="blue"
           >
-            {isRefreshing || loading ? 'Refreshing...' : 'Refresh Profile'}
+            {isRefreshing || isInitialLoading ? 'Refreshing...' : 'Refresh Profile'}
           </Button>
 
           {error && (
@@ -202,22 +206,36 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
           Connected Services
         </Heading>
         
-        {!hasAnyData() && !loading && (
-          <Box p={6} bg="yellow.50" borderRadius="lg" border="1px solid" borderColor="yellow.200" mb={6}>
-            <Text fontSize="sm" color="yellow.800" textAlign="center">
-              🔄 Loading service data in background. This profile will update automatically as data becomes available.
-            </Text>
+        {isInitialLoading ? (
+          <Box p={6} bg="blue.50" borderRadius="lg" border="1px solid" borderColor="blue.200" mb={6}>
+            <HStack justify="center" gap={3}>
+              <Spinner size="sm" />
+              <Text fontSize="sm" color="blue.800" textAlign="center">
+                Loading profile data...
+              </Text>
+            </HStack>
           </Box>
-        )}
+        ) : (
+          <>
+            {!hasAnyData() && (
+              <Box p={6} bg="yellow.50" borderRadius="lg" border="1px solid" borderColor="yellow.200" mb={6}>
+                <Text fontSize="sm" color="yellow.800" textAlign="center">
+                  🔄 Service data is being loaded in the background. This profile will update automatically as data becomes available.
+                </Text>
+              </Box>
+            )}
 
-        <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={6}>
-          <FastENSCard data={ens} loading={loading && !ens} />
-          <FastFarcasterCard data={farcaster} loading={loading && !farcaster} />
-          <FastOpenSeaCard data={opensea} loading={loading && !opensea} />
-          <FastIcebreakerCard data={icebreaker} loading={loading && !icebreaker} />
-          <FastHumanPassportCard data={gitcoinPassport} loading={loading && !gitcoinPassport} />
-          <FastDecentralandCard data={decentraland} loading={loading && !decentraland} />
-        </SimpleGrid>
+            <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={6}>
+              {/* Always show cards with data, never show loading state for individual cards since we have instant cache */}
+              <FastENSCard data={ens} loading={false} />
+              <FastFarcasterCard data={farcaster} loading={false} />
+              <FastOpenSeaCard data={opensea} loading={false} />
+              <FastIcebreakerCard data={icebreaker} loading={false} />
+              <FastHumanPassportCard data={gitcoinPassport} loading={false} />
+              <FastDecentralandCard data={decentraland} loading={false} />
+            </SimpleGrid>
+          </>
+        )}
       </Box>
     </Container>
   );

@@ -29,22 +29,32 @@ export function useFastProfile(
   options: UseFastProfileOptions = {}
 ) {
   const {
-    pollInterval = 30000, // 30 seconds
-    initialPollDelay = 10000, // 10 seconds
+    pollInterval = 30000,
+    initialPollDelay = 10000,
     enablePolling = true,
-    minPollInterval = 10000, // 10 seconds minimum
-    maxPollInterval = 300000 // 5 minutes maximum
+    minPollInterval = 10000,
+    maxPollInterval = 5 * 60 * 1000, // 5 minutes
   } = options;
 
   const [data, setData] = useState<FastProfileData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<string | null>(null);
+  
+  // Use refs to track current values without causing re-renders
+  const dataRef = useRef<FastProfileData | null>(null);
+  const lastUpdateRef = useRef<string | null>(null);
   
   const pollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastPollRef = useRef<number>(0);
   const consecutiveErrorsRef = useRef<number>(0);
   const currentIntervalRef = useRef<number>(pollInterval);
+
+  // Update refs when state changes
+  useEffect(() => {
+    dataRef.current = data;
+    lastUpdateRef.current = lastUpdate;
+  }, [data, lastUpdate]);
 
   // Calculate next poll interval with exponential backoff on errors
   const getNextPollInterval = useCallback(() => {
@@ -56,6 +66,61 @@ export function useFastProfile(
     const backoffInterval = pollInterval * Math.pow(2, Math.min(consecutiveErrorsRef.current, 5));
     return Math.min(Math.max(backoffInterval, minPollInterval), maxPollInterval);
   }, [pollInterval, minPollInterval, maxPollInterval]);
+
+  const fetchData = useCallback(async (isPolling = false) => {
+    if (!address) return;
+
+    // Prevent too frequent polling
+    const timeSinceLastPoll = Date.now() - lastPollRef.current;
+    if (isPolling && timeSinceLastPoll < minPollInterval) {
+      console.log(`🚫 Skipping poll - only ${timeSinceLastPoll}ms since last poll (min: ${minPollInterval}ms)`);
+      return;
+    }
+
+    try {
+      if (!isPolling) setLoading(true);
+      
+      console.log(`📡 Fetching profile data for ${address} (polling: ${isPolling})`);
+      
+      const response = await fetch(`/api/fast-profile?address=${address}`);
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to fetch profile');
+      }
+      
+      // Reset error counter on success
+      consecutiveErrorsRef.current = 0;
+      
+      // Always update on initial load, or if we got newer data during polling
+      const currentData = dataRef.current;
+      const currentLastUpdate = lastUpdateRef.current;
+      
+      if (!isPolling || !currentData || result.lastContentUpdate !== currentLastUpdate) {
+        setData(result);
+        setLastUpdate(result.lastContentUpdate);
+        setError(null);
+        console.log(`✅ Updated profile data for ${address}`);
+      } else {
+        console.log(`📄 No new data for ${address}`);
+      }
+      
+      lastPollRef.current = Date.now();
+      
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      console.error('❌ Failed to fetch fast profile:', errorMessage);
+      
+      // Increment error counter for backoff
+      consecutiveErrorsRef.current++;
+      
+      if (!isPolling) {
+        setError(errorMessage);
+      }
+    } finally {
+      if (!isPolling) setLoading(false);
+    }
+  }, [address, minPollInterval]);
 
   const scheduleNextPoll = useCallback(() => {
     if (!enablePolling || !address) return;
@@ -82,70 +147,7 @@ export function useFastProfile(
         pollTimeoutRef.current = setTimeout(() => fetchData(true), remainingTime);
       }
     }, nextInterval);
-  }, [enablePolling, address, getNextPollInterval, minPollInterval]);
-
-  const fetchData = useCallback(async (isPolling = false) => {
-    if (!address) return;
-
-    // Prevent too frequent polling
-    const timeSinceLastPoll = Date.now() - lastPollRef.current;
-    if (isPolling && timeSinceLastPoll < minPollInterval) {
-      console.log(`🚫 Skipping poll - only ${timeSinceLastPoll}ms since last poll (min: ${minPollInterval}ms)`);
-      scheduleNextPoll();
-      return;
-    }
-
-    try {
-      if (!isPolling) setLoading(true);
-      
-      console.log(`📡 Fetching profile data for ${address} (polling: ${isPolling})`);
-      
-      const response = await fetch(`/api/fast-profile?address=${address}`);
-      const result = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to fetch profile');
-      }
-      
-      // Reset error counter on success
-      consecutiveErrorsRef.current = 0;
-      
-      // Always update on initial load, or if we got newer data during polling
-      if (!isPolling || !data || result.lastContentUpdate !== lastUpdate) {
-        setData(result);
-        setLastUpdate(result.lastContentUpdate);
-        setError(null);
-        console.log(`✅ Updated profile data for ${address}`);
-      } else {
-        console.log(`📄 No new data for ${address}`);
-      }
-      
-      lastPollRef.current = Date.now();
-      
-      // Schedule next poll if this was a polling request
-      if (isPolling) {
-        scheduleNextPoll();
-      }
-      
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      console.error('❌ Failed to fetch fast profile:', errorMessage);
-      
-      // Increment error counter for backoff
-      consecutiveErrorsRef.current++;
-      
-      if (!isPolling) {
-        setError(errorMessage);
-      }
-      
-      // Schedule next poll with backoff if this was a polling request
-      if (isPolling) {
-        scheduleNextPoll();
-      }
-    } finally {
-      if (!isPolling) setLoading(false);
-    }
-  }, [address, data, lastUpdate, minPollInterval, scheduleNextPoll]);
+  }, [enablePolling, address, getNextPollInterval, minPollInterval, fetchData]);
 
   // Initial load
   useEffect(() => {
