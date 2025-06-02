@@ -109,6 +109,7 @@ async function backgroundFetchRealData(address: string): Promise<void> {
       
       // Fetch real data from existing APIs with timeout
       const services = [
+        { name: 'ens', url: `/api/services/ens?address=${address}` },
         { name: 'farcaster', url: `/api/services/farcaster?address=${address}` },
         { name: 'icebreaker', url: `/api/services/icebreaker?address=${address}` },
       ];
