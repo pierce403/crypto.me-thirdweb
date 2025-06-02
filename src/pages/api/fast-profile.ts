@@ -117,13 +117,32 @@ async function backgroundFetchRealData(address: string): Promise<void> {
           
           if (response.ok) {
             const data = await response.json();
+            if (service.name === 'farcaster') {
+              console.log(`[fast-profile:debug] Received Farcaster data for ${normalizedAddress}:`, JSON.stringify(data, null, 2));
+            }
             const currentCached = profileCache.get(normalizedAddress);
             if (currentCached) {
+              if (service.name === 'farcaster') {
+                console.log(`[fast-profile:debug] currentCached.data.services before Farcaster update for ${normalizedAddress}:`, JSON.stringify(currentCached.data.services, null, 2));
+              }
               currentCached.data.services[service.name as keyof typeof currentCached.data.services] = data;
               currentCached.data.lastContentUpdate = new Date().toISOString();
               currentCached.data.cacheStatus = 'hit'; // Or determine if still partial
               currentCached.timestamp = Date.now();
+              if (service.name === 'farcaster') {
+                console.log(`[fast-profile:debug] currentCached.data.services after Farcaster update for ${normalizedAddress}:`, JSON.stringify(currentCached.data.services, null, 2));
+              }
               addRecentUpdateEvent({ address: normalizedAddress, status: 'service_updated', serviceName: service.name });
+            } else {
+              // This case should ideally not happen if cache was populated before background fetch
+              console.error(`[fast-profile:error] Cache miss for ${normalizedAddress} during background update for service ${service.name}. Data not stored.`);
+              addRecentUpdateEvent({ 
+                address: normalizedAddress, 
+                status: 'service_failed', 
+                serviceName: service.name, 
+                message: 'Internal cache miss during background update',
+                errorName: 'CacheMissError'
+              });
             }
           } else {
             let serviceErrorMessage = `Service returned ${response.status}`;
