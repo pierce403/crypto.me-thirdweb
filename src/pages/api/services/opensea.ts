@@ -37,6 +37,38 @@ interface NFTResult {
   error?: string;
 }
 
+// NFTScan API response types
+interface NFTScanNFT {
+  name?: string;
+  collection_name?: string;
+  image_uri?: string;
+  contract_address: string;
+  token_id: string;
+  description?: string;
+}
+
+interface NFTScanResponse {
+  data?: {
+    content?: NFTScanNFT[];
+  };
+}
+
+// The Graph API response types
+interface GraphToken {
+  contract: {
+    id: string;
+    name?: string;
+    symbol?: string;
+  };
+  tokenID: string;
+}
+
+interface GraphResponse {
+  data?: {
+    tokens?: GraphToken[];
+  };
+}
+
 // Try to fetch NFTs using blockchain data directly (free!)
 async function fetchNFTsFromBlockchain(address: string): Promise<ProcessedNFT[]> {
   try {
@@ -64,7 +96,6 @@ async function fetchNFTsFromBlockchain(address: string): Promise<ProcessedNFT[]>
     });
 
     if (response.ok) {
-      const data = await response.json();
       console.log('Blockchain query successful, but parsing NFT data from logs is complex');
       // Note: This would require complex parsing of transfer logs
       // For now, return empty array but this shows the approach
@@ -87,11 +118,11 @@ async function fetchNFTsFromNFTScan(address: string): Promise<ProcessedNFT[]> {
     });
 
     if (response.ok) {
-      const data = await response.json();
+      const data: NFTScanResponse = await response.json();
       console.log('NFTScan response:', data);
       
       if (data.data && data.data.content) {
-        return data.data.content.slice(0, 5).map((nft: any) => ({
+        return data.data.content.slice(0, 5).map((nft: NFTScanNFT) => ({
           name: nft.name || 'Unnamed NFT',
           collection: nft.collection_name || 'Unknown Collection',
           image: nft.image_uri || '',
@@ -146,8 +177,7 @@ async function fetchNFTsFromBitquery(address: string): Promise<ProcessedNFT[]> {
     });
 
     if (response.ok) {
-      const data = await response.json();
-      console.log('Bitquery response:', data);
+      console.log('Bitquery response received');
       // Parse Bitquery response for NFT data
       // This is a simplified implementation
       return [];
@@ -189,11 +219,11 @@ async function fetchNFTsFromTheGraph(address: string): Promise<ProcessedNFT[]> {
     });
 
     if (response.ok) {
-      const data = await response.json();
+      const data: GraphResponse = await response.json();
       console.log('The Graph response:', data);
       
       if (data.data && data.data.tokens) {
-        return data.data.tokens.slice(0, 5).map((token: any) => ({
+        return data.data.tokens.slice(0, 5).map((token: GraphToken) => ({
           name: token.contract.name || 'Unnamed NFT',
           collection: token.contract.name || 'Unknown Collection',
           image: '', // Would need to fetch from tokenURI
@@ -208,23 +238,6 @@ async function fetchNFTsFromTheGraph(address: string): Promise<ProcessedNFT[]> {
     console.error('The Graph API error:', error);
   }
   return [];
-}
-
-// Simple metadata fetch for IPFS/HTTP URIs
-async function fetchNFTMetadata(uri: string): Promise<any> {
-  try {
-    if (uri.startsWith('ipfs://')) {
-      uri = uri.replace('ipfs://', 'https://ipfs.io/ipfs/');
-    }
-    
-    const response = await fetch(uri, { timeout: 5000 } as any);
-    if (response.ok) {
-      return await response.json();
-    }
-  } catch (error) {
-    console.error('Metadata fetch error:', error);
-  }
-  return null;
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
