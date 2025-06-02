@@ -14,4 +14,38 @@ model cached_profiles {
   created_at       DateTime  @default(now())
   updated_at       DateTime  @default(now())
   last_sync_status String?
+  last_content_update DateTime @default(now()) // Only updates when actual content changes
+  next_sync_due    DateTime? // When next background sync should happen
+}
+
+model service_cache {
+  id          Int      @id @default(autoincrement())
+  address     String   
+  service     String   // 'ens', 'farcaster', 'opensea', 'icebreaker', 'gitcoin-passport', 'decentraland'
+  data        String   // JSON data
+  last_updated DateTime @default(now())
+  expires_at   DateTime? // Optional expiration
+  error_count  Int      @default(0)
+  last_error   String?
+  
+  @@unique([address, service])
+  @@index([address])
+  @@index([service])
+  @@index([last_updated])
+}
+
+model sync_queue {
+  id          Int      @id @default(autoincrement())
+  address     String
+  service     String
+  priority    Int      @default(1) // 1=high, 2=medium, 3=low
+  created_at  DateTime @default(now())
+  processing  Boolean  @default(false)
+  attempts    Int      @default(0)
+  last_attempt DateTime?
+  error       String?
+  
+  @@unique([address, service])
+  @@index([priority, created_at])
+  @@index([processing])
 }
