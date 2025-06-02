@@ -122,33 +122,6 @@ export function useFastProfile(
     }
   }, [address, minPollInterval]);
 
-  const scheduleNextPoll = useCallback(() => {
-    if (!enablePolling || !address) return;
-
-    // Clear existing timeout
-    if (pollTimeoutRef.current) {
-      clearTimeout(pollTimeoutRef.current);
-    }
-
-    const nextInterval = getNextPollInterval();
-    currentIntervalRef.current = nextInterval;
-
-    console.log(`🔄 Scheduling next poll in ${nextInterval / 1000}s (errors: ${consecutiveErrorsRef.current})`);
-
-    pollTimeoutRef.current = setTimeout(() => {
-      // Double-check minimum time has passed since last poll
-      const timeSinceLastPoll = Date.now() - lastPollRef.current;
-      if (timeSinceLastPoll >= minPollInterval) {
-        fetchData(true);
-      } else {
-        // Reschedule after remaining time
-        const remainingTime = minPollInterval - timeSinceLastPoll;
-        console.log(`⏰ Delaying poll by ${remainingTime}ms to respect minimum interval`);
-        pollTimeoutRef.current = setTimeout(() => fetchData(true), remainingTime);
-      }
-    }, nextInterval);
-  }, [enablePolling, address, getNextPollInterval, minPollInterval, fetchData]);
-
   // Initial load
   useEffect(() => {
     if (address) {
