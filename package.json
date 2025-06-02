@@ -14,6 +14,7 @@
     "@emotion/styled": "^11.13.0",
     "@ensdomains/ensjs": "^4.0.2",
     "@prisma/client": "^6.8.2",
+    "@tailwindcss/postcss": "^4.1.8",
     "framer-motion": "^12.15.0",
     "next": "^15.3.3",
     "pg": "^8.13.0",
