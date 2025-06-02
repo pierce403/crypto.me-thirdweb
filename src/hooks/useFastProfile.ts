@@ -33,7 +33,6 @@ export function useFastProfile(
     initialPollDelay = 10000,
     enablePolling = true,
     minPollInterval = 10000,
-    maxPollInterval = 5 * 60 * 1000, // 5 minutes
   } = options;
 
   const [data, setData] = useState<FastProfileData | null>(null);
