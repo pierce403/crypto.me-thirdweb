@@ -117,10 +117,10 @@ const ENSContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) => {
 const FarcasterContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) => {
   const username = data.username as string | undefined;
   const displayName = data.displayName as string | undefined;
-  const followers = data.followers as number | undefined;
-  const following = data.following as number | undefined;
+  const followerCount = data.followerCount as number | undefined;
   const bio = data.bio as string | undefined;
   const profileUrl = data.profileUrl as string | undefined;
+  const neynarScore = data.neynarScore as number | undefined;
 
   return (
     <VStack gap={3} align="stretch">
@@ -138,18 +138,12 @@ const FarcasterContent: React.FC<{ data: Record<string, unknown> }> = ({ data })
         </Box>
       )}
       
-      {(followers !== undefined || following !== undefined) && (
+      {(followerCount !== undefined) && (
         <HStack gap={4}>
-          {followers !== undefined && (
+          {followerCount !== undefined && (
             <Box>
               <Text fontSize="xs" color="gray.600">Followers</Text>
-              <Text fontSize="lg" fontWeight="bold" color="purple.600">{followers.toLocaleString()}</Text>
-            </Box>
-          )}
-          {following !== undefined && (
-            <Box>
-              <Text fontSize="xs" color="gray.600">Following</Text>
-              <Text fontSize="lg" fontWeight="bold" color="purple.600">{following.toLocaleString()}</Text>
+              <Text fontSize="lg" fontWeight="bold" color="purple.600">{followerCount.toLocaleString()}</Text>
             </Box>
           )}
         </HStack>
@@ -159,6 +153,36 @@ const FarcasterContent: React.FC<{ data: Record<string, unknown> }> = ({ data })
         <Box>
           <Text fontSize="sm" fontWeight="semibold" color="gray.600">Bio:</Text>
           <Text fontSize="sm" color="gray.700" truncate>{bio}</Text>
+        </Box>
+      )}
+      
+      {neynarScore !== undefined && (
+        <Box>
+          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Neynar Score:</Text>
+          <HStack align="baseline">
+            <Text fontSize="lg" fontWeight="bold" color={
+              neynarScore >= 0.7 ? "green.500" :
+              neynarScore >= 0.4 ? "yellow.500" :
+              "red.500"
+            }>
+              {(neynarScore * 100).toFixed(0)}%
+            </Text>
+            <Badge 
+              colorScheme={
+                neynarScore >= 0.7 ? "green" :
+                neynarScore >= 0.4 ? "yellow" :
+                "red"
+              }
+              variant="subtle"
+            >
+              {
+                neynarScore >= 0.7 ? "High" :
+                neynarScore >= 0.4 ? "Medium" :
+                "Low"
+              }
+            </Badge>
+            <Text fontSize="xs" color="gray.500">({neynarScore.toFixed(3)})</Text>
+          </HStack>
         </Box>
       )}
       

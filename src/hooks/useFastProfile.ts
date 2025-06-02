@@ -95,16 +95,8 @@ export function useFastProfile(
       
       lastPollRef.current = Date.now();
       
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      console.error('❌ Failed to fetch fast profile:', errorMessage);
-      
-      // Increment error counter for backoff
-      consecutiveErrorsRef.current++;
-      
-      if (!isPolling) {
-        setError(errorMessage);
-      }
+    } catch {
+      // Failed to parse error JSON, stick with the status code message
     } finally {
       if (!isPolling) setLoading(false);
     }
