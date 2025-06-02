@@ -56,17 +56,6 @@ export function useFastProfile(
     lastUpdateRef.current = lastUpdate;
   }, [data, lastUpdate]);
 
-  // Calculate next poll interval with exponential backoff on errors
-  const getNextPollInterval = useCallback(() => {
-    if (consecutiveErrorsRef.current === 0) {
-      return Math.max(pollInterval, minPollInterval);
-    }
-    
-    // Exponential backoff: base interval * 2^errors, capped at max
-    const backoffInterval = pollInterval * Math.pow(2, Math.min(consecutiveErrorsRef.current, 5));
-    return Math.min(Math.max(backoffInterval, minPollInterval), maxPollInterval);
-  }, [pollInterval, minPollInterval, maxPollInterval]);
-
   const fetchData = useCallback(async (isPolling = false) => {
     if (!address) return;
 
