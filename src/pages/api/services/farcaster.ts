@@ -19,6 +19,11 @@ function isEthereumAddress(input: string): boolean {
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  // Log incoming request details for debugging 401 issue
+  console.log(`[farcaster.ts:debug] Incoming request. Method: ${req.method}, URL: ${req.url}`);
+  console.log(`[farcaster.ts:debug] Headers: ${JSON.stringify(req.headers, null, 2)}`);
+  console.log(`[farcaster.ts:debug] NEYNAR_API_KEY present: ${!!process.env.NEYNAR_API_KEY}, Value (first 5 chars): ${process.env.NEYNAR_API_KEY?.substring(0,5)}`);
+
   if (req.method !== 'GET') {
     res.setHeader('Allow', ['GET']);
     return res.status(405).end(`Method ${req.method} Not Allowed`);
