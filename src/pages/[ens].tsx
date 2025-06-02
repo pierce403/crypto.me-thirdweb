@@ -1,13 +1,20 @@
 import { useState, useEffect } from 'react';
 import { GetServerSideProps } from 'next';
 import Head from 'next/head';
-import { PrismaClient } from '@prisma/client';
 import { createEnsPublicClient } from '@ensdomains/ensjs';
 import { http } from 'viem';
 import { mainnet } from 'viem/chains';
-import { Box, Container, Heading, Text, VStack, Separator, Button, SimpleGrid } from '@chakra-ui/react';
+import { Box, Container, Heading, Text, VStack, Separator, Button, SimpleGrid, HStack, Badge, Spinner } from '@chakra-ui/react';
 import Image from 'next/image';
-import { ENSCard, IcebreakerCard, FarcasterCard, OpenSeaCard, DecentralandCard, GitcoinPassportCard } from '../components/ServiceCards';
+import { useFastProfile } from '../hooks/useFastProfile';
+import { 
+  FastENSCard, 
+  FastFarcasterCard, 
+  FastOpenSeaCard, 
+  FastIcebreakerCard, 
+  FastHumanPassportCard, 
+  FastDecentralandCard 
+} from '../components/FastServiceCards';
 
 // Add this function
 function convertToGatewayUrl(ipfsUrl: string | null): string | null {
@@ -20,82 +27,36 @@ function convertToGatewayUrl(ipfsUrl: string | null): string | null {
   return ipfsUrl; // Return original URL if it's not an IPFS URL
 }
 
-interface Profile {
-  ens_name: string;
-  address: string;
-  last_sync_status: string;
-  profile_data: {
-    ens_avatar: string | null;
-    // Add more fields as you expand the profile data
-  };
-}
-
 interface ProfilePageProps {
-  profile: Profile | null;
+  ensName: string;
+  address: string | null;
+  avatar: string | null;
 }
 
-const prisma = new PrismaClient();
 const ensClient = createEnsPublicClient({
   chain: mainnet,
   transport: http(),
 });
 
 export const getServerSideProps: GetServerSideProps<ProfilePageProps> = async (context) => {
-  const ens_name = context.params?.ens as string;
+  const ensName = context.params?.ens as string;
 
   try {
-    // Immediately try to get cached profile
-    const cachedProfile = await prisma.cached_profiles.findUnique({
-      where: { ens_name },
-    });
-
-    // If we have a cached profile, return it immediately
-    if (cachedProfile) {
-      // Start background refresh if profile is older than 1 hour
-      const oneHourAgo = new Date(Date.now() - 3600000);
-      if (cachedProfile.updated_at < oneHourAgo) {
-        // Fire and forget the refresh
-        fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/profile?ens_name=${ens_name}&refresh=true`)
-          .catch(console.error);
-      }
-      
-      return {
-        props: {
-          profile: JSON.parse(cachedProfile.profile_data),
-        },
-      };
-    }
-
-    // If no cached profile, do the full ENS lookup
-    const addressRecord = await ensClient.getAddressRecord({ name: ens_name });
+    // Do minimal ENS resolution for initial page load
+    const addressRecord = await ensClient.getAddressRecord({ name: ensName });
     if (!addressRecord?.value || addressRecord.value === '0x0000000000000000000000000000000000000000') {
-      return { props: { profile: null } };
+      return { props: { ensName, address: null, avatar: null } };
     }
 
-    // Create initial profile
-    const avatarRecord = await ensClient.getTextRecord({ name: ens_name, key: 'avatar' });
+    // Get basic avatar for initial render
+    const avatarRecord = await ensClient.getTextRecord({ name: ensName, key: 'avatar' });
     const avatar = typeof avatarRecord === 'string' ? avatarRecord : null;
-
-    const profileData = {
-      ens_name,
-      address: addressRecord.value,
-      profile_data: {
-        ens_avatar: avatar,
-      },
-      last_sync_status: `Successfully updated at ${new Date().toISOString()}`,
-    };
-
-    const profile = await prisma.cached_profiles.create({
-      data: {
-        ens_name,
-        profile_data: JSON.stringify(profileData),
-        last_sync_status: profileData.last_sync_status
-      },
-    });
 
     return {
       props: {
-        profile: JSON.parse(profile.profile_data),
+        ensName,
+        address: addressRecord.value,
+        avatar,
       },
     };
 
@@ -103,60 +64,65 @@ export const getServerSideProps: GetServerSideProps<ProfilePageProps> = async (c
     console.error('Error in getServerSideProps:', error);
     return {
       props: {
-        profile: null,
+        ensName,
+        address: null,
+        avatar: null,
       },
     };
   }
 };
 
-export default function ProfilePage({ profile }: ProfilePageProps) {
-  useEffect(() => {
-    // Existing useEffect logic can be removed or adapted if it's no longer needed.
-    // For now, let's keep it commented out to show where it was.
-    // if (needsRefresh) {
-    //   const timer = setTimeout(() => {
-    //     window.location.reload();
-    //   }, 10000); // 10 second delay
-    //   return () => clearTimeout(timer);
-    // }
-  }, []); // Adjusted dependencies if needsRefresh is removed
+export default function ProfilePage({ ensName, address, avatar }: ProfilePageProps) {
+  // Use the fast profile hook for instant loading
+  const {
+    data: fastProfile,
+    loading,
+    error,
+    refresh,
+    getCacheStats,
+    hasAnyData,
+    // Individual service data
+    ens,
+    farcaster,
+    opensea,
+    icebreaker,
+    gitcoinPassport,
+    decentraland,
+  } = useFastProfile(address, {
+    pollInterval: 30000, // Poll every 30 seconds
+    initialPollDelay: 10000, // Wait 10s before first background update
+    enablePolling: true,
+  });
 
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    try {
-      const response = await fetch(`/api/profile?ens_name=${profile?.ens_name}&refresh=true`);
-      if (response.ok) {
-        window.location.reload(); // Reload the page to show updated data
-      } else {
-        console.error('Failed to refresh profile');
-      }
-    } catch (error) {
-      console.error('Error refreshing profile:', error);
-    }
-    setIsRefreshing(false);
+    refresh();
+    // Give some visual feedback
+    setTimeout(() => setIsRefreshing(false), 1000);
   };
 
-  if (!profile) {
+  if (!address) {
     return (
       <Container maxW="container.md" centerContent>
+        <Head>
+          <title>{ensName} | Crypto.me Profile</title>
+        </Head>
         <Box p={8} mt={10} bg="gray.50" borderRadius="lg" boxShadow="md">
-          <Text fontSize="xl" color="gray.800">Profile not found</Text>
+          <Text fontSize="xl" color="gray.800">ENS name "{ensName}" not found or has no address</Text>
         </Box>
       </Container>
     );
   }
 
-  const address = typeof profile.address === 'string' ? profile.address : 'Address not available';
-
-  // make sure ens_avatar starts with ipfs://
-  const avatarUrl = profile.profile_data.ens_avatar && profile.profile_data.ens_avatar.startsWith('ipfs://') ? convertToGatewayUrl(profile.profile_data.ens_avatar) : null;
+  const avatarUrl = avatar ? convertToGatewayUrl(avatar) : null;
+  const cacheStats = getCacheStats();
 
   return (
     <Container maxW="container.xl" centerContent py={8}>
       <Head>
-        <title>{profile.ens_name} | Crypto.me Profile</title>
+        <title>{ensName} | Crypto.me Profile</title>
       </Head>
       
       {/* Main Profile Header */}
@@ -166,34 +132,68 @@ export default function ProfilePage({ profile }: ProfilePageProps) {
             <Box alignSelf="center">
               <Image
                 src={avatarUrl}
-                alt={`${profile.ens_name} avatar`}
+                alt={`${ensName} avatar`}
                 width={150}
                 height={150}
                 style={{ borderRadius: '50%' }}
               />
             </Box>
           )}
-          <Heading as="h1" size="2xl" color="gray.800" textAlign="center">{profile.ens_name}</Heading>
+          <Heading as="h1" size="2xl" color="gray.800" textAlign="center">{ensName}</Heading>
           <Separator />
+          
           <Box>
             <Text fontSize="lg" fontWeight="bold" color="gray.800">ENS Name:</Text>
-            <Text fontSize="md" color="gray.800">{profile.ens_name}</Text>
+            <Text fontSize="md" color="gray.800">{ensName}</Text>
           </Box>
+          
           <Box>
             <Text fontSize="lg" fontWeight="bold" color="gray.800">ETH Address:</Text>
             <Text fontSize="md" color="gray.800" wordBreak="break-all">{address}</Text>
           </Box>
+          
+          {avatar && (
+            <Box>
+              <Text fontSize="lg" fontWeight="bold" color="gray.800">Avatar:</Text>
+              <Text fontSize="md" color="gray.800" wordBreak="break-all">{avatar}</Text>
+            </Box>
+          )}
+
+          {/* Cache Status & Performance */}
           <Box>
-            <Text fontSize="lg" fontWeight="bold" color="gray.800">Avatar:</Text>
-            <Text fontSize="md" color="gray.800">{profile.profile_data.ens_avatar}</Text>
+            <Text fontSize="lg" fontWeight="bold" color="gray.800">Cache Status:</Text>
+            <HStack gap={2} flexWrap="wrap">
+              <Badge colorScheme={cacheStats.cacheStatus === 'hit' ? 'green' : 'yellow'}>
+                {cacheStats.cacheStatus}
+              </Badge>
+              <Badge colorScheme="blue">
+                {cacheStats.source}
+              </Badge>
+              <Badge colorScheme="purple">
+                {cacheStats.loadTime}ms
+              </Badge>
+              {loading && <Spinner size="sm" />}
+            </HStack>
+            {cacheStats.lastUpdate && (
+              <Text fontSize="sm" color="gray.600">
+                Last updated: {new Date(cacheStats.lastUpdate).toLocaleString()}
+              </Text>
+            )}
           </Box>
-          <Box>
-            <Text fontSize="lg" fontWeight="bold" color="gray.800">Last Sync Status:</Text>
-            <Text fontSize="md" color="gray.800">{profile.last_sync_status || 'No sync status available'}</Text>
-          </Box>
-          <Button onClick={handleRefresh} loading={isRefreshing}>
-            Refresh Profile
+
+          <Button 
+            onClick={handleRefresh} 
+            disabled={isRefreshing || loading}
+            colorScheme="blue"
+          >
+            {isRefreshing || loading ? 'Refreshing...' : 'Refresh Profile'}
           </Button>
+
+          {error && (
+            <Box p={3} bg="red.50" borderRadius="md" border="1px solid" borderColor="red.200">
+              <Text fontSize="sm" color="red.800">Error: {error}</Text>
+            </Box>
+          )}
         </VStack>
       </Box>
 
@@ -202,13 +202,22 @@ export default function ProfilePage({ profile }: ProfilePageProps) {
         <Heading as="h2" size="lg" color="gray.800" textAlign="center" mb={6}>
           Connected Services
         </Heading>
+        
+        {!hasAnyData() && !loading && (
+          <Box p={6} bg="yellow.50" borderRadius="lg" border="1px solid" borderColor="yellow.200" mb={6}>
+            <Text fontSize="sm" color="yellow.800" textAlign="center">
+              🔄 Loading service data in background. This profile will update automatically as data becomes available.
+            </Text>
+          </Box>
+        )}
+
         <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={6}>
-          <ENSCard address={address} ensName={profile.ens_name} />
-          <IcebreakerCard address={address} ensName={profile.ens_name} />
-          <FarcasterCard address={address} ensName={profile.ens_name} />
-          <OpenSeaCard address={address} ensName={profile.ens_name} />
-          <DecentralandCard address={address} ensName={profile.ens_name} />
-          <GitcoinPassportCard address={address} ensName={profile.ens_name} />
+          <FastENSCard data={ens} loading={loading && !ens} />
+          <FastFarcasterCard data={farcaster} loading={loading && !farcaster} />
+          <FastOpenSeaCard data={opensea} loading={loading && !opensea} />
+          <FastIcebreakerCard data={icebreaker} loading={loading && !icebreaker} />
+          <FastHumanPassportCard data={gitcoinPassport} loading={loading && !gitcoinPassport} />
+          <FastDecentralandCard data={decentraland} loading={loading && !decentraland} />
         </SimpleGrid>
       </Box>
     </Container>
