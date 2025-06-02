@@ -56,74 +56,97 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).end(`Method ${req.method} Not Allowed`);
   }
 
-  const { address, ensName } = req.query;
+  const { address: queryAddressOrName } = req.query;
 
-  if (!address && !ensName) {
+  if (!queryAddressOrName || typeof queryAddressOrName !== 'string') {
     return res.status(400).json({ error: 'Address or ENS name is required' });
   }
 
-  try {
-    let primaryName = '';
-    let avatar = null;
-    let otherNames: string[] = [];
+  let resolvedEthAddress: `0x${string}` | null = null;
+  let operatingName: string | null = null; // The ENS name we'll use for fetching avatar etc.
+  let avatar: string | null = null;
+  let otherNames: string[] = [];
 
-    // Get primary name if we have an address
-    if (address && typeof address === 'string') {
+  const isEnsNameSyntax = (name: string) => name.includes('.') && !name.startsWith('0x');
+
+  try {
+    if (isEnsNameSyntax(queryAddressOrName)) {
+      operatingName = queryAddressOrName;
       try {
-        const nameRecord = await ensClient.getName({ address: address as `0x${string}` });
-        if (nameRecord?.name) {
-          primaryName = nameRecord.name;
+        const addressRecord = await ensClient.getAddressRecord({ name: operatingName });
+        if (addressRecord && addressRecord.id === 60 && addressRecord.value) {
+          resolvedEthAddress = addressRecord.value as `0x${string}` | null;
+        } else {
+          console.warn(`Could not resolve ENS name ${operatingName} to an ETH address. Record: `, addressRecord);
         }
       } catch (error) {
-        console.error('Error getting primary name:', error);
+        console.error(`Error resolving ENS name ${operatingName} to ETH address:`, error);
       }
-
-      // Fetch all ENS names owned by this address
+    } else if (queryAddressOrName.startsWith('0x')) {
+      resolvedEthAddress = queryAddressOrName as `0x${string}`;
       try {
-        const allNames = await fetchAllEnsNames(address);
-        console.log(`Found ${allNames.length} ENS names for address ${address}:`, allNames);
-        
-        // Filter out the primary name from other names
-        otherNames = allNames.filter(name => name !== primaryName);
+        const nameRecord = await ensClient.getName({ address: resolvedEthAddress });
+        if (nameRecord?.name) {
+          operatingName = nameRecord.name;
+        } else {
+          console.warn(`Could not resolve address ${resolvedEthAddress} to a primary ENS name.`);
+        }
       } catch (error) {
-        console.error('Error fetching all ENS names:', error);
+        console.error(`Error getting primary name for address ${resolvedEthAddress}:`, error);
       }
+    } else {
+      return res.status(400).json({ error: 'Invalid address or ENS name format' });
     }
 
-    // Use provided ENS name if no primary name found
-    if (!primaryName && ensName && typeof ensName === 'string') {
-      primaryName = ensName;
-    }
-
-    // Get avatar for the primary name
-    if (primaryName) {
+    // Get avatar for the operatingName (if we have one)
+    if (operatingName) {
       try {
         const avatarRecord = await ensClient.getTextRecord({ 
-          name: primaryName, 
+          name: operatingName, 
           key: 'avatar' 
         });
-        if (typeof avatarRecord === 'string' && avatarRecord.startsWith('ipfs://')) {
-          const cid = avatarRecord.slice('ipfs://'.length);
-          avatar = `https://gateway.pinata.cloud/ipfs/${cid}`;
-        } else if (typeof avatarRecord === 'string') {
-          avatar = avatarRecord;
+        if (typeof avatarRecord === 'string') {
+          if (avatarRecord.startsWith('ipfs://')) {
+            const cid = avatarRecord.slice('ipfs://'.length);
+            // Using a common public gateway, you might prefer a specific one or your own
+            avatar = `https://ipfs.io/ipfs/${cid}`; 
+          } else {
+            avatar = avatarRecord; // Could be http(s) URL or other schemes
+          }
         }
       } catch (error) {
-        console.error('Error getting avatar:', error);
+        console.error(`Error getting avatar for ${operatingName}:`, error);
       }
     }
 
-    const profileUrl = primaryName ? `https://app.ens.domains/name/${primaryName}` : '';
+    // Fetch all ENS names owned by the resolvedEthAddress
+    if (resolvedEthAddress) {
+      try {
+        const allNamesForAddress = await fetchAllEnsNames(resolvedEthAddress);
+        otherNames = operatingName 
+          ? allNamesForAddress.filter(name => name.toLowerCase() !== operatingName?.toLowerCase())
+          : allNamesForAddress;
+      } catch (error) {
+        console.error(`Error fetching all ENS names for ${resolvedEthAddress}:`, error);
+      }
+    }
 
-    const result = {
-      primaryName: primaryName || 'No ENS name found',
+    const profileUrl = operatingName 
+      ? `https://app.ens.domains/name/${operatingName}` 
+      : (resolvedEthAddress ? `https://app.ens.domains/address/${resolvedEthAddress}` : '');
+
+    const responseData = {
+      primaryName: operatingName || (isEnsNameSyntax(queryAddressOrName) ? queryAddressOrName : null) || (resolvedEthAddress ? "No primary ENS name set" : "ENS data not found"),
       avatar,
       otherNames,
-      profileUrl
+      profileUrl,
+      // Optional: expose the resolved address if needed by client
+      // resolvedEthAddress: resolvedEthAddress 
     };
 
-    console.log('ENS API result:', JSON.stringify(result, null, 2));
-    res.status(200).json(result);
+    console.log('ENS API result:', JSON.stringify(responseData, null, 2));
+    res.status(200).json(responseData);
+
   } catch (error) {
     console.error('Error fetching ENS data:', error);
     res.status(500).json({ 
