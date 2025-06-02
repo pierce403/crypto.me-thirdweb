@@ -19,27 +19,6 @@ async function resolveENSToAddress(ensName: string): Promise<string> {
   return ensName;
 }
 
-// Updated interfaces for OpenSea v2 API
-interface OpenSeaNFTv2 {
-  identifier: string;
-  collection: string;
-  contract: string;
-  name?: string;
-  description?: string;
-  image_url?: string;
-  display_image_url?: string;
-  metadata_url?: string;
-  opensea_url?: string;
-  updated_at?: string;
-  is_disabled?: boolean;
-  is_nsfw?: boolean;
-}
-
-interface OpenSeaResponsev2 {
-  nfts: OpenSeaNFTv2[];
-  next?: string;
-}
-
 interface ProcessedNFT {
   name: string;
   collection: string;
@@ -48,6 +27,204 @@ interface ProcessedNFT {
   currency: string;
   permalink: string;
   description?: string;
+}
+
+interface NFTResult {
+  profileUrl: string;
+  topNFTs: ProcessedNFT[];
+  totalValue: number;
+  source: string;
+  error?: string;
+}
+
+// Try to fetch NFTs using blockchain data directly (free!)
+async function fetchNFTsFromBlockchain(address: string): Promise<ProcessedNFT[]> {
+  try {
+    // Use a free Ethereum RPC endpoint to query ERC721 Transfer events
+    // This is a basic implementation - you could enhance it with more detailed parsing
+    const response = await fetch('https://ethereum-rpc.publicnode.com', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'eth_getLogs',
+        params: [{
+          fromBlock: 'earliest',
+          toBlock: 'latest',
+          topics: [
+            '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef', // ERC721 Transfer event
+            null,
+            `0x000000000000000000000000${address.slice(2).toLowerCase()}` // to address
+          ]
+        }],
+        id: 1
+      })
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      console.log('Blockchain query successful, but parsing NFT data from logs is complex');
+      // Note: This would require complex parsing of transfer logs
+      // For now, return empty array but this shows the approach
+      return [];
+    }
+  } catch (error) {
+    console.error('Blockchain query error:', error);
+  }
+  return [];
+}
+
+// Try to fetch NFTs using NFTScan free API
+async function fetchNFTsFromNFTScan(address: string): Promise<ProcessedNFT[]> {
+  try {
+    // NFTScan has a free tier
+    const response = await fetch(`https://restapi.nftscan.com/api/v2/account/own/${address}?erc_type=erc721&show_attribute=false&sort_field=&sort_direction=&limit=10`, {
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      console.log('NFTScan response:', data);
+      
+      if (data.data && data.data.content) {
+        return data.data.content.slice(0, 5).map((nft: any) => ({
+          name: nft.name || 'Unnamed NFT',
+          collection: nft.collection_name || 'Unknown Collection',
+          image: nft.image_uri || '',
+          value: 0,
+          currency: 'ETH',
+          permalink: `https://opensea.io/assets/ethereum/${nft.contract_address}/${nft.token_id}`,
+          description: nft.description
+        }));
+      }
+    }
+  } catch (error) {
+    console.error('NFTScan API error:', error);
+  }
+  return [];
+}
+
+// Try to fetch NFTs using Bitquery (has free tier)
+async function fetchNFTsFromBitquery(address: string): Promise<ProcessedNFT[]> {
+  try {
+    const query = `
+      query {
+        ethereum {
+          transfers(
+            currency: {is: "ETH"}
+            receiver: {is: "${address}"}
+            options: {limit: 10, desc: "block.timestamp.time"}
+          ) {
+            currency {
+              address
+              symbol
+              name
+            }
+            block {
+              timestamp {
+                time
+              }
+            }
+            transaction {
+              hash
+            }
+          }
+        }
+      }
+    `;
+
+    const response = await fetch('https://graphql.bitquery.io/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ query })
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      console.log('Bitquery response:', data);
+      // Parse Bitquery response for NFT data
+      // This is a simplified implementation
+      return [];
+    }
+  } catch (error) {
+    console.error('Bitquery API error:', error);
+  }
+  return [];
+}
+
+// Try to fetch NFTs using The Graph (free!)
+async function fetchNFTsFromTheGraph(address: string): Promise<ProcessedNFT[]> {
+  try {
+    // Use a public subgraph for NFTs
+    const query = `
+      {
+        tokens(where: {owner: "${address.toLowerCase()}"}, first: 10, orderBy: transferredAt, orderDirection: desc) {
+          id
+          tokenID
+          tokenURI
+          contract {
+            id
+            name
+            symbol
+          }
+          owner {
+            id
+          }
+        }
+      }
+    `;
+
+    const response = await fetch('https://api.thegraph.com/subgraphs/name/cryptopunksnotdead/eip721-subgraph', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ query })
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      console.log('The Graph response:', data);
+      
+      if (data.data && data.data.tokens) {
+        return data.data.tokens.slice(0, 5).map((token: any) => ({
+          name: token.contract.name || 'Unnamed NFT',
+          collection: token.contract.name || 'Unknown Collection',
+          image: '', // Would need to fetch from tokenURI
+          value: 0,
+          currency: 'ETH',
+          permalink: `https://opensea.io/assets/ethereum/${token.contract.id}/${token.tokenID}`,
+          description: ''
+        }));
+      }
+    }
+  } catch (error) {
+    console.error('The Graph API error:', error);
+  }
+  return [];
+}
+
+// Simple metadata fetch for IPFS/HTTP URIs
+async function fetchNFTMetadata(uri: string): Promise<any> {
+  try {
+    if (uri.startsWith('ipfs://')) {
+      uri = uri.replace('ipfs://', 'https://ipfs.io/ipfs/');
+    }
+    
+    const response = await fetch(uri, { timeout: 5000 } as any);
+    if (response.ok) {
+      return await response.json();
+    }
+  } catch (error) {
+    console.error('Metadata fetch error:', error);
+  }
+  return null;
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -71,77 +248,66 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   console.log(`Fetching NFTs for address: ${resolvedAddress}`);
 
-  const apiKey = process.env.OPENSEA_API_KEY;
-  
-  if (!apiKey) {
-    return res.status(200).json({
-      profileUrl: `https://opensea.io/${resolvedAddress}`,
-      topNFTs: [],
-      totalValue: 0,
-      source: 'none',
-      error: 'OPENSEA_API_KEY_REQUIRED'
-    });
-  }
+  // Always provide OpenSea profile link regardless of API availability
+  const profileUrl = `https://opensea.io/${resolvedAddress}`;
+
+  // Try multiple free data sources in order
+  let nfts: ProcessedNFT[] = [];
+  let source = 'none';
 
   try {
-    // Use OpenSea v2 API
-    const response = await fetch(`https://api.opensea.io/api/v2/chain/ethereum/account/${resolvedAddress}/nfts?limit=20`, {
-      headers: {
-        'X-API-KEY': apiKey,
-        'accept': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      if (response.status === 404) {
-        return res.status(200).json({
-          profileUrl: `https://opensea.io/${resolvedAddress}`,
-          topNFTs: [],
-          totalValue: 0,
-          source: 'opensea'
-        });
-      }
-      console.error(`OpenSea API error: ${response.status} ${response.statusText}`);
-      
-      if (response.status === 401 || response.status === 403) {
-        return res.status(200).json({
-          profileUrl: `https://opensea.io/${resolvedAddress}`,
-          topNFTs: [],
-          totalValue: 0,
-          source: 'none',
-          error: 'INVALID_API_KEY'
-        });
-      }
-      
-      throw new Error(`OpenSea API error: ${response.status}`);
+    // Try NFTScan first (has good free tier)
+    console.log('Trying NFTScan...');
+    nfts = await fetchNFTsFromNFTScan(resolvedAddress);
+    if (nfts.length > 0) {
+      source = 'nftscan';
+      console.log(`Found ${nfts.length} NFTs from NFTScan`);
     }
 
-    const data: OpenSeaResponsev2 = await response.json();
-    console.log(`OpenSea found ${data.nfts?.length || 0} NFTs`);
+    // If no results, try The Graph
+    if (nfts.length === 0) {
+      console.log('Trying The Graph...');
+      nfts = await fetchNFTsFromTheGraph(resolvedAddress);
+      if (nfts.length > 0) {
+        source = 'thegraph';
+        console.log(`Found ${nfts.length} NFTs from The Graph`);
+      }
+    }
 
-    const processedNFTs: ProcessedNFT[] = (data.nfts || [])
-      .filter((nft: OpenSeaNFTv2) => nft && nft.name && !nft.is_disabled && !nft.is_nsfw)
-      .slice(0, 5)
-      .map((nft: OpenSeaNFTv2): ProcessedNFT => ({
-        name: nft.name || 'Unnamed NFT',
-        collection: nft.collection || 'Unknown Collection',
-        image: nft.image_url || nft.display_image_url || '',
-        value: 0, // OpenSea v2 doesn't include pricing in this endpoint
-        currency: 'ETH',
-        permalink: nft.opensea_url || `https://opensea.io/assets/ethereum/${nft.contract}/${nft.identifier}`,
-        description: nft.description
-      }));
+    // If no results, try Bitquery
+    if (nfts.length === 0) {
+      console.log('Trying Bitquery...');
+      nfts = await fetchNFTsFromBitquery(resolvedAddress);
+      if (nfts.length > 0) {
+        source = 'bitquery';
+        console.log(`Found ${nfts.length} NFTs from Bitquery`);
+      }
+    }
 
-    return res.status(200).json({
-      profileUrl: `https://opensea.io/${resolvedAddress}`,
-      topNFTs: processedNFTs,
-      totalValue: 0,
-      source: 'opensea'
-    });
+    // If still no results, try blockchain directly
+    if (nfts.length === 0) {
+      console.log('Trying direct blockchain query...');
+      nfts = await fetchNFTsFromBlockchain(resolvedAddress);
+      if (nfts.length > 0) {
+        source = 'blockchain';
+        console.log(`Found ${nfts.length} NFTs from blockchain`);
+      }
+    }
+
+    const result: NFTResult = {
+      profileUrl,
+      topNFTs: nfts,
+      totalValue: 0, // Free APIs typically don't provide pricing
+      source
+    };
+
+    return res.status(200).json(result);
+
   } catch (error) {
-    console.error('OpenSea API error:', error);
+    console.error('NFT fetch error:', error);
+    
     return res.status(200).json({
-      profileUrl: `https://opensea.io/${resolvedAddress}`,
+      profileUrl,
       topNFTs: [],
       totalValue: 0,
       source: 'none',

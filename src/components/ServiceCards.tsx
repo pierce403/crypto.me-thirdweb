@@ -591,9 +591,9 @@ export const OpenSeaCard: React.FC<ServiceCardProps> = ({ address }) => {
             <Box p={4} bg="blue.50" borderRadius="md" borderWidth="1px" borderColor="blue.200">
               <VStack align="start" gap={3}>
                 <VStack align="start" gap={1}>
-                  <Text fontWeight="bold" color="blue.600">OpenSea API Available</Text>
+                  <Text fontWeight="bold" color="blue.600">Fetching NFT Data...</Text>
                   <Text fontSize="sm" color="blue.500">
-                    Configure OPENSEA_API_KEY to display NFT collections and metadata from OpenSea.
+                    Searching multiple free NFT data sources for this address.
                   </Text>
                 </VStack>
                 <Link href={data.profileUrl} target="_blank" color="blue.500" fontSize="sm">
@@ -602,12 +602,12 @@ export const OpenSeaCard: React.FC<ServiceCardProps> = ({ address }) => {
               </VStack>
             </Box>
           ) : data.error === 'INVALID_API_KEY' ? (
-            <Box p={4} bg="orange.50" borderRadius="md" borderWidth="1px" borderColor="orange.200">
+            <Box p={4} bg="gray.50" borderRadius="md" borderWidth="1px" borderColor="gray.200">
               <VStack align="start" gap={3}>
                 <VStack align="start" gap={1}>
-                  <Text fontWeight="bold" color="orange.600">Invalid OpenSea API Key</Text>
-                  <Text fontSize="sm" color="orange.500">
-                    Please check your OPENSEA_API_KEY configuration. You may need to request a new API key.
+                  <Text fontWeight="bold" color="gray.600">NFT Data Unavailable</Text>
+                  <Text fontSize="sm" color="gray.500">
+                    Unable to fetch NFT data from available sources. This may be temporary.
                   </Text>
                 </VStack>
                 <Link href={data.profileUrl} target="_blank" color="blue.500" fontSize="sm">
@@ -643,7 +643,15 @@ export const OpenSeaCard: React.FC<ServiceCardProps> = ({ address }) => {
             <Heading size="md">NFT Collection</Heading>
             {data?.source && (
               <Text fontSize="xs" color="gray.500">
-                Powered by {data.source === 'opensea' ? 'OpenSea' : data.source === 'alchemy' ? 'Alchemy' : 'Multiple Sources'}
+                Powered by {
+                  data.source === 'opensea' ? 'OpenSea' : 
+                  data.source === 'alchemy' ? 'Alchemy' : 
+                  data.source === 'nftscan' ? 'NFTScan' :
+                  data.source === 'thegraph' ? 'The Graph' :
+                  data.source === 'bitquery' ? 'Bitquery' :
+                  data.source === 'blockchain' ? 'Blockchain' :
+                  'Multiple Sources'
+                }
               </Text>
             )}
           </VStack>
