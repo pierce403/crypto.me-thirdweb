@@ -124,7 +124,7 @@ async function backgroundFetchRealData(address: string): Promise<void> {
             }
           } else {
             let serviceErrorMessage = `Service returned ${response.status}`;
-            let errorName = `HTTPError${response.status}`;
+            const errorName = `HTTPError${response.status}`;
             try {
               const errorData = await response.json();
               if (errorData.error) { // Assuming error structure like { error: "message" }
@@ -134,7 +134,7 @@ async function backgroundFetchRealData(address: string): Promise<void> {
               } else if (errorData.message && typeof errorData.message === 'string') {
                 serviceErrorMessage = errorData.message;
               }
-            } catch (e) {
+            } catch (_e) {
               // Failed to parse error JSON, stick with the status code message
             }
             addRecentUpdateEvent({ 
