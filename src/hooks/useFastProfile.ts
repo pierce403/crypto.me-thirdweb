@@ -20,6 +20,8 @@ interface UseFastProfileOptions {
   pollInterval?: number; // How often to check for updates (default: 30 seconds)
   initialPollDelay?: number; // Initial delay before first poll (default: 10 seconds)
   enablePolling?: boolean; // Whether to enable automatic polling (default: true)
+  minPollInterval?: number; // Minimum interval between polls (default: 10 seconds)
+  maxPollInterval?: number; // Maximum interval between polls (default: 5 minutes)
 }
 
 export function useFastProfile(
@@ -29,7 +31,9 @@ export function useFastProfile(
   const {
     pollInterval = 30000, // 30 seconds
     initialPollDelay = 10000, // 10 seconds
-    enablePolling = true
+    enablePolling = true,
+    minPollInterval = 10000, // 10 seconds minimum
+    maxPollInterval = 300000 // 5 minutes maximum
   } = options;
 
   const [data, setData] = useState<FastProfileData | null>(null);
@@ -37,14 +41,64 @@ export function useFastProfile(
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<string | null>(null);
   
-  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const pollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastPollRef = useRef<number>(0);
+  const consecutiveErrorsRef = useRef<number>(0);
+  const currentIntervalRef = useRef<number>(pollInterval);
+
+  // Calculate next poll interval with exponential backoff on errors
+  const getNextPollInterval = useCallback(() => {
+    if (consecutiveErrorsRef.current === 0) {
+      return Math.max(pollInterval, minPollInterval);
+    }
+    
+    // Exponential backoff: base interval * 2^errors, capped at max
+    const backoffInterval = pollInterval * Math.pow(2, Math.min(consecutiveErrorsRef.current, 5));
+    return Math.min(Math.max(backoffInterval, minPollInterval), maxPollInterval);
+  }, [pollInterval, minPollInterval, maxPollInterval]);
+
+  const scheduleNextPoll = useCallback(() => {
+    if (!enablePolling || !address) return;
+
+    // Clear existing timeout
+    if (pollTimeoutRef.current) {
+      clearTimeout(pollTimeoutRef.current);
+    }
+
+    const nextInterval = getNextPollInterval();
+    currentIntervalRef.current = nextInterval;
+
+    console.log(`🔄 Scheduling next poll in ${nextInterval / 1000}s (errors: ${consecutiveErrorsRef.current})`);
+
+    pollTimeoutRef.current = setTimeout(() => {
+      // Double-check minimum time has passed since last poll
+      const timeSinceLastPoll = Date.now() - lastPollRef.current;
+      if (timeSinceLastPoll >= minPollInterval) {
+        fetchData(true);
+      } else {
+        // Reschedule after remaining time
+        const remainingTime = minPollInterval - timeSinceLastPoll;
+        console.log(`⏰ Delaying poll by ${remainingTime}ms to respect minimum interval`);
+        pollTimeoutRef.current = setTimeout(() => fetchData(true), remainingTime);
+      }
+    }, nextInterval);
+  }, [enablePolling, address, getNextPollInterval, minPollInterval]);
 
   const fetchData = useCallback(async (isPolling = false) => {
     if (!address) return;
 
+    // Prevent too frequent polling
+    const timeSinceLastPoll = Date.now() - lastPollRef.current;
+    if (isPolling && timeSinceLastPoll < minPollInterval) {
+      console.log(`🚫 Skipping poll - only ${timeSinceLastPoll}ms since last poll (min: ${minPollInterval}ms)`);
+      scheduleNextPoll();
+      return;
+    }
+
     try {
       if (!isPolling) setLoading(true);
+      
+      console.log(`📡 Fetching profile data for ${address} (polling: ${isPolling})`);
       
       const response = await fetch(`/api/fast-profile?address=${address}`);
       const result = await response.json();
@@ -53,72 +107,92 @@ export function useFastProfile(
         throw new Error(result.error || 'Failed to fetch profile');
       }
       
+      // Reset error counter on success
+      consecutiveErrorsRef.current = 0;
+      
       // Always update on initial load, or if we got newer data during polling
       if (!isPolling || !data || result.lastContentUpdate !== lastUpdate) {
         setData(result);
         setLastUpdate(result.lastContentUpdate);
         setError(null);
+        console.log(`✅ Updated profile data for ${address}`);
+      } else {
+        console.log(`📄 No new data for ${address}`);
       }
       
       lastPollRef.current = Date.now();
       
+      // Schedule next poll if this was a polling request
+      if (isPolling) {
+        scheduleNextPoll();
+      }
+      
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      console.error('Failed to fetch fast profile:', errorMessage);
+      console.error('❌ Failed to fetch fast profile:', errorMessage);
+      
+      // Increment error counter for backoff
+      consecutiveErrorsRef.current++;
       
       if (!isPolling) {
         setError(errorMessage);
       }
+      
+      // Schedule next poll with backoff if this was a polling request
+      if (isPolling) {
+        scheduleNextPoll();
+      }
     } finally {
       if (!isPolling) setLoading(false);
     }
-  }, [address, data, lastUpdate]);
+  }, [address, data, lastUpdate, minPollInterval, scheduleNextPoll]);
 
   // Initial load
   useEffect(() => {
     if (address) {
+      console.log(`🚀 Initial load for ${address}`);
       setLoading(true);
       setError(null);
       setData(null);
       setLastUpdate(null);
+      consecutiveErrorsRef.current = 0;
+      lastPollRef.current = 0;
       fetchData(false);
     }
   }, [address, fetchData]);
 
   // Polling setup
   useEffect(() => {
-    if (!address || !enablePolling) return;
-
-    // Clear existing interval
-    if (pollIntervalRef.current) {
-      clearInterval(pollIntervalRef.current);
+    if (!address || !enablePolling) {
+      // Clear any existing timeout
+      if (pollTimeoutRef.current) {
+        clearTimeout(pollTimeoutRef.current);
+        pollTimeoutRef.current = null;
+      }
+      return;
     }
 
-    // Set up polling with initial delay
-    const startPolling = () => {
-      pollIntervalRef.current = setInterval(() => {
-        // Don't poll too frequently
-        const timeSinceLastPoll = Date.now() - lastPollRef.current;
-        if (timeSinceLastPoll >= pollInterval - 1000) {
-          fetchData(true);
-        }
-      }, pollInterval);
-    };
+    console.log(`⏱️  Setting up polling for ${address} with ${initialPollDelay / 1000}s initial delay`);
 
-    // Start polling after initial delay
-    const delayTimeout = setTimeout(startPolling, initialPollDelay);
+    // Start first poll after initial delay
+    const initialTimeout = setTimeout(() => {
+      fetchData(true);
+    }, initialPollDelay);
 
     return () => {
-      clearTimeout(delayTimeout);
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
+      clearTimeout(initialTimeout);
+      if (pollTimeoutRef.current) {
+        clearTimeout(pollTimeoutRef.current);
+        pollTimeoutRef.current = null;
       }
     };
-  }, [address, enablePolling, pollInterval, initialPollDelay, fetchData]);
+  }, [address, enablePolling, initialPollDelay, fetchData]);
 
   // Manual refresh function
   const refresh = useCallback(() => {
     if (address) {
+      console.log(`🔄 Manual refresh triggered for ${address}`);
+      consecutiveErrorsRef.current = 0; // Reset backoff on manual refresh
       fetchData(false);
     }
   }, [address, fetchData]);
@@ -141,6 +215,8 @@ export function useFastProfile(
       loadTime: data?.loadTime || 0,
       lastUpdate: lastUpdate || null,
       cacheStatus: data?.cacheStatus || 'miss',
+      nextPollIn: pollTimeoutRef.current ? currentIntervalRef.current : null,
+      errorCount: consecutiveErrorsRef.current,
     };
   }, [data, lastUpdate]);
 
