@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createMocks, createRequest, createResponse } from 'node-mocks-http';
+import { createMocks } from 'node-mocks-http';
 import handler from '../fast-profile'; // Adjust path if needed
 import { PrismaClient } from '@prisma/client';
 

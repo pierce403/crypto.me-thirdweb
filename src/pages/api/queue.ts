@@ -1,6 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import {
-  profileCache,
   globalFetchLock,
   recentUpdatesLog,
   // CacheEntry, // Removed unused import
@@ -30,15 +29,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     // This might catch fetches initiated but not yet in globalFetchLock or vice-versa depending on exact logic flow
     // For simplicity, let's stick to globalFetchLock for "actively being fetched by a promise"
     // and profileCache's backgroundFetchInProgress for "marked as fetching"
-    
-    profileCache.forEach((cacheEntry, address) => {
-        if (cacheEntry.backgroundFetchInProgress) {
-            // Avoid duplicates if already listed from globalFetchLock
-            if (!currentlyFetching.some(item => item.address === address)) {
-                currentlyFetching.push({ address });
-            }
-        }
-    });
+    // profileCache has been removed, so the iteration below is no longer needed.
+    // globalFetchLock is now the sole source for "currentlyFetching".
 
     const updatesToShow = recentUpdatesLog.slice(0, 10); // Show 10 most recent
 

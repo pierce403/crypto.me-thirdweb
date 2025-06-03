@@ -162,7 +162,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       where: { address: normalizedAddress },
     });
 
-    let servicesData: FastProfileData['services'] = {};
+    const servicesData: FastProfileData['services'] = {};
     let allServicesFresh = true;
     let lastContentUpdate: Date | null = null;
 
@@ -225,7 +225,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     });
 
     // Fallback to default structure if database access fails
-    let fallbackServicesData: FastProfileData['services'] = {};
+    const fallbackServicesData: FastProfileData['services'] = {};
     SERVICES_CONFIG.forEach(sc => {
         fallbackServicesData[sc.name as keyof typeof fallbackServicesData] = sc.defaultData;
     });
