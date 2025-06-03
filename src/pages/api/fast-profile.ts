@@ -1,155 +1,65 @@
 import { NextApiRequest, NextApiResponse } from 'next';
+import { PrismaClient } from '@prisma/client';
 import {
-  profileCache,
   globalFetchLock,
-  CACHE_TTL,
-  BACKGROUND_FETCH_COOLDOWN,
-  MIN_FETCH_INTERVAL,
   addRecentUpdateEvent,
   FastProfileData, // Import FastProfileData from the shared store
-  CacheEntry
 } from '../../lib/cacheStore';
 
-// The FastProfileData interface is now imported from cacheStore, so it can be removed from here.
-// interface FastProfileData { ... }
+const prisma = new PrismaClient();
 
-// Simple in-memory cache, global fetch lock, and constants are now imported from cacheStore.
-// const profileCache = new Map<string, { ... }>();
-// const globalFetchLock = new Map<string, Promise<void>>();
-// const CACHE_TTL = ...;
-// const BACKGROUND_FETCH_COOLDOWN = ...;
-// const MIN_FETCH_INTERVAL = ...;
+const SERVICES_CONFIG = [
+  { name: 'ens', defaultData: {}, url: (address: string) => `/api/services/ens?address=${address}` },
+  { name: 'farcaster', defaultData: null, url: (address: string) => `/api/services/farcaster?address=${address}` },
+  { name: 'opensea', defaultData: {}, url: (address: string) => `/api/services/opensea?address=${address}` },
+  { name: 'icebreaker', defaultData: null, url: (address: string) => `/api/services/icebreaker?address=${address}` },
+  { name: 'gitcoin-passport', defaultData: {}, url: (address: string) => `/api/services/gitcoin-passport?address=${address}` },
+  { name: 'decentraland', defaultData: {}, url: (address: string) => `/api/services/decentraland?address=${address}` },
+];
 
-// Mock instant data (simulating what would come from database)
-function getInstantProfileData(address: string): FastProfileData {
-  // This function now returns FastProfileData from cacheStore
-  return {
-    address: address.toLowerCase(),
-    services: {
-      ens: {
-        primaryName: address.endsWith('.eth') ? address : null,
-        avatar: null,
-        otherNames: [],
-        profileUrl: `https://app.ens.domains/name/${address}`,
-        lastUpdated: new Date().toISOString(),
-      },
-      farcaster: null, // Will be populated by background fetch
-      opensea: {
-        profileUrl: `https://opensea.io/${address}`,
-        topNFTs: [],
-        totalValue: 0,
-        lastUpdated: new Date().toISOString(),
-      },
-      icebreaker: null, // Will be populated by background fetch
-      'gitcoin-passport': {
-        score: 0,
-        stamps: [],
-        lastUpdated: new Date().toISOString(),
-        trustLevel: 'Unknown',
-        error: 'NO_API_ACCESS',
-      },
-      decentraland: {
-        profileUrl: `https://market.decentraland.org/accounts/${address}`,
-        avatar: null,
-        landParcels: 0,
-        wearables: 0,
-        lastActive: null,
-        lastUpdated: new Date().toISOString(),
-      },
-    },
-    lastContentUpdate: new Date().toISOString(),
-    cacheStatus: 'partial',
-    source: 'instant-cache',
-    loadTime: 0,
-  };
-}
-
-// Background fetch to populate real data with proper rate limiting
 async function backgroundFetchRealData(address: string): Promise<void> {
   const normalizedAddress = address.toLowerCase();
-  const now = Date.now();
   
   if (globalFetchLock.has(normalizedAddress)) {
-    // console.log(`🚫 Background fetch already in progress for ${address}`); // Logging handled by addRecentUpdateEvent
     return;
   }
 
-  const cached = profileCache.get(normalizedAddress);
-  if (!cached) {
-    // console.log(`❌ No cache entry found for ${address}, skipping background fetch`);
-    addRecentUpdateEvent({ address: normalizedAddress, status: 'fetch_failed', message: 'No cache entry found for background fetch' });
-    return;
-  }
-
-  const timeSinceLastFetch = now - (cached.lastBackgroundFetch || 0);
-  if (timeSinceLastFetch < MIN_FETCH_INTERVAL) {
-    // console.log(`⏰ Skipping background fetch for ${address} ...`);
-    return;
-  }
-  
   addRecentUpdateEvent({ address: normalizedAddress, status: 'fetch_started' });
-  cached.backgroundFetchInProgress = true;
-  cached.lastBackgroundFetch = now;
-
   const fetchPromise = (async () => {
     try {
-      // console.log(`🔄 Starting background fetch for ${address}`); // Logged above
-      const services = [
-        { name: 'ens', url: `/api/services/ens?address=${address}` },
-        { name: 'farcaster', url: `/api/services/farcaster?address=${address}` },
-        { name: 'icebreaker', url: `/api/services/icebreaker?address=${address}` },
-      ];
-
-      for (const service of services) {
+      for (const service of SERVICES_CONFIG) {
         try {
-          // Use VERCEL_URL in production, fallback to localhost in dev
           const baseUrl =
             process.env.NEXT_PUBLIC_BASE_URL ||
             (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 10000);
           
-          const response = await fetch(`${baseUrl}${service.url}`, {
+          const response = await fetch(`${baseUrl}${service.url(address)}`, {
             signal: controller.signal,
             headers: { 'User-Agent': 'CryptoMe-FastProfile/1.0' }
           });
           clearTimeout(timeoutId);
           
+          const now = new Date();
+          const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours expiry
+
           if (response.ok) {
             const data = await response.json();
-            if (service.name === 'farcaster') {
-              console.log(`[fast-profile:debug] Received Farcaster data for ${normalizedAddress}:`, JSON.stringify(data, null, 2));
-            }
-            const currentCached = profileCache.get(normalizedAddress);
-            if (currentCached) {
-              if (service.name === 'farcaster') {
-                console.log(`[fast-profile:debug] currentCached.data.services before Farcaster update for ${normalizedAddress}:`, JSON.stringify(currentCached.data.services, null, 2));
-              }
-              currentCached.data.services[service.name as keyof typeof currentCached.data.services] = data;
-              currentCached.data.lastContentUpdate = new Date().toISOString();
-              currentCached.data.cacheStatus = 'hit'; // Or determine if still partial
-              currentCached.timestamp = Date.now();
-              if (service.name === 'farcaster') {
-                console.log(`[fast-profile:debug] currentCached.data.services after Farcaster update for ${normalizedAddress}:`, JSON.stringify(currentCached.data.services, null, 2));
-              }
-              addRecentUpdateEvent({ address: normalizedAddress, status: 'service_updated', serviceName: service.name });
-            } else {
-              // This case should ideally not happen if cache was populated before background fetch
-              console.error(`[fast-profile:error] Cache miss for ${normalizedAddress} during background update for service ${service.name}. Data not stored.`);
-              addRecentUpdateEvent({ 
-                address: normalizedAddress, 
-                status: 'service_failed', 
-                serviceName: service.name, 
-                message: 'Internal cache miss during background update',
-                errorName: 'CacheMissError'
-              });
-            }
+            const serviceDataJson = JSON.stringify(data);
+
+            await prisma.service_cache.upsert({
+              where: { address_service: { address: normalizedAddress, service: service.name } },
+              update: { data: serviceDataJson, last_updated: now, expires_at: expiresAt, error_count: 0, last_error: null },
+              create: { address: normalizedAddress, service: service.name, data: serviceDataJson, last_updated: now, expires_at: expiresAt },
+            });
+            addRecentUpdateEvent({ address: normalizedAddress, status: 'service_updated', serviceName: service.name });
           } else {
             let serviceErrorMessage = `Service returned ${response.status}`;
             const errorName = `HTTPError${response.status}`;
             try {
               const errorData = await response.json();
-              if (errorData.error) { // Assuming error structure like { error: "message" }
+              if (errorData.error) {
                 serviceErrorMessage = typeof errorData.error === 'string' ? errorData.error : JSON.stringify(errorData.error);
               } else if (typeof errorData === 'string') {
                 serviceErrorMessage = errorData;
@@ -157,8 +67,23 @@ async function backgroundFetchRealData(address: string): Promise<void> {
                 serviceErrorMessage = errorData.message;
               }
             } catch {
-              // Failed to parse error JSON, stick with the status code message
+              // Failed to parse error JSON
             }
+
+            const shortExpiry = new Date(now.getTime() + 1 * 60 * 60 * 1000); // 1 hour expiry on error
+            await prisma.service_cache.upsert({
+              where: { address_service: { address: normalizedAddress, service: service.name } },
+              update: { error_count: { increment: 1 }, last_error: serviceErrorMessage, expires_at: shortExpiry },
+              create: {
+                address: normalizedAddress,
+                service: service.name,
+                data: JSON.stringify(service.defaultData),
+                last_error: serviceErrorMessage,
+                error_count: 1,
+                expires_at: shortExpiry,
+                last_updated: now
+              },
+            });
             addRecentUpdateEvent({ 
               address: normalizedAddress, 
               status: 'service_failed', 
@@ -167,13 +92,29 @@ async function backgroundFetchRealData(address: string): Promise<void> {
               errorName: errorName
             });
           }
-          if (services.indexOf(service) < services.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
+          if (SERVICES_CONFIG.indexOf(service) < SERVICES_CONFIG.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Delay between service calls
           }
         } catch (error) {
           const err = error instanceof Error ? error : new Error('Unknown fetch error');
           const message = err.message;
           const errorName = err.name === 'AbortError' ? 'TimeoutError' : err.name;
+          const now = new Date();
+          const shortExpiry = new Date(now.getTime() + 1 * 60 * 60 * 1000); // 1 hour expiry on error
+
+          await prisma.service_cache.upsert({
+            where: { address_service: { address: normalizedAddress, service: service.name } },
+            update: { error_count: { increment: 1 }, last_error: message, expires_at: shortExpiry },
+            create: {
+              address: normalizedAddress,
+              service: service.name,
+              data: JSON.stringify(service.defaultData),
+              last_error: message,
+              error_count: 1,
+              expires_at: shortExpiry,
+              last_updated: now
+            },
+          });
           addRecentUpdateEvent({ 
             address: normalizedAddress, 
             status: 'service_failed', 
@@ -192,17 +133,13 @@ async function backgroundFetchRealData(address: string): Promise<void> {
         errorName: err.name 
       });
     } finally {
-      const finalCached = profileCache.get(normalizedAddress);
-      if (finalCached) {
-        finalCached.backgroundFetchInProgress = false;
-      }
       globalFetchLock.delete(normalizedAddress);
       addRecentUpdateEvent({ address: normalizedAddress, status: 'fetch_completed' });
     }
   })();
 
   globalFetchLock.set(normalizedAddress, fetchPromise);
-  await fetchPromise;
+  // Do not await fetchPromise here to allow background execution
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse<FastProfileData | { error: string }>) {
@@ -221,61 +158,62 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
   const normalizedAddress = address.toLowerCase();
 
   try {
-    const cached = profileCache.get(normalizedAddress);
-    const now = Date.now();
+    const cachedServices = await prisma.service_cache.findMany({
+      where: { address: normalizedAddress },
+    });
 
-    if (cached && (now - cached.timestamp) < CACHE_TTL) {
-      const loadTime = Date.now() - startTime;
-      const timeSinceLastBackground = now - (cached.lastBackgroundFetch || 0);
-      const shouldTriggerBackground = !cached.backgroundFetchInProgress && 
-                                    !globalFetchLock.has(normalizedAddress) &&
-                                    timeSinceLastBackground > BACKGROUND_FETCH_COOLDOWN;
-      
-      if (shouldTriggerBackground) {
-        // addRecentUpdateEvent({ address: normalizedAddress, status: 'fetch_started', message: 'Triggering background refresh from cache hit' }); // Logged in backgroundFetchRealData
-        backgroundFetchRealData(normalizedAddress).catch(err => {
-          const errorInstance = err instanceof Error ? err : new Error(String(err));
-          addRecentUpdateEvent({ 
-            address: normalizedAddress, 
-            status: 'fetch_failed', 
-            message: `Background refresh error: ${errorInstance.message}`,
-            errorName: errorInstance.name
-          });
-        });
+    let servicesData: FastProfileData['services'] = {};
+    let allServicesFresh = true;
+    let lastContentUpdate: Date | null = null;
+
+    for (const serviceConfig of SERVICES_CONFIG) {
+      const cachedEntry = cachedServices.find(cs => cs.service === serviceConfig.name);
+      if (cachedEntry) {
+        try {
+          servicesData[serviceConfig.name as keyof typeof servicesData] = JSON.parse(cachedEntry.data as string);
+        } catch (e) {
+          console.error(`[fast-profile:error] Failed to parse JSON for ${serviceConfig.name} for address ${normalizedAddress}:`, e);
+          servicesData[serviceConfig.name as keyof typeof servicesData] = serviceConfig.defaultData;
+          // Potentially mark this specific service as stale or log an error to be surfaced
+        }
+
+        if (cachedEntry.last_updated && (!lastContentUpdate || cachedEntry.last_updated > lastContentUpdate)) {
+          lastContentUpdate = cachedEntry.last_updated;
+        }
+        if (!cachedEntry.expires_at || new Date(cachedEntry.expires_at) < new Date()) {
+          allServicesFresh = false;
+        }
+      } else {
+        servicesData[serviceConfig.name as keyof typeof servicesData] = serviceConfig.defaultData;
+        allServicesFresh = false;
       }
-      return res.status(200).json({
-        ...cached.data,
-        source: 'memory-cache',
-        loadTime,
+    }
+
+    const cacheStatus = allServicesFresh ? 'hit' : (cachedServices.length > 0 ? 'partial' : 'miss');
+    const source = allServicesFresh ? 'database-cache' : (cachedServices.length > 0 ? 'database-partial-cache' : 'initial');
+    
+    const responseData: FastProfileData = {
+      address: normalizedAddress,
+      services: servicesData,
+      lastContentUpdate: lastContentUpdate?.toISOString() || new Date(0).toISOString(), // Use epoch if no updates yet
+      cacheStatus,
+      source,
+      loadTime: Date.now() - startTime,
+    };
+
+    if (!allServicesFresh) {
+      backgroundFetchRealData(normalizedAddress).catch(err => {
+        const errorInstance = err instanceof Error ? err : new Error(String(err));
+        addRecentUpdateEvent({
+          address: normalizedAddress,
+          status: 'fetch_failed',
+          message: `Background fetch trigger error: ${errorInstance.message}`,
+          errorName: errorInstance.name
+        });
       });
     }
 
-    const instantData = getInstantProfileData(normalizedAddress);
-    const loadTime = Date.now() - startTime;
-    
-    const newCacheEntry: CacheEntry = {
-        data: instantData,
-        timestamp: now,
-        backgroundFetchInProgress: false, // Will be set true by backgroundFetchRealData
-        lastBackgroundFetch: 0, // Will be set by backgroundFetchRealData
-    };
-    profileCache.set(normalizedAddress, newCacheEntry);
-    
-    // addRecentUpdateEvent({ address: normalizedAddress, status: 'fetch_started', message: 'Initial fetch' }); // Logged in backgroundFetchRealData
-    backgroundFetchRealData(normalizedAddress).catch(err => {
-      const errorInstance = err instanceof Error ? err : new Error(String(err));
-      addRecentUpdateEvent({ 
-        address: normalizedAddress, 
-        status: 'fetch_failed', 
-        message: `Initial background fetch error: ${errorInstance.message}`,
-        errorName: errorInstance.name
-      });
-    });
-
-    return res.status(200).json({
-      ...instantData,
-      loadTime,
-    });
+    return res.status(200).json(responseData);
 
   } catch (error) {
     const errorInstance = error instanceof Error ? error : new Error(String(error));
@@ -285,12 +223,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       message: `Handler error: ${errorInstance.message}`,
       errorName: errorInstance.name
     });
-    const fallbackData = getInstantProfileData(normalizedAddress);
-    return res.status(200).json({
-      ...fallbackData,
-      source: 'fallback',
-      error: 'Cache temporarily unavailable', // Consider more specific error
+
+    // Fallback to default structure if database access fails
+    let fallbackServicesData: FastProfileData['services'] = {};
+    SERVICES_CONFIG.forEach(sc => {
+        fallbackServicesData[sc.name as keyof typeof fallbackServicesData] = sc.defaultData;
+    });
+
+    return res.status(500).json({ // Changed to 500 for actual errors
+      address: normalizedAddress,
+      services: fallbackServicesData,
+      lastContentUpdate: new Date(0).toISOString(),
+      cacheStatus: 'miss',
+      source: 'error-fallback',
       loadTime: Date.now() - startTime,
+      error: `Failed to retrieve profile: ${errorInstance.message}`,
     });
   }
-} 
+}

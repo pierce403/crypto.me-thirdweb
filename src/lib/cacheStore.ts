@@ -15,19 +15,7 @@ export interface FastProfileData {
   error?: string; // Optional error field
 }
 
-export interface CacheEntry {
-  data: FastProfileData;
-  timestamp: number; 
-  backgroundFetchInProgress: boolean;
-  lastBackgroundFetch: number;
-}
-
-export const profileCache = new Map<string, CacheEntry>();
 export const globalFetchLock = new Map<string, Promise<void>>();
-
-export const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-export const BACKGROUND_FETCH_COOLDOWN = 30 * 1000; // 30 seconds between background fetches
-export const MIN_FETCH_INTERVAL = 10 * 1000; // 10 seconds minimum between ANY fetches for same address
 
 // For the queue endpoint - recent updates log
 export interface RecentUpdateEvent {
