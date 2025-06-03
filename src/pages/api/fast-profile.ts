@@ -35,6 +35,7 @@ async function backgroundFetchRealData(address: string): Promise<void> {
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 10000);
           
+          console.log(`[fast-profile:debug:${normalizedAddress}] Fetching service: ${service.name}, URL: ${baseUrl}${service.url(address)}`);
           const response = await fetch(`${baseUrl}${service.url(address)}`, {
             signal: controller.signal,
             headers: { 'User-Agent': 'CryptoMe-FastProfile/1.0' }
@@ -46,8 +47,10 @@ async function backgroundFetchRealData(address: string): Promise<void> {
 
           if (response.ok) {
             const data = await response.json();
+            console.log(`[fast-profile:debug:${normalizedAddress}] Service ${service.name} OK. Raw data: ${JSON.stringify(data, null, 2)}`);
             const serviceDataJson = JSON.stringify(data);
 
+            console.log(`[fast-profile:debug:${normalizedAddress}] Service ${service.name} OK. Upserting to DB: data length ${serviceDataJson.length}, expires_at: ${expiresAt.toISOString()}`);
             await prisma.service_cache.upsert({
               where: { address_service: { address: normalizedAddress, service: service.name } },
               update: { data: serviceDataJson, last_updated: now, expires_at: expiresAt, error_count: 0, last_error: null },
@@ -57,6 +60,7 @@ async function backgroundFetchRealData(address: string): Promise<void> {
           } else {
             let serviceErrorMessage = `Service returned ${response.status}`;
             const errorName = `HTTPError${response.status}`;
+            console.log(`[fast-profile:error:${normalizedAddress}] Service ${service.name} failed. Status: ${response.status}, Message: ${serviceErrorMessage}`);
             try {
               const errorData = await response.json();
               if (errorData.error) {
@@ -70,6 +74,7 @@ async function backgroundFetchRealData(address: string): Promise<void> {
               // Failed to parse error JSON
             }
 
+            console.log(`[fast-profile:error:${normalizedAddress}] Service ${service.name} failed. Upserting error to DB with default data: ${JSON.stringify(service.defaultData)}, last_error: ${serviceErrorMessage}`);
             const shortExpiry = new Date(now.getTime() + 1 * 60 * 60 * 1000); // 1 hour expiry on error
             await prisma.service_cache.upsert({
               where: { address_service: { address: normalizedAddress, service: service.name } },
@@ -97,11 +102,14 @@ async function backgroundFetchRealData(address: string): Promise<void> {
           }
         } catch (error) {
           const err = error instanceof Error ? error : new Error('Unknown fetch error');
+          const err = error instanceof Error ? error : new Error('Unknown fetch error');
           const message = err.message;
           const errorName = err.name === 'AbortError' ? 'TimeoutError' : err.name;
+          console.error(`[fast-profile:error:${normalizedAddress}] Service ${service.name} exception during fetch/processing: ${err.message}`, err);
           const now = new Date();
           const shortExpiry = new Date(now.getTime() + 1 * 60 * 60 * 1000); // 1 hour expiry on error
 
+          console.log(`[fast-profile:error:${normalizedAddress}] Service ${service.name} exception. Upserting error to DB with default data: ${JSON.stringify(service.defaultData)}, last_error: ${message}`);
           await prisma.service_cache.upsert({
             where: { address_service: { address: normalizedAddress, service: service.name } },
             update: { error_count: { increment: 1 }, last_error: message, expires_at: shortExpiry },
@@ -156,11 +164,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
   }
 
   const normalizedAddress = address.toLowerCase();
+  console.log(`[fast-profile:info] Handler invoked for address: ${normalizedAddress}`);
 
   try {
     const cachedServices = await prisma.service_cache.findMany({
       where: { address: normalizedAddress },
     });
+    console.log(`[fast-profile:debug:${normalizedAddress}] Found in DB cache: ${JSON.stringify(cachedServices, null, 2)}`);
 
     const servicesData: FastProfileData['services'] = {};
     let allServicesFresh = true;
@@ -213,10 +223,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       });
     }
 
+    console.log(`[fast-profile:debug:${normalizedAddress}] Returning responseData: ${JSON.stringify(responseData, null, 2)}`);
     return res.status(200).json(responseData);
 
   } catch (error) {
     const errorInstance = error instanceof Error ? error : new Error(String(error));
+    console.error(`[fast-profile:critical:${normalizedAddress}] Main handler error: ${errorInstance.message}. Returning error fallback.`, errorInstance);
     addRecentUpdateEvent({ 
       address: normalizedAddress, 
       status: 'fetch_failed', 
@@ -230,14 +242,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
         fallbackServicesData[sc.name as keyof typeof fallbackServicesData] = sc.defaultData;
     });
 
-    return res.status(500).json({ // Changed to 500 for actual errors
+    const errorResponseData = {
       address: normalizedAddress,
       services: fallbackServicesData,
       lastContentUpdate: new Date(0).toISOString(),
-      cacheStatus: 'miss',
+      cacheStatus: 'miss' as 'miss',
       source: 'error-fallback',
       loadTime: Date.now() - startTime,
       error: `Failed to retrieve profile: ${errorInstance.message}`,
-    });
+    };
+    console.log(`[fast-profile:debug:${normalizedAddress}] Error fallback responseData: ${JSON.stringify(errorResponseData, null, 2)}`);
+
+    return res.status(500).json(errorResponseData);
   }
 }
