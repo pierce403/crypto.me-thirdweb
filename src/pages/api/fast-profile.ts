@@ -102,7 +102,6 @@ async function backgroundFetchRealData(address: string): Promise<void> {
           }
         } catch (error) {
           const err = error instanceof Error ? error : new Error('Unknown fetch error');
-          const err = error instanceof Error ? error : new Error('Unknown fetch error');
           const message = err.message;
           const errorName = err.name === 'AbortError' ? 'TimeoutError' : err.name;
           console.error(`[fast-profile:error:${normalizedAddress}] Service ${service.name} exception during fetch/processing: ${err.message}`, err);
