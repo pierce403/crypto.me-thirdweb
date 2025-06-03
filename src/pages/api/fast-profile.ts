@@ -245,7 +245,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       address: normalizedAddress,
       services: fallbackServicesData,
       lastContentUpdate: new Date(0).toISOString(),
-      cacheStatus: 'miss' as 'miss',
+      cacheStatus: 'miss',
       source: 'error-fallback',
       loadTime: Date.now() - startTime,
       error: `Failed to retrieve profile: ${errorInstance.message}`,
