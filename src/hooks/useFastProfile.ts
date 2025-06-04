@@ -164,6 +164,59 @@ export function useFastProfile(
     }
   }, [address, fetchData]);
 
+  // Manual refresh function for individual services
+  const refreshService = useCallback(async (serviceName: string) => {
+    if (!address) return;
+    
+    console.log(`🔄 Manual refresh triggered for service ${serviceName} on ${address}`);
+    
+    try {
+      const baseUrl =
+        process.env.NEXT_PUBLIC_BASE_URL ||
+        (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+      
+      // Find the service config
+      const SERVICES_CONFIG = [
+        { name: 'ens', url: (addr: string) => `/api/services/ens?address=${addr}` },
+        { name: 'farcaster', url: (addr: string) => `/api/services/farcaster?address=${addr}` },
+        { name: 'alchemy', url: (addr: string) => `/api/services/alchemy?address=${addr}` },
+        { name: 'opensea', url: (addr: string) => `/api/services/opensea?address=${addr}` },
+        { name: 'debank', url: (addr: string) => `/api/services/debank?address=${addr}` },
+        { name: 'icebreaker', url: (addr: string) => `/api/services/icebreaker?address=${addr}` },
+        { name: 'gitcoin-passport', url: (addr: string) => `/api/services/gitcoin-passport?address=${addr}` },
+        { name: 'decentraland', url: (addr: string) => `/api/services/decentraland?address=${addr}` },
+      ];
+      
+      const serviceConfig = SERVICES_CONFIG.find(s => s.name === serviceName);
+      if (!serviceConfig) {
+        console.error(`Service ${serviceName} not found`);
+        return;
+      }
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      
+      const serviceUrl = serviceConfig.url(address);
+      console.log(`[refresh-service:${serviceName}] Fetching URL: ${baseUrl}${serviceUrl}`);
+      
+      const response = await fetch(`${baseUrl}${serviceUrl}`, {
+        signal: controller.signal,
+        headers: { 'User-Agent': 'CryptoMe-ManualRefresh/1.0' }
+      });
+      clearTimeout(timeoutId);
+      
+      if (response.ok) {
+        console.log(`[refresh-service:${serviceName}] Success`);
+        // Refresh the full profile to get updated data
+        fetchData(false);
+      } else {
+        console.error(`[refresh-service:${serviceName}] Failed with status ${response.status}`);
+      }
+    } catch (error) {
+      console.error(`[refresh-service:${serviceName}] Error:`, error);
+    }
+  }, [address, fetchData]);
+
   // Helper to get service data
   const getServiceData = useCallback((service: string) => {
     const result = data?.services?.[service as keyof typeof data.services] || null;
@@ -214,6 +267,7 @@ export function useFastProfile(
     error,
     lastUpdate,
     refresh,
+    refreshService,
     getServiceData,
     getServiceError,
     getServiceTimestamp,

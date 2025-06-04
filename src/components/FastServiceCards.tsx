@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Text, VStack, HStack, Badge, Link, Skeleton, Image as ChakraImage } from '@chakra-ui/react';
+import { Box, Text, VStack, HStack, Badge, Link, Skeleton, Image as ChakraImage, Button, IconButton } from '@chakra-ui/react';
 import Image from 'next/image';
 
 interface ServiceCardProps {
@@ -14,6 +14,7 @@ interface ServiceCardProps {
     lastAttempt: string;
   } | null;
   lastUpdated?: string | null;
+  onRefresh?: () => void;
 }
 
 const ServiceCard: React.FC<ServiceCardProps> = ({ 
@@ -23,7 +24,8 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
   icon, 
   description,
   error,
-  lastUpdated
+  lastUpdated,
+  onRefresh
 }) => {
   const isEmpty = !data || (typeof data === 'object' && Object.keys(data).length === 0);
 
@@ -41,6 +43,36 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
     if (diffHours < 24) return `${diffHours}h ago`;
     if (diffDays < 7) return `${diffDays}d ago`;
     return date.toLocaleDateString();
+  };
+
+  const getStatusMessage = () => {
+    if (loading) return 'Loading...';
+    
+    if (error && isEmpty) {
+      return `Failed: ${error.lastError}`;
+    }
+    
+    if (error && !isEmpty) {
+      return `Last update failed: ${error.lastError}`;
+    }
+    
+    if (lastUpdated) {
+      return `Successfully updated ${formatLastUpdated(lastUpdated)}`;
+    }
+    
+    if (isEmpty) {
+      return 'No data available';
+    }
+    
+    return 'Data loaded successfully';
+  };
+
+  const getStatusColor = () => {
+    if (loading) return 'gray.500';
+    if (error && isEmpty) return 'red.600';
+    if (error && !isEmpty) return 'orange.600';
+    if (lastUpdated || !isEmpty) return 'green.600';
+    return 'gray.500';
   };
 
   const renderContent = () => {
@@ -197,19 +229,23 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
         
         {/* Status footer - always shown */}
         <Box borderTop="1px solid" borderColor="gray.100" pt={2} mt={2}>
-          <Text fontSize="xs" color="gray.500" textAlign="center">
-            {loading ? 
-              'Loading...' : 
-            error && isEmpty ? 
-              `Failed ${formatLastUpdated(error.lastAttempt)}` :
-            error && !isEmpty ?
-              `Updated ${formatLastUpdated(lastUpdated || null)} (has errors)` :
-            lastUpdated ? 
-              `Updated ${formatLastUpdated(lastUpdated)}` : 
-            isEmpty ?
-              'No data available' :
-              'Data loaded'}
-          </Text>
+          <VStack gap={2}>
+            <Text fontSize="xs" color={getStatusColor()} textAlign="center">
+              {getStatusMessage()}
+            </Text>
+            {onRefresh && (
+              <Button 
+                size="xs" 
+                variant="outline" 
+                colorScheme="blue"
+                onClick={onRefresh}
+                disabled={loading}
+                width="100%"
+              >
+                {loading ? 'Refreshing...' : 'Refresh'}
+              </Button>
+            )}
+          </VStack>
         </Box>
       </VStack>
     </Box>
@@ -841,8 +877,9 @@ export const FastENSCard: React.FC<{
   loading?: boolean; 
   lastUpdated?: string | null;
   error?: { lastError: string; errorCount: number; lastAttempt: string } | null;
-}> = ({ data, loading, lastUpdated, error }) => (
-  <ServiceCard data={data} loading={loading} serviceName="ENS" icon="🏷️" lastUpdated={lastUpdated} error={error} />
+  onRefresh?: () => void;
+}> = ({ data, loading, lastUpdated, error, onRefresh }) => (
+  <ServiceCard data={data} loading={loading} serviceName="ENS" icon="🏷️" lastUpdated={lastUpdated} error={error} onRefresh={onRefresh} />
 );
 
 export const FastFarcasterCard: React.FC<{ 
@@ -850,8 +887,9 @@ export const FastFarcasterCard: React.FC<{
   loading?: boolean; 
   lastUpdated?: string | null;
   error?: { lastError: string; errorCount: number; lastAttempt: string } | null;
-}> = ({ data, loading, lastUpdated, error }) => (
-  <ServiceCard data={data} loading={loading} serviceName="Farcaster" icon="🟣" lastUpdated={lastUpdated} error={error} />
+  onRefresh?: () => void;
+}> = ({ data, loading, lastUpdated, error, onRefresh }) => (
+  <ServiceCard data={data} loading={loading} serviceName="Farcaster" icon="🟣" lastUpdated={lastUpdated} error={error} onRefresh={onRefresh} />
 );
 
 export const FastAlchemyCard: React.FC<{ 
@@ -859,8 +897,9 @@ export const FastAlchemyCard: React.FC<{
   loading?: boolean; 
   lastUpdated?: string | null;
   error?: { lastError: string; errorCount: number; lastAttempt: string } | null;
-}> = ({ data, loading, lastUpdated, error }) => (
-  <ServiceCard data={data} loading={loading} serviceName="Alchemy" icon="⚗️" lastUpdated={lastUpdated} error={error} />
+  onRefresh?: () => void;
+}> = ({ data, loading, lastUpdated, error, onRefresh }) => (
+  <ServiceCard data={data} loading={loading} serviceName="Alchemy" icon="⚗️" lastUpdated={lastUpdated} error={error} onRefresh={onRefresh} />
 );
 
 export const FastOpenSeaCard: React.FC<{ 
@@ -868,8 +907,9 @@ export const FastOpenSeaCard: React.FC<{
   loading?: boolean; 
   lastUpdated?: string | null;
   error?: { lastError: string; errorCount: number; lastAttempt: string } | null;
-}> = ({ data, loading, lastUpdated, error }) => (
-  <ServiceCard data={data} loading={loading} serviceName="OpenSea" icon="🌊" lastUpdated={lastUpdated} error={error} />
+  onRefresh?: () => void;
+}> = ({ data, loading, lastUpdated, error, onRefresh }) => (
+  <ServiceCard data={data} loading={loading} serviceName="OpenSea" icon="🌊" lastUpdated={lastUpdated} error={error} onRefresh={onRefresh} />
 );
 
 export const FastIcebreakerCard: React.FC<{ 
@@ -877,8 +917,9 @@ export const FastIcebreakerCard: React.FC<{
   loading?: boolean; 
   lastUpdated?: string | null;
   error?: { lastError: string; errorCount: number; lastAttempt: string } | null;
-}> = ({ data, loading, lastUpdated, error }) => (
-  <ServiceCard data={data} loading={loading} serviceName="Icebreaker" icon="🧊" lastUpdated={lastUpdated} error={error} />
+  onRefresh?: () => void;
+}> = ({ data, loading, lastUpdated, error, onRefresh }) => (
+  <ServiceCard data={data} loading={loading} serviceName="Icebreaker" icon="🧊" lastUpdated={lastUpdated} error={error} onRefresh={onRefresh} />
 );
 
 export const FastHumanPassportCard: React.FC<{ 
@@ -886,8 +927,9 @@ export const FastHumanPassportCard: React.FC<{
   loading?: boolean; 
   lastUpdated?: string | null;
   error?: { lastError: string; errorCount: number; lastAttempt: string } | null;
-}> = ({ data, loading, lastUpdated, error }) => (
-  <ServiceCard data={data} loading={loading} serviceName="Human Passport" icon="🎫" lastUpdated={lastUpdated} error={error} />
+  onRefresh?: () => void;
+}> = ({ data, loading, lastUpdated, error, onRefresh }) => (
+  <ServiceCard data={data} loading={loading} serviceName="Human Passport" icon="🎫" lastUpdated={lastUpdated} error={error} onRefresh={onRefresh} />
 );
 
 export const FastDecentralandCard: React.FC<{ 
@@ -895,8 +937,9 @@ export const FastDecentralandCard: React.FC<{
   loading?: boolean; 
   lastUpdated?: string | null;
   error?: { lastError: string; errorCount: number; lastAttempt: string } | null;
-}> = ({ data, loading, lastUpdated, error }) => (
-  <ServiceCard data={data} loading={loading} serviceName="Decentraland" icon="🏗️" lastUpdated={lastUpdated} error={error} />
+  onRefresh?: () => void;
+}> = ({ data, loading, lastUpdated, error, onRefresh }) => (
+  <ServiceCard data={data} loading={loading} serviceName="Decentraland" icon="🏗️" lastUpdated={lastUpdated} error={error} onRefresh={onRefresh} />
 );
 
 export const FastDeBankCard: React.FC<{ 
@@ -904,6 +947,7 @@ export const FastDeBankCard: React.FC<{
   loading?: boolean; 
   lastUpdated?: string | null;
   error?: { lastError: string; errorCount: number; lastAttempt: string } | null;
-}> = ({ data, loading, lastUpdated, error }) => (
-  <ServiceCard data={data} loading={loading} serviceName="DeBank" icon="💰" lastUpdated={lastUpdated} error={error} />
+  onRefresh?: () => void;
+}> = ({ data, loading, lastUpdated, error, onRefresh }) => (
+  <ServiceCard data={data} loading={loading} serviceName="DeBank" icon="💰" lastUpdated={lastUpdated} error={error} onRefresh={onRefresh} />
 ); 

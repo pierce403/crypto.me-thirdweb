@@ -81,6 +81,7 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
     loading,
     error,
     refresh,
+    refreshService,
     getCacheStats,
     hasAnyData,
     getServiceTimestamp,
@@ -238,48 +239,56 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
                 loading={false} 
                 lastUpdated={getServiceTimestamp('ens')}
                 error={getServiceError('ens')}
+                onRefresh={() => refreshService('ens')}
               />
               <FastFarcasterCard 
                 data={farcaster} 
                 loading={false} 
                 lastUpdated={getServiceTimestamp('farcaster')}
                 error={getServiceError('farcaster')}
+                onRefresh={() => refreshService('farcaster')}
               />
               <FastAlchemyCard 
                 data={alchemy} 
                 loading={false} 
                 lastUpdated={getServiceTimestamp('alchemy')}
                 error={getServiceError('alchemy')}
+                onRefresh={() => refreshService('alchemy')}
               />
               <FastOpenSeaCard 
                 data={opensea} 
                 loading={false} 
                 lastUpdated={getServiceTimestamp('opensea')}
                 error={getServiceError('opensea')}
+                onRefresh={() => refreshService('opensea')}
               />
               <FastDeBankCard 
                 data={debank} 
                 loading={false} 
                 lastUpdated={getServiceTimestamp('debank')}
                 error={getServiceError('debank')}
+                onRefresh={() => refreshService('debank')}
               />
               <FastIcebreakerCard 
                 data={icebreaker} 
                 loading={false} 
                 lastUpdated={getServiceTimestamp('icebreaker')}
                 error={getServiceError('icebreaker')}
+                onRefresh={() => refreshService('icebreaker')}
               />
               <FastHumanPassportCard 
                 data={gitcoinPassport} 
                 loading={false} 
                 lastUpdated={getServiceTimestamp('gitcoin-passport')}
                 error={getServiceError('gitcoin-passport')}
+                onRefresh={() => refreshService('gitcoin-passport')}
               />
               <FastDecentralandCard 
                 data={decentraland} 
                 loading={false} 
                 lastUpdated={getServiceTimestamp('decentraland')}
                 error={getServiceError('decentraland')}
+                onRefresh={() => refreshService('decentraland')}
               />
             </SimpleGrid>
           </>
