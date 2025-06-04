@@ -49,11 +49,12 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
     if (loading) return 'Loading...';
     
     if (error && isEmpty) {
-      return 'Service failed';
+      return 'Service unavailable';
     }
     
     if (error && !isEmpty) {
-      return 'Last update had issues';
+      // Show when data was last successfully updated, even if recent update failed
+      return lastUpdated ? `Data from ${formatLastUpdated(lastUpdated)}` : 'Using cached data';
     }
     
     if (lastUpdated) {
