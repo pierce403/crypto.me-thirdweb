@@ -210,26 +210,20 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
         <HStack gap={2} align="center">
           <Text fontSize="lg">{icon || '🔧'}</Text>
           <Text fontWeight="bold" color="gray.700">{serviceName}</Text>
-          {error && (
-            <Badge colorScheme="yellow" variant="subtle" fontSize="xs">
-              Recent Error
-            </Badge>
-          )}
         </HStack>
-        
-        {error && (
-          <Box p={2} bg="yellow.50" borderRadius="md" border="1px solid" borderColor="yellow.200">
-            <Text fontSize="xs" color="yellow.800">
-              ⚠️ Last error: {error.lastError}
-            </Text>
-          </Box>
-        )}
         
         {renderContent()}
         
         {/* Status footer - always shown */}
         <Box borderTop="1px solid" borderColor="gray.100" pt={2} mt={2}>
           <VStack gap={2}>
+            {error && (
+              <Box p={2} bg="yellow.50" borderRadius="md" border="1px solid" borderColor="yellow.200" width="100%">
+                <Text fontSize="xs" color="yellow.800">
+                  ⚠️ Last error: {error.lastError}
+                </Text>
+              </Box>
+            )}
             <Text fontSize="xs" color={getStatusColor()} textAlign="center">
               {getStatusMessage()}
             </Text>
