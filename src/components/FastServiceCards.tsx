@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Text, VStack, HStack, Badge, Link, Skeleton, Image as ChakraImage, Button, IconButton } from '@chakra-ui/react';
+import { Box, Text, VStack, HStack, Badge, Link, Skeleton, Image as ChakraImage, Button } from '@chakra-ui/react';
 import Image from 'next/image';
 
 interface ServiceCardProps {
