@@ -83,6 +83,8 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
     refresh,
     getCacheStats,
     hasAnyData,
+    getServiceTimestamp,
+    getServiceError,
     // Individual service data
     ens,
     farcaster,
@@ -231,14 +233,54 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
 
             <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={6}>
               {/* Always show cards with data, never show loading state for individual cards since we have instant cache */}
-              <FastENSCard data={ens} loading={false} />
-              <FastFarcasterCard data={farcaster} loading={false} />
-              <FastAlchemyCard data={alchemy} loading={false} />
-              <FastOpenSeaCard data={opensea} loading={false} />
-              <FastDeBankCard data={debank} loading={false} />
-              <FastIcebreakerCard data={icebreaker} loading={false} />
-              <FastHumanPassportCard data={gitcoinPassport} loading={false} />
-              <FastDecentralandCard data={decentraland} loading={false} />
+              <FastENSCard 
+                data={ens} 
+                loading={false} 
+                lastUpdated={getServiceTimestamp('ens')}
+                error={getServiceError('ens')}
+              />
+              <FastFarcasterCard 
+                data={farcaster} 
+                loading={false} 
+                lastUpdated={getServiceTimestamp('farcaster')}
+                error={getServiceError('farcaster')}
+              />
+              <FastAlchemyCard 
+                data={alchemy} 
+                loading={false} 
+                lastUpdated={getServiceTimestamp('alchemy')}
+                error={getServiceError('alchemy')}
+              />
+              <FastOpenSeaCard 
+                data={opensea} 
+                loading={false} 
+                lastUpdated={getServiceTimestamp('opensea')}
+                error={getServiceError('opensea')}
+              />
+              <FastDeBankCard 
+                data={debank} 
+                loading={false} 
+                lastUpdated={getServiceTimestamp('debank')}
+                error={getServiceError('debank')}
+              />
+              <FastIcebreakerCard 
+                data={icebreaker} 
+                loading={false} 
+                lastUpdated={getServiceTimestamp('icebreaker')}
+                error={getServiceError('icebreaker')}
+              />
+              <FastHumanPassportCard 
+                data={gitcoinPassport} 
+                loading={false} 
+                lastUpdated={getServiceTimestamp('gitcoin-passport')}
+                error={getServiceError('gitcoin-passport')}
+              />
+              <FastDecentralandCard 
+                data={decentraland} 
+                loading={false} 
+                lastUpdated={getServiceTimestamp('decentraland')}
+                error={getServiceError('decentraland')}
+              />
             </SimpleGrid>
           </>
         )}

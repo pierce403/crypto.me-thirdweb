@@ -12,6 +12,16 @@ interface FastProfileData {
     'gitcoin-passport'?: Record<string, unknown> | null;
     decentraland?: Record<string, unknown> | null;
   };
+  serviceErrors?: {
+    [serviceName: string]: {
+      lastError: string;
+      errorCount: number;
+      lastAttempt: string;
+    };
+  };
+  serviceTimestamps?: {
+    [serviceName: string]: string;
+  };
   lastContentUpdate: string;
   cacheStatus: 'hit' | 'miss' | 'partial';
   source: string;
@@ -161,6 +171,20 @@ export function useFastProfile(
     return result;
   }, [data]);
 
+  // Helper to get service error info
+  const getServiceError = useCallback((service: string) => {
+    const result = data?.serviceErrors?.[service] || null;
+    console.log(`🔍 getServiceError("${service}"):`, result);
+    return result;
+  }, [data]);
+
+  // Helper to get service timestamp
+  const getServiceTimestamp = useCallback((service: string) => {
+    const result = data?.serviceTimestamps?.[service] || null;
+    console.log(`🔍 getServiceTimestamp("${service}"):`, result);
+    return result;
+  }, [data]);
+
   // Helper to check if any service has data
   const hasAnyData = useCallback(() => {
     if (!data?.services) {
@@ -191,6 +215,8 @@ export function useFastProfile(
     lastUpdate,
     refresh,
     getServiceData,
+    getServiceError,
+    getServiceTimestamp,
     hasAnyData,
     getCacheStats,
     

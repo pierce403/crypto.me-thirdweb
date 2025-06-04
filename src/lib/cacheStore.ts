@@ -5,9 +5,20 @@ export interface FastProfileData {
     farcaster?: Record<string, unknown> | null;
     alchemy?: Record<string, unknown> | null;
     opensea?: Record<string, unknown> | null;
+    debank?: Record<string, unknown> | null;
     icebreaker?: Record<string, unknown> | null;
     'gitcoin-passport'?: Record<string, unknown> | null;
     decentraland?: Record<string, unknown> | null;
+  };
+  serviceErrors?: {
+    [serviceName: string]: {
+      lastError: string;
+      errorCount: number;
+      lastAttempt: string;
+    };
+  };
+  serviceTimestamps?: {
+    [serviceName: string]: string;
   };
   lastContentUpdate: string;
   cacheStatus: 'hit' | 'miss' | 'partial';

@@ -8,6 +8,12 @@ interface ServiceCardProps {
   serviceName: string;
   icon?: string;
   description?: string;
+  error?: {
+    lastError: string;
+    errorCount: number;
+    lastAttempt: string;
+  } | null;
+  lastUpdated?: string | null;
 }
 
 const ServiceCard: React.FC<ServiceCardProps> = ({ 
@@ -15,9 +21,27 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
   loading = false, 
   serviceName, 
   icon, 
-  description 
+  description,
+  error,
+  lastUpdated
 }) => {
   const isEmpty = !data || (typeof data === 'object' && Object.keys(data).length === 0);
+
+  const formatLastUpdated = (timestamp: string | null) => {
+    if (!timestamp) return null;
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffMinutes < 1) return 'Just now';
+    if (diffMinutes < 60) return `${diffMinutes}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
+  };
 
   const renderContent = () => {
     if (!data) return null;
@@ -31,14 +55,14 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
         return <AlchemyContent data={data} />;
       case 'OpenSea':
         return <OpenSeaContent data={data} />;
+      case 'DeBank':
+        return <DeBankContent data={data} />;
       case 'Icebreaker':
         return <IcebreakerContent data={data} />;
       case 'Human Passport':
         return <HumanPassportContent data={data} />;
       case 'Decentraland':
         return <DecentralandContent data={data} />;
-      case 'DeBank':
-        return <DeBankContent data={data} />;
       default:
         return null;
     }
@@ -64,6 +88,50 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
           <Skeleton height="20px" />
           <Skeleton height="20px" />
           <Skeleton height="60px" />
+        </VStack>
+      </Box>
+    );
+  }
+
+  // Show error state if there's an error and no data or empty data
+  if (error && isEmpty) {
+    return (
+      <Box 
+        p={4} 
+        borderWidth={1} 
+        borderRadius="lg" 
+        borderColor="red.200" 
+        bg="red.50" 
+        shadow="sm"
+        minH="200px"
+      >
+        <VStack gap={3} align="stretch">
+          <HStack gap={2} align="center">
+            <Text fontSize="lg">❌</Text>
+            <Text fontWeight="bold" color="red.700">{serviceName}</Text>
+            <Badge colorScheme="red" variant="subtle" fontSize="xs">
+              Error
+            </Badge>
+          </HStack>
+          
+          <Box p={3} bg="red.100" borderRadius="md" border="1px solid" borderColor="red.200">
+            <Text fontSize="sm" color="red.800" fontWeight="semibold">Service Error</Text>
+            <Text fontSize="xs" color="red.700" mt={1}>
+              {error.lastError}
+            </Text>
+            <Text fontSize="xs" color="red.600" mt={2}>
+              Last attempt: {new Date(error.lastAttempt).toLocaleString()}
+            </Text>
+            {error.errorCount > 1 && (
+              <Text fontSize="xs" color="red.600">
+                Failed {error.errorCount} times
+              </Text>
+            )}
+          </Box>
+          
+          <Text fontSize="xs" color="gray.500" textAlign="center">
+            Data will be retried automatically
+          </Text>
         </VStack>
       </Box>
     );
@@ -110,9 +178,31 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
         <HStack gap={2} align="center">
           <Text fontSize="lg">{icon || '🔧'}</Text>
           <Text fontWeight="bold" color="gray.700">{serviceName}</Text>
+          {error && (
+            <Badge colorScheme="yellow" variant="subtle" fontSize="xs">
+              Recent Error
+            </Badge>
+          )}
         </HStack>
         
+        {error && (
+          <Box p={2} bg="yellow.50" borderRadius="md" border="1px solid" borderColor="yellow.200">
+            <Text fontSize="xs" color="yellow.800">
+              ⚠️ Last error: {error.lastError}
+            </Text>
+          </Box>
+        )}
+        
         {renderContent()}
+        
+        {/* Last updated timestamp */}
+        {lastUpdated && (
+          <Box borderTop="1px solid" borderColor="gray.100" pt={2} mt={2}>
+            <Text fontSize="xs" color="gray.500" textAlign="center">
+              Updated {formatLastUpdated(lastUpdated)}
+            </Text>
+          </Box>
+        )}
       </VStack>
     </Box>
   );
@@ -738,34 +828,74 @@ const DeBankContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =>
 };
 
 // Export individual fast service cards
-export const FastENSCard: React.FC<{ data: Record<string, unknown> | null; loading?: boolean }> = ({ data, loading }) => (
-  <ServiceCard data={data} loading={loading} serviceName="ENS" icon="🏷️" />
+export const FastENSCard: React.FC<{ 
+  data: Record<string, unknown> | null; 
+  loading?: boolean; 
+  lastUpdated?: string | null;
+  error?: { lastError: string; errorCount: number; lastAttempt: string } | null;
+}> = ({ data, loading, lastUpdated, error }) => (
+  <ServiceCard data={data} loading={loading} serviceName="ENS" icon="🏷️" lastUpdated={lastUpdated} error={error} />
 );
 
-export const FastFarcasterCard: React.FC<{ data: Record<string, unknown> | null; loading?: boolean }> = ({ data, loading }) => (
-  <ServiceCard data={data} loading={loading} serviceName="Farcaster" icon="🟣" />
+export const FastFarcasterCard: React.FC<{ 
+  data: Record<string, unknown> | null; 
+  loading?: boolean; 
+  lastUpdated?: string | null;
+  error?: { lastError: string; errorCount: number; lastAttempt: string } | null;
+}> = ({ data, loading, lastUpdated, error }) => (
+  <ServiceCard data={data} loading={loading} serviceName="Farcaster" icon="🟣" lastUpdated={lastUpdated} error={error} />
 );
 
-export const FastAlchemyCard: React.FC<{ data: Record<string, unknown> | null; loading?: boolean }> = ({ data, loading }) => (
-  <ServiceCard data={data} loading={loading} serviceName="Alchemy" icon="⚗️" />
+export const FastAlchemyCard: React.FC<{ 
+  data: Record<string, unknown> | null; 
+  loading?: boolean; 
+  lastUpdated?: string | null;
+  error?: { lastError: string; errorCount: number; lastAttempt: string } | null;
+}> = ({ data, loading, lastUpdated, error }) => (
+  <ServiceCard data={data} loading={loading} serviceName="Alchemy" icon="⚗️" lastUpdated={lastUpdated} error={error} />
 );
 
-export const FastOpenSeaCard: React.FC<{ data: Record<string, unknown> | null; loading?: boolean }> = ({ data, loading }) => (
-  <ServiceCard data={data} loading={loading} serviceName="OpenSea" icon="🌊" />
+export const FastOpenSeaCard: React.FC<{ 
+  data: Record<string, unknown> | null; 
+  loading?: boolean; 
+  lastUpdated?: string | null;
+  error?: { lastError: string; errorCount: number; lastAttempt: string } | null;
+}> = ({ data, loading, lastUpdated, error }) => (
+  <ServiceCard data={data} loading={loading} serviceName="OpenSea" icon="🌊" lastUpdated={lastUpdated} error={error} />
 );
 
-export const FastIcebreakerCard: React.FC<{ data: Record<string, unknown> | null; loading?: boolean }> = ({ data, loading }) => (
-  <ServiceCard data={data} loading={loading} serviceName="Icebreaker" icon="🧊" />
+export const FastIcebreakerCard: React.FC<{ 
+  data: Record<string, unknown> | null; 
+  loading?: boolean; 
+  lastUpdated?: string | null;
+  error?: { lastError: string; errorCount: number; lastAttempt: string } | null;
+}> = ({ data, loading, lastUpdated, error }) => (
+  <ServiceCard data={data} loading={loading} serviceName="Icebreaker" icon="🧊" lastUpdated={lastUpdated} error={error} />
 );
 
-export const FastHumanPassportCard: React.FC<{ data: Record<string, unknown> | null; loading?: boolean }> = ({ data, loading }) => (
-  <ServiceCard data={data} loading={loading} serviceName="Human Passport" icon="🎫" />
+export const FastHumanPassportCard: React.FC<{ 
+  data: Record<string, unknown> | null; 
+  loading?: boolean; 
+  lastUpdated?: string | null;
+  error?: { lastError: string; errorCount: number; lastAttempt: string } | null;
+}> = ({ data, loading, lastUpdated, error }) => (
+  <ServiceCard data={data} loading={loading} serviceName="Human Passport" icon="🎫" lastUpdated={lastUpdated} error={error} />
 );
 
-export const FastDecentralandCard: React.FC<{ data: Record<string, unknown> | null; loading?: boolean }> = ({ data, loading }) => (
-  <ServiceCard data={data} loading={loading} serviceName="Decentraland" icon="🏗️" />
+export const FastDecentralandCard: React.FC<{ 
+  data: Record<string, unknown> | null; 
+  loading?: boolean; 
+  lastUpdated?: string | null;
+  error?: { lastError: string; errorCount: number; lastAttempt: string } | null;
+}> = ({ data, loading, lastUpdated, error }) => (
+  <ServiceCard data={data} loading={loading} serviceName="Decentraland" icon="🏗️" lastUpdated={lastUpdated} error={error} />
 );
 
-export const FastDeBankCard: React.FC<{ data: Record<string, unknown> | null; loading?: boolean }> = ({ data, loading }) => (
-  <ServiceCard data={data} loading={loading} serviceName="DeBank" icon="💰" />
+export const FastDeBankCard: React.FC<{ 
+  data: Record<string, unknown> | null; 
+  loading?: boolean; 
+  lastUpdated?: string | null;
+  error?: { lastError: string; errorCount: number; lastAttempt: string } | null;
+}> = ({ data, loading, lastUpdated, error }) => (
+  <ServiceCard data={data} loading={loading} serviceName="DeBank" icon="💰" lastUpdated={lastUpdated} error={error} />
 ); 

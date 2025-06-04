@@ -175,6 +175,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     console.log(`[fast-profile:debug:${normalizedAddress}] Found in DB cache: ${JSON.stringify(cachedServices, null, 2)}`);
 
     const servicesData: FastProfileData['services'] = {};
+    const serviceErrors: { [serviceName: string]: { lastError: string; errorCount: number; lastAttempt: string } } = {};
+    const serviceTimestamps: { [serviceName: string]: string } = {};
     let allServicesFresh = true;
     let lastContentUpdate: Date | null = null;
 
@@ -187,6 +189,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
           console.error(`[fast-profile:error] Failed to parse JSON for ${serviceConfig.name} for address ${normalizedAddress}:`, e);
           servicesData[serviceConfig.name as keyof typeof servicesData] = serviceConfig.defaultData;
           // Potentially mark this specific service as stale or log an error to be surfaced
+        }
+
+        // Include service timestamp
+        if (cachedEntry.last_updated) {
+          serviceTimestamps[serviceConfig.name] = cachedEntry.last_updated.toISOString();
+        }
+
+        // Include error information if present
+        if (cachedEntry.last_error && cachedEntry.error_count && cachedEntry.error_count > 0) {
+          serviceErrors[serviceConfig.name] = {
+            lastError: cachedEntry.last_error,
+            errorCount: cachedEntry.error_count,
+            lastAttempt: cachedEntry.last_updated?.toISOString() || new Date().toISOString()
+          };
         }
 
         if (cachedEntry.last_updated && (!lastContentUpdate || cachedEntry.last_updated > lastContentUpdate)) {
@@ -207,6 +223,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     const responseData: FastProfileData = {
       address: normalizedAddress,
       services: servicesData,
+      serviceErrors: Object.keys(serviceErrors).length > 0 ? serviceErrors : undefined,
+      serviceTimestamps: Object.keys(serviceTimestamps).length > 0 ? serviceTimestamps : undefined,
       lastContentUpdate: lastContentUpdate?.toISOString() || new Date(0).toISOString(), // Use epoch if no updates yet
       cacheStatus,
       source,
