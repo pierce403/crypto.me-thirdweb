@@ -31,9 +31,13 @@ async function backgroundFetchRealData(address: string, originalInput?: string):
     try {
       for (const service of SERVICES_CONFIG) {
         try {
-          const baseUrl =
-            process.env.NEXT_PUBLIC_BASE_URL ||
-            (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+          // Use the current domain for server-side calls
+          const baseUrl = process.env.VERCEL_URL 
+            ? `https://${process.env.VERCEL_URL}` 
+            : process.env.NODE_ENV === 'production' 
+              ? 'https://crypto-me-thirdweb.vercel.app'  // fallback production URL
+              : 'http://localhost:3000';
+              
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 10000);
           

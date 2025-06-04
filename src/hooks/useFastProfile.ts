@@ -171,10 +171,6 @@ export function useFastProfile(
     console.log(`🔄 Manual refresh triggered for service ${serviceName} on ${address}`);
     
     try {
-      const baseUrl =
-        process.env.NEXT_PUBLIC_BASE_URL ||
-        (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
-      
       // Find the service config
       const SERVICES_CONFIG = [
         { name: 'ens', url: (addr: string) => `/api/services/ens?address=${addr}` },
@@ -197,9 +193,10 @@ export function useFastProfile(
       const timeoutId = setTimeout(() => controller.abort(), 10000);
       
       const serviceUrl = serviceConfig.url(address);
-      console.log(`[refresh-service:${serviceName}] Fetching URL: ${baseUrl}${serviceUrl}`);
+      console.log(`[refresh-service:${serviceName}] Fetching URL: ${serviceUrl}`);
       
-      const response = await fetch(`${baseUrl}${serviceUrl}`, {
+      // Use relative URL - browser will automatically use current domain
+      const response = await fetch(serviceUrl, {
         signal: controller.signal,
         headers: { 'User-Agent': 'CryptoMe-ManualRefresh/1.0' }
       });
