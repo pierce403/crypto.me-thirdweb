@@ -13,12 +13,12 @@ const SERVICES_CONFIG = [
   { name: 'farcaster', defaultData: null, url: (address: string) => `/api/services/farcaster?address=${address}` },
   { name: 'alchemy', defaultData: { totalCount: 0, nfts: [], collections: {}, source: 'none' }, url: (address: string) => `/api/services/alchemy?address=${address}` },
   { name: 'opensea', defaultData: { profileUrl: '', topValuedNFTs: [], marketStats: { totalEstimatedValue: 0, totalFloorValue: 0, uniqueCollections: 0, totalNFTs: 0, topCollectionsByValue: [] }, portfolioSummary: { totalValue: 0, currency: 'ETH', lastUpdated: '' }, source: 'none' }, url: (address: string) => `/api/services/opensea?address=${address}` },
-  { name: 'icebreaker', defaultData: null, url: (address: string) => `/api/services/icebreaker?address=${address}` },
+  { name: 'icebreaker', defaultData: null, url: (address: string, originalInput?: string) => `/api/services/icebreaker?address=${originalInput || address}` },
   { name: 'gitcoin-passport', defaultData: {}, url: (address: string) => `/api/services/gitcoin-passport?address=${address}` },
   { name: 'decentraland', defaultData: {}, url: (address: string) => `/api/services/decentraland?address=${address}` },
 ];
 
-async function backgroundFetchRealData(address: string): Promise<void> {
+async function backgroundFetchRealData(address: string, originalInput?: string): Promise<void> {
   const normalizedAddress = address.toLowerCase();
   
   if (globalFetchLock.has(normalizedAddress)) {
@@ -36,8 +36,9 @@ async function backgroundFetchRealData(address: string): Promise<void> {
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 10000);
           
-          console.log(`[fast-profile:debug:${normalizedAddress}] Fetching service: ${service.name}, URL: ${baseUrl}${service.url(address)}`);
-          const response = await fetch(`${baseUrl}${service.url(address)}`, {
+          const serviceUrl = service.url(address, originalInput);
+          console.log(`[fast-profile:debug:${normalizedAddress}] Fetching service: ${service.name}, URL: ${baseUrl}${serviceUrl}`);
+          const response = await fetch(`${baseUrl}${serviceUrl}`, {
             signal: controller.signal,
             headers: { 'User-Agent': 'CryptoMe-FastProfile/1.0' }
           });
@@ -212,7 +213,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     };
 
     if (!allServicesFresh) {
-      backgroundFetchRealData(normalizedAddress).catch(err => {
+      backgroundFetchRealData(normalizedAddress, address).catch(err => {
         const errorInstance = err instanceof Error ? err : new Error(String(err));
         addRecentUpdateEvent({
           address: normalizedAddress,
