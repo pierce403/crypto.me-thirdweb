@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Text, VStack, HStack, Badge, Link, Image, Spinner } from '@chakra-ui/react';
+import { Box, Text, VStack, HStack, Badge, Link, Image, Spinner, Skeleton } from '@chakra-ui/react';
 
 interface ServiceCardProps {
   data: Record<string, unknown> | null;
@@ -16,33 +16,75 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
   icon, 
   description 
 }) => {
+  const isEmpty = !data || (typeof data === 'object' && Object.keys(data).length === 0);
+
+  const renderContent = () => {
+    if (!data) return null;
+
+    switch (serviceName) {
+      case 'ENS':
+        return <ENSContent data={data} />;
+      case 'Farcaster':
+        return <FarcasterContent data={data} />;
+      case 'Alchemy':
+        return <AlchemyContent data={data} />;
+      case 'OpenSea':
+        return <OpenSeaContent data={data} />;
+      case 'Icebreaker':
+        return <IcebreakerContent data={data} />;
+      case 'Human Passport':
+        return <HumanPassportContent data={data} />;
+      case 'Decentraland':
+        return <DecentralandContent data={data} />;
+      default:
+        return null;
+    }
+  };
+
   if (loading) {
     return (
-      <Box p={6} bg="white" borderRadius="lg" boxShadow="md" border="1px solid" borderColor="gray.200">
-        <VStack gap={4} align="stretch">
-          <HStack justify="space-between">
-            <HStack>
-              {icon && <Text fontSize="2xl">{icon}</Text>}
-              <Text fontSize="lg" fontWeight="bold" color="gray.800">{serviceName}</Text>
-            </HStack>
-            <Spinner size="sm" />
+      <Box 
+        p={4} 
+        borderWidth={1} 
+        borderRadius="lg" 
+        borderColor="gray.200" 
+        bg="white" 
+        shadow="sm"
+        minH="200px"
+      >
+        <VStack gap={3} align="stretch">
+          <HStack gap={2} align="center">
+            <Text fontSize="lg">{icon || '🔧'}</Text>
+            <Text fontWeight="bold" color="gray.700">{serviceName}</Text>
           </HStack>
-          <Text fontSize="sm" color="gray.600">Loading...</Text>
+          
+          <Skeleton height="20px" />
+          <Skeleton height="20px" />
+          <Skeleton height="60px" />
         </VStack>
       </Box>
     );
   }
 
-  if (!data) {
+  if (isEmpty) {
     return (
-      <Box p={6} bg="white" borderRadius="lg" boxShadow="md" border="1px solid" borderColor="gray.200">
-        <VStack gap={4} align="stretch">
-          <HStack>
-            {icon && <Text fontSize="2xl">{icon}</Text>}
-            <Text fontSize="lg" fontWeight="bold" color="gray.800">{serviceName}</Text>
+      <Box 
+        p={4} 
+        borderWidth={1} 
+        borderRadius="lg" 
+        borderColor="gray.200" 
+        bg="gray.50" 
+        shadow="sm"
+        minH="200px"
+      >
+        <VStack gap={3} align="stretch">
+          <HStack gap={2} align="center">
+            <Text fontSize="lg">{icon || '🔧'}</Text>
+            <Text fontWeight="bold" color="gray.400">{serviceName}</Text>
           </HStack>
-          <Text fontSize="sm" color="gray.500">
-            {description || `No ${serviceName.toLowerCase()} data available`}
+          
+          <Text fontSize="sm" color="gray.500" textAlign="center">
+            {description || 'No data available'}
           </Text>
         </VStack>
       </Box>
@@ -50,22 +92,24 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
   }
 
   return (
-    <Box p={6} bg="white" borderRadius="lg" boxShadow="md" border="1px solid" borderColor="gray.200">
-      <VStack gap={4} align="stretch">
-        <HStack justify="space-between">
-          <HStack>
-            {icon && <Text fontSize="2xl">{icon}</Text>}
-            <Text fontSize="lg" fontWeight="bold" color="gray.800">{serviceName}</Text>
-          </HStack>
-          <Badge colorScheme="green" size="sm">Active</Badge>
+    <Box 
+      p={4} 
+      borderWidth={1} 
+      borderRadius="lg" 
+      borderColor="gray.200" 
+      bg="white" 
+      shadow="sm"
+      minH="200px"
+      transition="all 0.2s"
+      _hover={{ shadow: "md", borderColor: "blue.300" }}
+    >
+      <VStack gap={3} align="stretch">
+        <HStack gap={2} align="center">
+          <Text fontSize="lg">{icon || '🔧'}</Text>
+          <Text fontWeight="bold" color="gray.700">{serviceName}</Text>
         </HStack>
         
-        {serviceName === 'ENS' && <ENSContent data={data} />}
-        {serviceName === 'Farcaster' && <FarcasterContent data={data} />}
-        {serviceName === 'OpenSea' && <OpenSeaContent data={data} />}
-        {serviceName === 'Icebreaker' && <IcebreakerContent data={data} />}
-        {serviceName === 'Human Passport' && <HumanPassportContent data={data} />}
-        {serviceName === 'Decentraland' && <DecentralandContent data={data} />}
+        {renderContent()}
       </VStack>
     </Box>
   );
@@ -195,46 +239,226 @@ const FarcasterContent: React.FC<{ data: Record<string, unknown> }> = ({ data })
   );
 };
 
-const OpenSeaContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) => {
-  const topNFTs = data.topNFTs as Array<{ name: string; image?: string; collection?: string }> | undefined;
-  const totalValue = data.totalValue as number | undefined;
-  const profileUrl = data.profileUrl as string | undefined;
+const AlchemyContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) => {
+  const totalCount = data.totalCount as number | undefined;
+  const nfts = data.nfts as Array<{ 
+    name: string; 
+    collection: string;
+    image?: string;
+    tokenId?: string;
+    contractAddress?: string;
+  }> | undefined;
+  const collections = data.collections as Record<string, { name: string; count: number }> | undefined;
   const source = data.source as string | undefined;
+  const error = data.error as string | undefined;
+
+  if (error === 'NO_API_KEY') {
+    return (
+      <VStack gap={3} align="stretch">
+        <Box p={3} bg="blue.50" borderRadius="md" border="1px solid" borderColor="blue.200">
+          <Text fontSize="sm" color="blue.800" fontWeight="semibold">API Key Required</Text>
+          <Text fontSize="xs" color="blue.700">
+            Add ALCHEMY_API_KEY to your environment to see real NFT metadata and collection information.
+          </Text>
+        </Box>
+        <Link href="https://alchemy.com" target="_blank" rel="noopener noreferrer" color="blue.500" fontSize="sm">
+          Get Alchemy API Key ↗
+        </Link>
+      </VStack>
+    );
+  }
 
   return (
     <VStack gap={3} align="stretch">
-      {totalValue !== undefined && totalValue > 0 && (
+      {totalCount !== undefined && totalCount > 0 && (
         <Box>
-          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Portfolio Value:</Text>
-          <Text fontSize="lg" fontWeight="bold" color="blue.600">{totalValue.toFixed(4)} ETH</Text>
+          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Total NFTs:</Text>
+          <Text fontSize="lg" fontWeight="bold" color="blue.600">{totalCount}</Text>
         </Box>
       )}
-      
-      {topNFTs && topNFTs.length > 0 && (
+
+      {collections && Object.keys(collections).length > 0 && (
         <Box>
-          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Top NFTs:</Text>
+          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Collections ({Object.keys(collections).length}):</Text>
           <VStack gap={1} align="stretch">
-            {topNFTs.slice(0, 3).map((nft, index) => (
-              <Text key={index} fontSize="sm" color="gray.700" truncate>
-                {nft.collection || 'Unknown'}: {nft.name}
-              </Text>
+            {Object.values(collections).slice(0, 3).map((collection, index) => (
+              <HStack key={index} justify="space-between">
+                <Text fontSize="sm" color="gray.700" truncate>{collection.name}</Text>
+                <Text fontSize="xs" color="gray.500">{collection.count}</Text>
+              </HStack>
             ))}
-            {topNFTs.length > 3 && (
-              <Text fontSize="xs" color="gray.500">+{topNFTs.length - 3} more NFTs</Text>
+            {Object.keys(collections).length > 3 && (
+              <Text fontSize="xs" color="gray.500" textAlign="center">+{Object.keys(collections).length - 3} more collections</Text>
+            )}
+          </VStack>
+        </Box>
+      )}
+
+      {nfts && nfts.length > 0 && (
+        <Box>
+          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Recent NFTs:</Text>
+          <VStack gap={2} align="stretch">
+            {nfts.slice(0, 3).map((nft, index) => (
+              <Box key={index} p={2} bg="gray.50" borderRadius="md" border="1px solid" borderColor="gray.200">
+                <HStack gap={2}>
+                  {nft.image && (
+                    <Box width="30px" height="30px" bg="gray.200" borderRadius="md" overflow="hidden">
+                      <img src={nft.image} alt={nft.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    </Box>
+                  )}
+                  <VStack align="start" gap={0} flex={1}>
+                    <Text fontSize="xs" fontWeight="semibold" color="gray.800" truncate>{nft.name}</Text>
+                    <Text fontSize="xs" color="gray.600" truncate>{nft.collection}</Text>
+                  </VStack>
+                </HStack>
+              </Box>
+            ))}
+            {nfts.length > 3 && (
+              <Text fontSize="xs" color="gray.500" textAlign="center">+{nfts.length - 3} more NFTs</Text>
             )}
           </VStack>
         </Box>
       )}
       
-      {source && (
-        <Text fontSize="xs" color="gray.500">Source: {source}</Text>
+      <HStack justify="space-between" align="center">
+        {source && source !== 'none' && (
+          <Text fontSize="xs" color="gray.500">Source: {source}</Text>
+        )}
+      </HStack>
+    </VStack>
+  );
+};
+
+const OpenSeaContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) => {
+  const topValuedNFTs = data.topValuedNFTs as Array<{ 
+    name: string; 
+    collection: string;
+    image?: string; 
+    floorPrice?: number;
+    estimatedValue?: number;
+    currency?: string;
+    permalink?: string;
+    rarity?: string;
+  }> | undefined;
+  const marketStats = data.marketStats as {
+    totalEstimatedValue?: number;
+    totalFloorValue?: number;
+    uniqueCollections?: number;
+    totalNFTs?: number;
+    topCollectionsByValue?: Array<{
+      name: string;
+      count: number;
+      floorPrice: number;
+      totalValue: number;
+    }>;
+  } | undefined;
+  const portfolioSummary = data.portfolioSummary as {
+    totalValue?: number;
+    currency?: string;
+  } | undefined;
+  const profileUrl = data.profileUrl as string | undefined;
+  const source = data.source as string | undefined;
+
+  return (
+    <VStack gap={3} align="stretch">
+      {portfolioSummary?.totalValue !== undefined && portfolioSummary.totalValue > 0 && (
+        <Box>
+          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Portfolio Value:</Text>
+          <HStack>
+            <Text fontSize="lg" fontWeight="bold" color="green.600">
+              {portfolioSummary.totalValue.toFixed(2)} {portfolioSummary.currency || 'ETH'}
+            </Text>
+          </HStack>
+        </Box>
+      )}
+
+      {marketStats && (
+        <HStack gap={4}>
+          {marketStats.uniqueCollections !== undefined && (
+            <Box>
+              <Text fontSize="xs" color="gray.600">Collections</Text>
+              <Text fontSize="lg" fontWeight="bold" color="blue.600">{marketStats.uniqueCollections}</Text>
+            </Box>
+          )}
+          {marketStats.totalNFTs !== undefined && (
+            <Box>
+              <Text fontSize="xs" color="gray.600">Total NFTs</Text>
+              <Text fontSize="lg" fontWeight="bold" color="purple.600">{marketStats.totalNFTs}</Text>
+            </Box>
+          )}
+        </HStack>
+      )}
+
+      {topValuedNFTs && topValuedNFTs.length > 0 && (
+        <Box>
+          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Top Valued NFTs:</Text>
+          <VStack gap={2} align="stretch">
+            {topValuedNFTs.slice(0, 3).map((nft, index) => (
+              <Box key={index} p={2} bg="gray.50" borderRadius="md" border="1px solid" borderColor="gray.200">
+                <HStack gap={2}>
+                  {nft.image && (
+                    <Box width="30px" height="30px" bg="gray.200" borderRadius="md" overflow="hidden">
+                      <img src={nft.image} alt={nft.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    </Box>
+                  )}
+                  <VStack align="start" gap={0} flex={1}>
+                    <Text fontSize="xs" fontWeight="semibold" color="gray.800" truncate>{nft.name}</Text>
+                    <Text fontSize="xs" color="gray.600" truncate>{nft.collection}</Text>
+                    {nft.estimatedValue && (
+                      <Text fontSize="xs" color="green.600" fontWeight="semibold">
+                        ~{nft.estimatedValue.toFixed(2)} {nft.currency || 'ETH'}
+                      </Text>
+                    )}
+                  </VStack>
+                  {nft.rarity && (
+                    <Badge size="sm" colorScheme={nft.rarity === 'Ultra Rare' ? 'purple' : nft.rarity === 'Rare' ? 'blue' : 'gray'}>
+                      {nft.rarity}
+                    </Badge>
+                  )}
+                </HStack>
+                {nft.permalink && (
+                  <Link href={nft.permalink} target="_blank" rel="noopener noreferrer" fontSize="xs" color="blue.500" mt={1}>
+                    View NFT ↗
+                  </Link>
+                )}
+              </Box>
+            ))}
+            {topValuedNFTs.length > 3 && (
+              <Text fontSize="xs" color="gray.500" textAlign="center">+{topValuedNFTs.length - 3} more NFTs</Text>
+            )}
+          </VStack>
+        </Box>
+      )}
+
+      {marketStats?.topCollectionsByValue && marketStats.topCollectionsByValue.length > 0 && (
+        <Box>
+          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Top Collections by Value:</Text>
+          <VStack gap={1} align="stretch">
+            {marketStats.topCollectionsByValue.slice(0, 3).map((collection, index) => (
+              <HStack key={index} justify="space-between">
+                <VStack align="start" gap={0}>
+                  <Text fontSize="xs" fontWeight="semibold" color="gray.800" truncate>{collection.name}</Text>
+                  <Text fontSize="xs" color="gray.600">{collection.count} NFTs</Text>
+                </VStack>
+                <Text fontSize="xs" color="green.600" fontWeight="semibold">
+                  {collection.totalValue.toFixed(1)} ETH
+                </Text>
+              </HStack>
+            ))}
+          </VStack>
+        </Box>
       )}
       
-      {profileUrl && (
-        <Link href={profileUrl} target="_blank" rel="noopener noreferrer" color="blue.500" fontSize="sm">
-          View on OpenSea ↗
-        </Link>
-      )}
+      <HStack justify="space-between" align="center">
+        {source && source !== 'none' && (
+          <Text fontSize="xs" color="gray.500">Source: {source}</Text>
+        )}
+        {profileUrl && (
+          <Link href={profileUrl} target="_blank" rel="noopener noreferrer" color="blue.500" fontSize="sm">
+            View on OpenSea ↗
+          </Link>
+        )}
+      </HStack>
     </VStack>
   );
 };
@@ -391,6 +615,10 @@ export const FastENSCard: React.FC<{ data: Record<string, unknown> | null; loadi
 
 export const FastFarcasterCard: React.FC<{ data: Record<string, unknown> | null; loading?: boolean }> = ({ data, loading }) => (
   <ServiceCard data={data} loading={loading} serviceName="Farcaster" icon="🟣" />
+);
+
+export const FastAlchemyCard: React.FC<{ data: Record<string, unknown> | null; loading?: boolean }> = ({ data, loading }) => (
+  <ServiceCard data={data} loading={loading} serviceName="Alchemy" icon="⚗️" />
 );
 
 export const FastOpenSeaCard: React.FC<{ data: Record<string, unknown> | null; loading?: boolean }> = ({ data, loading }) => (

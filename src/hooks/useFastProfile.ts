@@ -5,6 +5,7 @@ interface FastProfileData {
   services: {
     ens?: Record<string, unknown> | null;
     farcaster?: Record<string, unknown> | null;
+    alchemy?: Record<string, unknown> | null;
     opensea?: Record<string, unknown> | null;
     icebreaker?: Record<string, unknown> | null;
     'gitcoin-passport'?: Record<string, unknown> | null;
@@ -195,6 +196,7 @@ export function useFastProfile(
     // Individual service helpers
     ens: getServiceData('ens'),
     farcaster: getServiceData('farcaster'),
+    alchemy: getServiceData('alchemy'),
     opensea: getServiceData('opensea'),
     icebreaker: getServiceData('icebreaker'),
     gitcoinPassport: getServiceData('gitcoin-passport'),
