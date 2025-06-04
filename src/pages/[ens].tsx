@@ -10,6 +10,7 @@ import { useFastProfile } from '../hooks/useFastProfile';
 import { 
   FastENSCard, 
   FastFarcasterCard, 
+  FastAlchemyCard,
   FastOpenSeaCard, 
   FastIcebreakerCard, 
   FastHumanPassportCard, 
@@ -84,6 +85,7 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
     // Individual service data
     ens,
     farcaster,
+    alchemy,
     opensea,
     icebreaker,
     gitcoinPassport,
@@ -229,6 +231,7 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
               {/* Always show cards with data, never show loading state for individual cards since we have instant cache */}
               <FastENSCard data={ens} loading={false} />
               <FastFarcasterCard data={farcaster} loading={false} />
+              <FastAlchemyCard data={alchemy} loading={false} />
               <FastOpenSeaCard data={opensea} loading={false} />
               <FastIcebreakerCard data={icebreaker} loading={false} />
               <FastHumanPassportCard data={gitcoinPassport} loading={false} />
