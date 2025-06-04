@@ -49,11 +49,11 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
     if (loading) return 'Loading...';
     
     if (error && isEmpty) {
-      return `Failed: ${error.lastError}`;
+      return 'Service failed';
     }
     
     if (error && !isEmpty) {
-      return `Last update failed: ${error.lastError}`;
+      return 'Last update had issues';
     }
     
     if (lastUpdated) {
