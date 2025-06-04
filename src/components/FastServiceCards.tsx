@@ -1,5 +1,6 @@
 import React from 'react';
-import { Box, Text, VStack, HStack, Badge, Link, Image, Spinner, Skeleton } from '@chakra-ui/react';
+import { Box, Text, VStack, HStack, Badge, Link, Skeleton, Image as ChakraImage } from '@chakra-ui/react';
+import Image from 'next/image';
 
 interface ServiceCardProps {
   data: Record<string, unknown> | null;
@@ -133,7 +134,7 @@ const ENSContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) => {
       {avatar && (
         <Box>
           <Text fontSize="sm" fontWeight="semibold" color="gray.600">Avatar:</Text>
-          <Image src={avatar} alt="ENS Avatar" maxH="80px" borderRadius="md" />
+          <ChakraImage src={avatar} alt="ENS Avatar" maxH="80px" borderRadius="md" />
         </Box>
       )}
       
@@ -303,7 +304,7 @@ const AlchemyContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =
                 <HStack gap={2}>
                   {nft.image && (
                     <Box width="30px" height="30px" bg="gray.200" borderRadius="md" overflow="hidden">
-                      <img src={nft.image} alt={nft.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <Image src={nft.image} alt={nft.name} width={30} height={30} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </Box>
                   )}
                   <VStack align="start" gap={0} flex={1}>
@@ -398,7 +399,7 @@ const OpenSeaContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =
                 <HStack gap={2}>
                   {nft.image && (
                     <Box width="30px" height="30px" bg="gray.200" borderRadius="md" overflow="hidden">
-                      <img src={nft.image} alt={nft.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <Image src={nft.image} alt={nft.name} width={30} height={30} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </Box>
                   )}
                   <VStack align="start" gap={0} flex={1}>
