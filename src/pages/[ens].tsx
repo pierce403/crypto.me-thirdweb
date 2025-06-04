@@ -12,6 +12,7 @@ import {
   FastFarcasterCard, 
   FastAlchemyCard,
   FastOpenSeaCard, 
+  FastDeBankCard,
   FastIcebreakerCard, 
   FastHumanPassportCard, 
   FastDecentralandCard 
@@ -87,6 +88,7 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
     farcaster,
     alchemy,
     opensea,
+    debank,
     icebreaker,
     gitcoinPassport,
     decentraland,
@@ -233,6 +235,7 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
               <FastFarcasterCard data={farcaster} loading={false} />
               <FastAlchemyCard data={alchemy} loading={false} />
               <FastOpenSeaCard data={opensea} loading={false} />
+              <FastDeBankCard data={debank} loading={false} />
               <FastIcebreakerCard data={icebreaker} loading={false} />
               <FastHumanPassportCard data={gitcoinPassport} loading={false} />
               <FastDecentralandCard data={decentraland} loading={false} />

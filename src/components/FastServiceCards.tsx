@@ -37,6 +37,8 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
         return <HumanPassportContent data={data} />;
       case 'Decentraland':
         return <DecentralandContent data={data} />;
+      case 'DeBank':
+        return <DeBankContent data={data} />;
       default:
         return null;
     }
@@ -609,6 +611,132 @@ const DecentralandContent: React.FC<{ data: Record<string, unknown> }> = ({ data
   );
 };
 
+const DeBankContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) => {
+  const totalUSD = data.totalUSD as number | undefined;
+  const totalTokens = data.totalTokens as number | undefined;
+  const totalProtocols = data.totalProtocols as number | undefined;
+  const topTokens = data.topTokens as Array<{
+    symbol: string;
+    name: string;
+    amount: number;
+    usdValue: number;
+    price: number;
+    logoUrl?: string;
+  }> | undefined;
+  const protocolPositions = data.protocolPositions as Array<{
+    name: string;
+    category: string;
+    usdValue: number;
+    positionType: string;
+    logoUrl?: string;
+  }> | undefined;
+  const portfolioUrl = data.portfolioUrl as string | undefined;
+  const source = data.source as string | undefined;
+
+  return (
+    <VStack gap={3} align="stretch">
+      {totalUSD !== undefined && totalUSD > 0 && (
+        <Box>
+          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Portfolio Value:</Text>
+          <Text fontSize="xl" fontWeight="bold" color="green.600">
+            ${totalUSD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </Text>
+        </Box>
+      )}
+
+      <HStack gap={4}>
+        {totalTokens !== undefined && (
+          <Box>
+            <Text fontSize="xs" color="gray.600">Tokens</Text>
+            <Text fontSize="lg" fontWeight="bold" color="blue.600">{totalTokens}</Text>
+          </Box>
+        )}
+        {totalProtocols !== undefined && (
+          <Box>
+            <Text fontSize="xs" color="gray.600">DeFi Protocols</Text>
+            <Text fontSize="lg" fontWeight="bold" color="purple.600">{totalProtocols}</Text>
+          </Box>
+        )}
+      </HStack>
+
+      {topTokens && topTokens.length > 0 && (
+        <Box>
+          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Top Holdings:</Text>
+          <VStack gap={2} align="stretch">
+            {topTokens.slice(0, 3).map((token, index) => (
+              <Box key={index} p={2} bg="gray.50" borderRadius="md" border="1px solid" borderColor="gray.200">
+                <HStack gap={2}>
+                  {token.logoUrl && (
+                    <Box width="20px" height="20px" bg="gray.200" borderRadius="full" overflow="hidden">
+                      <Image src={token.logoUrl} alt={token.symbol} width={20} height={20} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    </Box>
+                  )}
+                  <VStack align="start" gap={0} flex={1}>
+                    <HStack justify="space-between" width="100%">
+                      <Text fontSize="xs" fontWeight="semibold" color="gray.800">{token.symbol}</Text>
+                      <Text fontSize="xs" color="green.600" fontWeight="semibold">
+                        ${token.usdValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                      </Text>
+                    </HStack>
+                    <Text fontSize="xs" color="gray.600">
+                      {token.amount.toLocaleString(undefined, { maximumFractionDigits: 6 })} @ ${token.price.toLocaleString()}
+                    </Text>
+                  </VStack>
+                </HStack>
+              </Box>
+            ))}
+            {topTokens.length > 3 && (
+              <Text fontSize="xs" color="gray.500" textAlign="center">+{topTokens.length - 3} more tokens</Text>
+            )}
+          </VStack>
+        </Box>
+      )}
+
+      {protocolPositions && protocolPositions.length > 0 && (
+        <Box>
+          <Text fontSize="sm" fontWeight="semibold" color="gray.600">DeFi Positions:</Text>
+          <VStack gap={1} align="stretch">
+            {protocolPositions.slice(0, 3).map((position, index) => (
+              <HStack key={index} justify="space-between">
+                <HStack gap={2}>
+                  {position.logoUrl && (
+                    <Box width="16px" height="16px" bg="gray.200" borderRadius="sm" overflow="hidden">
+                      <Image src={position.logoUrl} alt={position.name} width={16} height={16} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    </Box>
+                  )}
+                  <VStack align="start" gap={0}>
+                    <Text fontSize="xs" fontWeight="semibold" color="gray.800">{position.name}</Text>
+                    <Badge size="xs" colorScheme={position.category === 'Lending' ? 'blue' : position.category === 'Staking' ? 'green' : 'purple'}>
+                      {position.positionType}
+                    </Badge>
+                  </VStack>
+                </HStack>
+                <Text fontSize="xs" color="green.600" fontWeight="semibold">
+                  ${position.usdValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                </Text>
+              </HStack>
+            ))}
+            {protocolPositions.length > 3 && (
+              <Text fontSize="xs" color="gray.500" textAlign="center">+{protocolPositions.length - 3} more positions</Text>
+            )}
+          </VStack>
+        </Box>
+      )}
+      
+      <HStack justify="space-between" align="center">
+        {source && source !== 'none' && (
+          <Text fontSize="xs" color="gray.500">Source: {source}</Text>
+        )}
+        {portfolioUrl && (
+          <Link href={portfolioUrl} target="_blank" rel="noopener noreferrer" color="blue.500" fontSize="sm">
+            View on DeBank ↗
+          </Link>
+        )}
+      </HStack>
+    </VStack>
+  );
+};
+
 // Export individual fast service cards
 export const FastENSCard: React.FC<{ data: Record<string, unknown> | null; loading?: boolean }> = ({ data, loading }) => (
   <ServiceCard data={data} loading={loading} serviceName="ENS" icon="🏷️" />
@@ -636,4 +764,8 @@ export const FastHumanPassportCard: React.FC<{ data: Record<string, unknown> | n
 
 export const FastDecentralandCard: React.FC<{ data: Record<string, unknown> | null; loading?: boolean }> = ({ data, loading }) => (
   <ServiceCard data={data} loading={loading} serviceName="Decentraland" icon="🏗️" />
+);
+
+export const FastDeBankCard: React.FC<{ data: Record<string, unknown> | null; loading?: boolean }> = ({ data, loading }) => (
+  <ServiceCard data={data} loading={loading} serviceName="DeBank" icon="💰" />
 ); 

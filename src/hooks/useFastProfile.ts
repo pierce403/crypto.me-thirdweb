@@ -7,6 +7,7 @@ interface FastProfileData {
     farcaster?: Record<string, unknown> | null;
     alchemy?: Record<string, unknown> | null;
     opensea?: Record<string, unknown> | null;
+    debank?: Record<string, unknown> | null;
     icebreaker?: Record<string, unknown> | null;
     'gitcoin-passport'?: Record<string, unknown> | null;
     decentraland?: Record<string, unknown> | null;
@@ -198,6 +199,7 @@ export function useFastProfile(
     farcaster: getServiceData('farcaster'),
     alchemy: getServiceData('alchemy'),
     opensea: getServiceData('opensea'),
+    debank: getServiceData('debank'),
     icebreaker: getServiceData('icebreaker'),
     gitcoinPassport: getServiceData('gitcoin-passport'),
     decentraland: getServiceData('decentraland'),
