@@ -195,14 +195,22 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
         
         {renderContent()}
         
-        {/* Last updated timestamp */}
-        {lastUpdated && (
-          <Box borderTop="1px solid" borderColor="gray.100" pt={2} mt={2}>
-            <Text fontSize="xs" color="gray.500" textAlign="center">
-              Updated {formatLastUpdated(lastUpdated)}
-            </Text>
-          </Box>
-        )}
+        {/* Status footer - always shown */}
+        <Box borderTop="1px solid" borderColor="gray.100" pt={2} mt={2}>
+          <Text fontSize="xs" color="gray.500" textAlign="center">
+            {loading ? 
+              'Loading...' : 
+            error && isEmpty ? 
+              `Failed ${formatLastUpdated(error.lastAttempt)}` :
+            error && !isEmpty ?
+              `Updated ${formatLastUpdated(lastUpdated || null)} (has errors)` :
+            lastUpdated ? 
+              `Updated ${formatLastUpdated(lastUpdated)}` : 
+            isEmpty ?
+              'No data available' :
+              'Data loaded'}
+          </Text>
+        </Box>
       </VStack>
     </Box>
   );
