@@ -200,8 +200,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
           serviceTimestamps[serviceConfig.name] = cachedEntry.last_updated.toISOString();
         }
 
-        // Include error information if present
-        if (cachedEntry.last_error && cachedEntry.error_count && cachedEntry.error_count > 0) {
+        // Include error information ONLY if there's a current error (error_count > 0)
+        // When a service is successfully updated, error_count is set to 0 and last_error to null
+        if (cachedEntry.error_count && cachedEntry.error_count > 0 && cachedEntry.last_error) {
           serviceErrors[serviceConfig.name] = {
             lastError: cachedEntry.last_error,
             errorCount: cachedEntry.error_count,
