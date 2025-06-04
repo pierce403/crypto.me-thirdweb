@@ -206,6 +206,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
       minH="200px"
       transition="all 0.2s"
       _hover={{ shadow: "md", borderColor: "blue.300" }}
+      position="relative"
     >
       <VStack gap={3} align="stretch">
         <HStack gap={2} align="center">
@@ -228,21 +229,31 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
             <Text fontSize="xs" color={getStatusColor()} textAlign="center">
               {getStatusMessage()}
             </Text>
-            {onRefresh && (
-              <Button 
-                size="xs" 
-                variant="outline" 
-                colorScheme="blue"
-                onClick={onRefresh}
-                disabled={loading}
-                width="100%"
-              >
-                {loading ? 'Refreshing...' : 'Refresh'}
-              </Button>
-            )}
           </VStack>
         </Box>
       </VStack>
+      
+      {/* Refresh button positioned in bottom right corner */}
+      {onRefresh && (
+        <Button 
+          size="xs" 
+          variant="ghost" 
+          colorScheme="blue"
+          onClick={onRefresh}
+          disabled={loading}
+          position="absolute"
+          bottom="8px"
+          right="8px"
+          width="24px"
+          height="24px"
+          minWidth="24px"
+          borderRadius="md"
+          _hover={{ bg: "blue.50" }}
+          title={loading ? 'Refreshing...' : 'Refresh'}
+        >
+          <Text fontSize="14px">{loading ? '⟳' : '↻'}</Text>
+        </Button>
+      )}
     </Box>
   );
 };
