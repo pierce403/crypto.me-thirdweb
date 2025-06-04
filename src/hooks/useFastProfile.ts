@@ -38,7 +38,8 @@ interface UseFastProfileOptions {
 
 export function useFastProfile(
   address: string | null, 
-  options: UseFastProfileOptions = {}
+  options: UseFastProfileOptions = {},
+  originalInput?: string // Add optional parameter for ENS name
 ) {
   const {
     pollInterval = 30000,
@@ -178,7 +179,7 @@ export function useFastProfile(
         { name: 'alchemy', url: (addr: string) => `/api/services/alchemy?address=${addr}` },
         { name: 'opensea', url: (addr: string) => `/api/services/opensea?address=${addr}` },
         { name: 'debank', url: (addr: string) => `/api/services/debank?address=${addr}` },
-        { name: 'icebreaker', url: (addr: string) => `/api/services/icebreaker?address=${addr}` },
+        { name: 'icebreaker', url: (addr: string) => `/api/services/icebreaker?address=${serviceName === 'icebreaker' && originalInput ? originalInput : addr}` },
         { name: 'gitcoin-passport', url: (addr: string) => `/api/services/gitcoin-passport?address=${addr}` },
         { name: 'decentraland', url: (addr: string) => `/api/services/decentraland?address=${addr}` },
       ];
@@ -212,7 +213,7 @@ export function useFastProfile(
     } catch (error) {
       console.error(`[refresh-service:${serviceName}] Error:`, error);
     }
-  }, [address, fetchData]);
+  }, [address, fetchData, originalInput]);
 
   // Helper to get service data
   const getServiceData = useCallback((service: string) => {

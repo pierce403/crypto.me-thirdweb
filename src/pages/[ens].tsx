@@ -99,7 +99,7 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
     pollInterval: 30000, // Poll every 30 seconds
     initialPollDelay: 10000, // Wait 10s before first background update
     enablePolling: true,
-  });
+  }, ensName);
 
   const [isRefreshing, setIsRefreshing] = useState(false);
 
