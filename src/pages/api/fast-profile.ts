@@ -20,7 +20,7 @@ async function backgroundFetchRealData(address: string, originalInput?: string):
   addRecentUpdateEvent({ address: normalizedAddress, status: 'fetch_started' });
   const fetchPromise = (async () => {
     try {
-      for (const service of SERVICES_CONFIG) {
+      const servicePromises = SERVICES_CONFIG.map(async (service) => {
         try {
           // Use the current domain for server-side calls
           const baseUrl = process.env.VERCEL_URL
@@ -96,9 +96,6 @@ async function backgroundFetchRealData(address: string, originalInput?: string):
               errorName: errorName
             });
           }
-          if (SERVICES_CONFIG.indexOf(service) < SERVICES_CONFIG.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 1000)); // Delay between service calls
-          }
         } catch (error) {
           const err = error instanceof Error ? error : new Error('Unknown fetch error');
           const message = err.message;
@@ -129,7 +126,10 @@ async function backgroundFetchRealData(address: string, originalInput?: string):
             errorName
           });
         }
-      }
+      });
+
+      await Promise.allSettled(servicePromises);
+
     } catch (error) {
       const err = error instanceof Error ? error : new Error('Outer background fetch error');
       addRecentUpdateEvent({
