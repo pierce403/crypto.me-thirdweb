@@ -7,7 +7,7 @@ import {
   SERVICES_CONFIG,
 } from '../../lib/cacheStore';
 
-async function backgroundFetchRealData(address: string, originalInput?: string): Promise<void> {
+export async function backgroundFetchRealData(address: string, originalInput?: string): Promise<void> {
   const normalizedAddress = address.toLowerCase();
 
   if (globalFetchLock.has(normalizedAddress)) {
