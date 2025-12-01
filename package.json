@@ -4,11 +4,14 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && prisma db push --accept-data-loss && next build",
-    "start": "next start",
+    "build": "next build",
+    "db:dev": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
     "lint": "next lint"
   },
   "dependencies": {
+    "@adraffy/ens-normalize": "^1.11.1",
     "@chakra-ui/react": "^3.19.1",
     "@emotion/react": "^11.13.3",
     "@emotion/styled": "^11.13.0",

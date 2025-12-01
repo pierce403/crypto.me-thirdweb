@@ -1,32 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
-interface FastProfileData {
-  address: string;
-  services: {
-    ens?: Record<string, unknown> | null;
-    farcaster?: Record<string, unknown> | null;
-    alchemy?: Record<string, unknown> | null;
-    opensea?: Record<string, unknown> | null;
-    debank?: Record<string, unknown> | null;
-    icebreaker?: Record<string, unknown> | null;
-    'gitcoin-passport'?: Record<string, unknown> | null;
-    decentraland?: Record<string, unknown> | null;
-  };
-  serviceErrors?: {
-    [serviceName: string]: {
-      lastError: string;
-      errorCount: number;
-      lastAttempt: string;
-    };
-  };
-  serviceTimestamps?: {
-    [serviceName: string]: string;
-  };
-  lastContentUpdate: string;
-  cacheStatus: 'hit' | 'miss' | 'partial';
-  source: string;
-  loadTime: number;
-}
+import { FastProfileData, SERVICES_CONFIG } from '../lib/cacheStore';
+
 
 interface UseFastProfileOptions {
   pollInterval?: number; // How often to check for updates (default: 30 seconds)
@@ -37,7 +12,7 @@ interface UseFastProfileOptions {
 }
 
 export function useFastProfile(
-  address: string | null, 
+  address: string | null,
   options: UseFastProfileOptions = {},
   originalInput?: string // Add optional parameter for ENS name
 ) {
@@ -52,15 +27,16 @@ export function useFastProfile(
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<string | null>(null);
-  
+
   // Use refs to track current values without causing re-renders
   const dataRef = useRef<FastProfileData | null>(null);
   const lastUpdateRef = useRef<string | null>(null);
-  
+
   const pollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastPollRef = useRef<number>(0);
   const consecutiveErrorsRef = useRef<number>(0);
   const currentIntervalRef = useRef<number>(pollInterval);
+  const maxPollInterval = options.maxPollInterval || 300000; // 5 minutes default
 
   // Update refs when state changes
   useEffect(() => {
@@ -75,28 +51,33 @@ export function useFastProfile(
     const timeSinceLastPoll = Date.now() - lastPollRef.current;
     if (isPolling && timeSinceLastPoll < minPollInterval) {
       console.log(`🚫 Skipping poll - only ${timeSinceLastPoll}ms since last poll (min: ${minPollInterval}ms)`);
+      // Reschedule if we skipped
+      if (enablePolling) {
+        pollTimeoutRef.current = setTimeout(() => fetchData(true), minPollInterval - timeSinceLastPoll + 100);
+      }
       return;
     }
 
     try {
       if (!isPolling) setLoading(true);
-      
+
       console.log(`📡 Fetching profile data for ${address} (polling: ${isPolling})`);
-      
+
       const response = await fetch(`/api/fast-profile?address=${address}`);
       const result = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(result.error || 'Failed to fetch profile');
       }
-      
+
       // Reset error counter on success
       consecutiveErrorsRef.current = 0;
-      
+      currentIntervalRef.current = pollInterval;
+
       // Always update on initial load, or if we got newer data during polling
       const currentData = dataRef.current;
       const currentLastUpdate = lastUpdateRef.current;
-      
+
       if (!isPolling || !currentData || result.lastContentUpdate !== currentLastUpdate) {
         setData(result);
         setLastUpdate(result.lastContentUpdate);
@@ -105,15 +86,33 @@ export function useFastProfile(
       } else {
         console.log(`📄 No new data for ${address}`);
       }
-      
+
       lastPollRef.current = Date.now();
-      
-    } catch {
-      // Failed to parse error JSON, stick with the status code message
+
+    } catch (err) {
+      console.error('Fetch error:', err);
+      // Backoff logic
+      if (isPolling) {
+        consecutiveErrorsRef.current += 1;
+        const errors = consecutiveErrorsRef.current;
+        const base = pollInterval;
+        const factor = Math.min(errors, 5); // cap
+        currentIntervalRef.current = Math.min(
+          maxPollInterval,
+          base * Math.pow(2, factor),
+        );
+        console.log(`⚠️ Polling error ${errors}. Backing off to ${currentIntervalRef.current}ms`);
+      }
     } finally {
       if (!isPolling) setLoading(false);
+
+      // Schedule next poll
+      if (enablePolling && isPolling) {
+        if (pollTimeoutRef.current) clearTimeout(pollTimeoutRef.current);
+        pollTimeoutRef.current = setTimeout(() => fetchData(true), currentIntervalRef.current);
+      }
     }
-  }, [address, minPollInterval]);
+  }, [address, minPollInterval, pollInterval, enablePolling, maxPollInterval]);
 
   // Initial load
   useEffect(() => {
@@ -168,41 +167,32 @@ export function useFastProfile(
   // Manual refresh function for individual services
   const refreshService = useCallback(async (serviceName: string) => {
     if (!address) return;
-    
+
     console.log(`🔄 Manual refresh triggered for service ${serviceName} on ${address}`);
-    
+
     try {
       // Find the service config
-      const SERVICES_CONFIG = [
-        { name: 'ens', url: (addr: string) => `/api/services/ens?address=${addr}` },
-        { name: 'farcaster', url: (addr: string) => `/api/services/farcaster?address=${addr}` },
-        { name: 'alchemy', url: (addr: string) => `/api/services/alchemy?address=${addr}` },
-        { name: 'opensea', url: (addr: string) => `/api/services/opensea?address=${addr}` },
-        { name: 'debank', url: (addr: string) => `/api/services/debank?address=${addr}` },
-        { name: 'icebreaker', url: (addr: string) => `/api/services/icebreaker?address=${serviceName === 'icebreaker' && originalInput ? originalInput : addr}` },
-        { name: 'gitcoin-passport', url: (addr: string) => `/api/services/gitcoin-passport?address=${addr}` },
-        { name: 'decentraland', url: (addr: string) => `/api/services/decentraland?address=${addr}` },
-      ];
-      
+
+
       const serviceConfig = SERVICES_CONFIG.find(s => s.name === serviceName);
       if (!serviceConfig) {
         console.error(`Service ${serviceName} not found`);
         return;
       }
-      
+
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
-      
+
       const serviceUrl = serviceConfig.url(address);
       console.log(`[refresh-service:${serviceName}] Fetching URL: ${serviceUrl}`);
-      
+
       // Use relative URL - browser will automatically use current domain
       const response = await fetch(serviceUrl, {
         signal: controller.signal,
         headers: { 'User-Agent': 'CryptoMe-ManualRefresh/1.0' }
       });
       clearTimeout(timeoutId);
-      
+
       if (response.ok) {
         console.log(`[refresh-service:${serviceName}] Success`);
         // Refresh the full profile to get updated data
@@ -271,7 +261,7 @@ export function useFastProfile(
     getServiceTimestamp,
     hasAnyData,
     getCacheStats,
-    
+
     // Individual service helpers
     ens: getServiceData('ens'),
     farcaster: getServiceData('farcaster'),

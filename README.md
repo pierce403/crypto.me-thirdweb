@@ -5,8 +5,11 @@ Crypto.me Thirdweb is a central profile page for web3 identities. It allows user
 ## Tech Stack
 
 - [Next.js](https://nextjs.org): A React framework for building web applications.
-- [Prisma](https://www.prisma.io): An open-source database toolkit for TypeScript and Node.js. It is used for database access and management.
-- [SQLite](https://www.sqlite.org): A self-contained, high-reliability, embedded, full-featured, public-domain, SQL database engine. It is used as the default database for local testing.
+- [Prisma](https://www.prisma.io): An open-source database toolkit for TypeScript and Node.js.
+- [PostgreSQL](https://www.postgresql.org): The primary database for production.
+- [SQLite](https://www.sqlite.org): Can be used for local development if configured.
+
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for details on the `fast-profile` system, `service_cache`, and `sync_queue`.
 
 ## Getting Started
 

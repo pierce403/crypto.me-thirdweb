@@ -1,27 +1,18 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../../../lib/prisma';
 import {
   globalFetchLock,
   addRecentUpdateEvent,
   FastProfileData, // Import FastProfileData from the shared store
+  SERVICES_CONFIG,
 } from '../../lib/cacheStore';
 
-const prisma = new PrismaClient();
 
-const SERVICES_CONFIG = [
-  { name: 'ens', defaultData: {}, url: (address: string) => `/api/services/ens?address=${address}` },
-  { name: 'farcaster', defaultData: null, url: (address: string) => `/api/services/farcaster?address=${address}` },
-  { name: 'alchemy', defaultData: { totalCount: 0, nfts: [], collections: {}, source: 'none' }, url: (address: string) => `/api/services/alchemy?address=${address}` },
-  { name: 'opensea', defaultData: { profileUrl: '', topValuedNFTs: [], marketStats: { totalEstimatedValue: 0, totalFloorValue: 0, uniqueCollections: 0, totalNFTs: 0, topCollectionsByValue: [] }, portfolioSummary: { totalValue: 0, currency: 'ETH', lastUpdated: '' }, source: 'none' }, url: (address: string) => `/api/services/opensea?address=${address}` },
-  { name: 'debank', defaultData: { totalUSD: 0, totalTokens: 0, totalProtocols: 0, topTokens: [], protocolPositions: [], portfolioUrl: '', lastUpdated: '', source: 'none' }, url: (address: string) => `/api/services/debank?address=${address}` },
-  { name: 'icebreaker', defaultData: null, url: (address: string, originalInput?: string) => `/api/services/icebreaker?address=${originalInput || address}` },
-  { name: 'gitcoin-passport', defaultData: {}, url: (address: string) => `/api/services/gitcoin-passport?address=${address}` },
-  { name: 'decentraland', defaultData: {}, url: (address: string) => `/api/services/decentraland?address=${address}` },
-];
+
 
 async function backgroundFetchRealData(address: string, originalInput?: string): Promise<void> {
   const normalizedAddress = address.toLowerCase();
-  
+
   if (globalFetchLock.has(normalizedAddress)) {
     return;
   }
@@ -32,15 +23,15 @@ async function backgroundFetchRealData(address: string, originalInput?: string):
       for (const service of SERVICES_CONFIG) {
         try {
           // Use the current domain for server-side calls
-          const baseUrl = process.env.VERCEL_URL 
-            ? `https://${process.env.VERCEL_URL}` 
-            : process.env.NODE_ENV === 'production' 
+          const baseUrl = process.env.VERCEL_URL
+            ? `https://${process.env.VERCEL_URL}`
+            : process.env.NODE_ENV === 'production'
               ? 'https://crypto-me-thirdweb.vercel.app'  // fallback production URL
               : 'http://localhost:3000';
-              
+
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 10000);
-          
+
           const serviceUrl = service.url(address, originalInput);
           console.log(`[fast-profile:debug:${normalizedAddress}] Fetching service: ${service.name}, URL: ${baseUrl}${serviceUrl}`);
           const response = await fetch(`${baseUrl}${serviceUrl}`, {
@@ -48,13 +39,14 @@ async function backgroundFetchRealData(address: string, originalInput?: string):
             headers: { 'User-Agent': 'CryptoMe-FastProfile/1.0' }
           });
           clearTimeout(timeoutId);
-          
+
           const now = new Date();
           const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours expiry
 
           if (response.ok) {
             const data = await response.json();
-            console.log(`[fast-profile:debug:${normalizedAddress}] Service ${service.name} OK. Raw data: ${JSON.stringify(data, null, 2)}`);
+            console.log(`[fast-profile:debug:${normalizedAddress}] Service ${service.name} OK. Data keys: ${Object.keys(data).join(', ')}`);
+
             const serviceDataJson = JSON.stringify(data);
 
             console.log(`[fast-profile:debug:${normalizedAddress}] Service ${service.name} OK. Upserting to DB: data length ${serviceDataJson.length}, expires_at: ${expiresAt.toISOString()}`);
@@ -96,10 +88,10 @@ async function backgroundFetchRealData(address: string, originalInput?: string):
                 last_updated: now
               },
             });
-            addRecentUpdateEvent({ 
-              address: normalizedAddress, 
-              status: 'service_failed', 
-              serviceName: service.name, 
+            addRecentUpdateEvent({
+              address: normalizedAddress,
+              status: 'service_failed',
+              serviceName: service.name,
               message: serviceErrorMessage,
               errorName: errorName
             });
@@ -129,10 +121,10 @@ async function backgroundFetchRealData(address: string, originalInput?: string):
               last_updated: now
             },
           });
-          addRecentUpdateEvent({ 
-            address: normalizedAddress, 
-            status: 'service_failed', 
-            serviceName: service.name, 
+          addRecentUpdateEvent({
+            address: normalizedAddress,
+            status: 'service_failed',
+            serviceName: service.name,
             message,
             errorName
           });
@@ -140,11 +132,11 @@ async function backgroundFetchRealData(address: string, originalInput?: string):
       }
     } catch (error) {
       const err = error instanceof Error ? error : new Error('Outer background fetch error');
-      addRecentUpdateEvent({ 
-        address: normalizedAddress, 
-        status: 'fetch_failed', 
+      addRecentUpdateEvent({
+        address: normalizedAddress,
+        status: 'fetch_failed',
         message: err.message,
-        errorName: err.name 
+        errorName: err.name
       });
     } finally {
       globalFetchLock.delete(normalizedAddress);
@@ -176,7 +168,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     const cachedServices = await prisma.service_cache.findMany({
       where: { address: normalizedAddress },
     });
-    console.log(`[fast-profile:debug:${normalizedAddress}] Found in DB cache: ${JSON.stringify(cachedServices, null, 2)}`);
+    console.log(`[fast-profile:debug:${normalizedAddress}] Found ${cachedServices.length} cached services in DB.`);
+
 
     const servicesData: FastProfileData['services'] = {};
     const serviceErrors: { [serviceName: string]: { lastError: string; errorCount: number; lastAttempt: string } } = {};
@@ -224,7 +217,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
 
     const cacheStatus = allServicesFresh ? 'hit' : (cachedServices.length > 0 ? 'partial' : 'miss');
     const source = allServicesFresh ? 'database-cache' : (cachedServices.length > 0 ? 'database-partial-cache' : 'initial');
-    
+
     const responseData: FastProfileData = {
       address: normalizedAddress,
       services: servicesData,
@@ -248,15 +241,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       });
     }
 
-    console.log(`[fast-profile:debug:${normalizedAddress}] Returning responseData: ${JSON.stringify(responseData, null, 2)}`);
+    console.log(`[fast-profile:debug:${normalizedAddress}] Returning responseData. Cache: ${responseData.cacheStatus}, Source: ${responseData.source}, LoadTime: ${responseData.loadTime}ms`);
+
     return res.status(200).json(responseData);
 
   } catch (error) {
     const errorInstance = error instanceof Error ? error : new Error(String(error));
     console.error(`[fast-profile:critical:${normalizedAddress}] Main handler error: ${errorInstance.message}. Returning error fallback.`, errorInstance);
-    addRecentUpdateEvent({ 
-      address: normalizedAddress, 
-      status: 'fetch_failed', 
+    addRecentUpdateEvent({
+      address: normalizedAddress,
+      status: 'fetch_failed',
       message: `Handler error: ${errorInstance.message}`,
       errorName: errorInstance.name
     });
@@ -264,7 +258,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     // Fallback to default structure if database access fails
     const fallbackServicesData: FastProfileData['services'] = {};
     SERVICES_CONFIG.forEach(sc => {
-        fallbackServicesData[sc.name as keyof typeof fallbackServicesData] = sc.defaultData;
+      fallbackServicesData[sc.name as keyof typeof fallbackServicesData] = sc.defaultData;
     });
 
     const errorResponseData = {

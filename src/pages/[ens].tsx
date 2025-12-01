@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from 'react';
 import { GetServerSideProps } from 'next';
 import Head from 'next/head';
@@ -7,15 +8,15 @@ import { mainnet } from 'viem/chains';
 import { Box, Container, Heading, Text, VStack, Separator, Button, SimpleGrid, HStack, Badge, Spinner } from '@chakra-ui/react';
 import Image from 'next/image';
 import { useFastProfile } from '../hooks/useFastProfile';
-import { 
-  FastENSCard, 
-  FastFarcasterCard, 
+import {
+  FastENSCard,
+  FastFarcasterCard,
   FastAlchemyCard,
-  FastOpenSeaCard, 
+  FastOpenSeaCard,
   FastDeBankCard,
-  FastIcebreakerCard, 
-  FastHumanPassportCard, 
-  FastDecentralandCard 
+  FastIcebreakerCard,
+  FastHumanPassportCard,
+  FastDecentralandCard
 } from '../components/FastServiceCards';
 
 // Add this function
@@ -125,7 +126,7 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
 
   const avatarUrl = avatar ? convertToGatewayUrl(avatar) : null;
   const cacheStats = getCacheStats();
-  
+
   // Only show loading when we have no data at all (not even cached data)
   const isInitialLoading = loading && !data;
 
@@ -134,7 +135,7 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
       <Head>
         <title>{ensName} | Crypto.me Profile</title>
       </Head>
-      
+
       {/* Main Profile Header */}
       <Box p={8} mb={8} bg="gray.50" borderRadius="lg" boxShadow="md" width="100%" maxW="container.md">
         <VStack gap={4} align="stretch">
@@ -151,17 +152,17 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
           )}
           <Heading as="h1" size="2xl" color="gray.800" textAlign="center">{ensName}</Heading>
           <Separator />
-          
+
           <Box>
             <Text fontSize="lg" fontWeight="bold" color="gray.800">ENS Name:</Text>
             <Text fontSize="md" color="gray.800">{ensName}</Text>
           </Box>
-          
+
           <Box>
             <Text fontSize="lg" fontWeight="bold" color="gray.800">ETH Address:</Text>
             <Text fontSize="md" color="gray.800" wordBreak="break-all">{address}</Text>
           </Box>
-          
+
           {avatar && (
             <Box>
               <Text fontSize="lg" fontWeight="bold" color="gray.800">Avatar:</Text>
@@ -191,8 +192,8 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
             )}
           </Box>
 
-          <Button 
-            onClick={handleRefresh} 
+          <Button
+            onClick={handleRefresh}
             disabled={isRefreshing || isInitialLoading}
             colorScheme="blue"
           >
@@ -212,7 +213,7 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
         <Heading as="h2" size="lg" color="gray.800" textAlign="center" mb={6}>
           Connected Services
         </Heading>
-        
+
         {isInitialLoading ? (
           <Box p={6} bg="blue.50" borderRadius="lg" border="1px solid" borderColor="blue.200" mb={6}>
             <HStack justify="center" gap={3}>
@@ -232,65 +233,138 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
               </Box>
             )}
 
-            <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={6}>
-              {/* Always show cards with data, never show loading state for individual cards since we have instant cache */}
-              <FastENSCard 
-                data={ens} 
-                loading={false} 
-                lastUpdated={getServiceTimestamp('ens')}
-                error={getServiceError('ens')}
-                onRefresh={() => refreshService('ens')}
-              />
-              <FastFarcasterCard 
-                data={farcaster} 
-                loading={false} 
-                lastUpdated={getServiceTimestamp('farcaster')}
-                error={getServiceError('farcaster')}
-                onRefresh={() => refreshService('farcaster')}
-              />
-              <FastAlchemyCard 
-                data={alchemy} 
-                loading={false} 
-                lastUpdated={getServiceTimestamp('alchemy')}
-                error={getServiceError('alchemy')}
-                onRefresh={() => refreshService('alchemy')}
-              />
-              <FastOpenSeaCard 
-                data={opensea} 
-                loading={false} 
-                lastUpdated={getServiceTimestamp('opensea')}
-                error={getServiceError('opensea')}
-                onRefresh={() => refreshService('opensea')}
-              />
-              <FastDeBankCard 
-                data={debank} 
-                loading={false} 
-                lastUpdated={getServiceTimestamp('debank')}
-                error={getServiceError('debank')}
-                onRefresh={() => refreshService('debank')}
-              />
-              <FastIcebreakerCard 
-                data={icebreaker} 
-                loading={false} 
-                lastUpdated={getServiceTimestamp('icebreaker')}
-                error={getServiceError('icebreaker')}
-                onRefresh={() => refreshService('icebreaker')}
-              />
-              <FastHumanPassportCard 
-                data={gitcoinPassport} 
-                loading={false} 
-                lastUpdated={getServiceTimestamp('gitcoin-passport')}
-                error={getServiceError('gitcoin-passport')}
-                onRefresh={() => refreshService('gitcoin-passport')}
-              />
-              <FastDecentralandCard 
-                data={decentraland} 
-                loading={false} 
-                lastUpdated={getServiceTimestamp('decentraland')}
-                error={getServiceError('decentraland')}
-                onRefresh={() => refreshService('decentraland')}
-              />
-            </SimpleGrid>
+            {/* Identity Summary */}
+            {data && (
+              <Box p={6} bg="white" borderRadius="lg" boxShadow="sm" mb={8} border="1px solid" borderColor="gray.100">
+                <Heading as="h3" size="md" mb={4}>Identity Summary</Heading>
+                <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} gap={4}>
+                  <Box>
+                    <Text fontSize="sm" color="gray.500">ENS Names</Text>
+                    <Text fontSize="xl" fontWeight="bold">
+                      {(data.services.ens as any)?.domains?.length || 0}
+                    </Text>
+                  </Box>
+                  <Box>
+                    <Text fontSize="sm" color="gray.500">Farcaster</Text>
+                    <Text fontSize="xl" fontWeight="bold">
+                      {(data.services.farcaster as any)?.username ? `@${(data.services.farcaster as any).username}` : '-'}
+                    </Text>
+                    {(data.services.farcaster as any)?.followerCount && (
+                      <Text fontSize="xs" color="gray.400">{(data.services.farcaster as any).followerCount} followers</Text>
+                    )}
+                  </Box>
+                  <Box>
+                    <Text fontSize="sm" color="gray.500">Gitcoin Passport</Text>
+                    <Text fontSize="xl" fontWeight="bold">
+                      {(data.services['gitcoin-passport'] as any)?.score ? Math.round(Number((data.services['gitcoin-passport'] as any).score) * 100) / 100 : '-'}
+                    </Text>
+                  </Box>
+                  <Box>
+                    <Text fontSize="sm" color="gray.500">Net Worth (Est.)</Text>
+                    <Text fontSize="xl" fontWeight="bold">
+                      ${(data.services.debank as any)?.totalUSD ? Math.round(Number((data.services.debank as any).totalUSD)).toLocaleString() : '0'}
+                    </Text>
+                  </Box>
+                </SimpleGrid>
+              </Box>
+            )}
+
+            <VStack gap={8} align="stretch" width="100%">
+
+              {/* Identity & Proofs */}
+              <Box>
+                <Heading as="h3" size="md" mb={4} color="gray.700" borderBottom="1px solid" borderColor="gray.200" pb={2}>
+                  Identity & Proofs
+                </Heading>
+                <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={6}>
+                  <FastENSCard
+                    data={ens}
+                    loading={false}
+                    lastUpdated={getServiceTimestamp('ens')}
+                    error={getServiceError('ens')}
+                    onRefresh={() => refreshService('ens')}
+                  />
+                  <FastHumanPassportCard
+                    data={gitcoinPassport}
+                    loading={false}
+                    lastUpdated={getServiceTimestamp('gitcoin-passport')}
+                    error={getServiceError('gitcoin-passport')}
+                    onRefresh={() => refreshService('gitcoin-passport')}
+                  />
+                  <FastIcebreakerCard
+                    data={icebreaker}
+                    loading={false}
+                    lastUpdated={getServiceTimestamp('icebreaker')}
+                    error={getServiceError('icebreaker')}
+                    onRefresh={() => refreshService('icebreaker')}
+                  />
+                </SimpleGrid>
+              </Box>
+
+              {/* Social */}
+              <Box>
+                <Heading as="h3" size="md" mb={4} color="gray.700" borderBottom="1px solid" borderColor="gray.200" pb={2}>
+                  Social
+                </Heading>
+                <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={6}>
+                  <FastFarcasterCard
+                    data={farcaster}
+                    loading={false}
+                    lastUpdated={getServiceTimestamp('farcaster')}
+                    error={getServiceError('farcaster')}
+                    onRefresh={() => refreshService('farcaster')}
+                  />
+                </SimpleGrid>
+              </Box>
+
+              {/* Assets */}
+              <Box>
+                <Heading as="h3" size="md" mb={4} color="gray.700" borderBottom="1px solid" borderColor="gray.200" pb={2}>
+                  Assets
+                </Heading>
+                <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={6}>
+                  <FastAlchemyCard
+                    data={alchemy}
+                    loading={false}
+                    lastUpdated={getServiceTimestamp('alchemy')}
+                    error={getServiceError('alchemy')}
+                    onRefresh={() => refreshService('alchemy')}
+                  />
+                  <FastOpenSeaCard
+                    data={opensea}
+                    loading={false}
+                    lastUpdated={getServiceTimestamp('opensea')}
+                    error={getServiceError('opensea')}
+                    onRefresh={() => refreshService('opensea')}
+                  />
+                  <FastDeBankCard
+                    data={debank}
+                    loading={false}
+                    lastUpdated={getServiceTimestamp('debank')}
+                    error={getServiceError('debank')}
+                    onRefresh={() => refreshService('debank')}
+                  />
+                </SimpleGrid>
+              </Box>
+
+              {/* Worlds / Metaverse */}
+              <Box>
+                <Heading as="h3" size="md" mb={4} color="gray.700" borderBottom="1px solid" borderColor="gray.200" pb={2}>
+                  Worlds
+                </Heading>
+                <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={6}>
+                  <FastDecentralandCard
+                    data={decentraland}
+                    loading={false}
+                    lastUpdated={getServiceTimestamp('decentraland')}
+                    error={getServiceError('decentraland')}
+                    onRefresh={() => refreshService('decentraland')}
+                  />
+                </SimpleGrid>
+              </Box>
+
+            </VStack>
+
           </>
         )}
       </Box>

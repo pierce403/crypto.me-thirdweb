@@ -17,7 +17,9 @@
 
 ## API Endpoint Descriptions
 - **/api/health**: Returns the health status of the application.
-- **/api/profile**: Fetches profile data based on ENS name.
+- **/api/fast-profile**: Main endpoint for fetching aggregated profile data. Accepts `?address=...`.
+- **/api/services/***: Individual service endpoints (ens, farcaster, alchemy, etc.).
+- **/api/queue**: Debug endpoint for viewing recent background fetch events.
 
 ## Testing API Routes
 - To test the `/api/health` endpoint, use the following curl command:
