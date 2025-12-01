@@ -148,11 +148,13 @@ async function backgroundFetchRealData(address: string, originalInput?: string):
   // Do not await fetchPromise here to allow background execution
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse<FastProfileData | { error: string }>) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse<FastProfileData | { error: string } | { status: string }>) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', ['GET']);
     return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
   }
+
+  return res.status(200).json({ status: 'Fast Profile Handler Reached' });
 
   const { address } = req.query;
   const startTime = Date.now();
