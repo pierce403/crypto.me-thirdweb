@@ -9,13 +9,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const prisma = prismaModule.prisma;
         console.log('Prisma instance retrieved.');
 
-        const count = await prisma.service_cache.count();
-        console.log('DB count:', count);
+        const { SERVICES_CONFIG } = await import('../../lib/cacheStore');
+        console.log('SERVICES_CONFIG imported:', SERVICES_CONFIG.length);
+
+        const cachedServices = await prisma.service_cache.findMany({
+            where: { address: 'pierce.eth' },
+        });
+        console.log('DB findMany result:', cachedServices.length);
 
         return res.status(200).json({
             status: 'ok',
             message: 'Prisma imported and connected successfully',
-            count,
+            count: cachedServices.length,
+            servicesConfigLength: SERVICES_CONFIG.length,
             env: {
                 DATABASE_URL_SET: !!process.env.DATABASE_URL,
                 POSTGRES_PRISMA_URL_SET: !!process.env.POSTGRES_PRISMA_URL,
