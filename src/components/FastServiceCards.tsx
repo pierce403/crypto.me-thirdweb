@@ -1,5 +1,15 @@
 import React from 'react';
-import { Box, Text, VStack, HStack, Badge, Link, Skeleton, Image as ChakraImage, Button } from '@chakra-ui/react';
+import {
+  Box,
+  Text,
+  VStack,
+  HStack,
+  Badge,
+  Link,
+  Skeleton,
+  Image as ChakraImage,
+  Button
+} from '@chakra-ui/react';
 import Image from 'next/image';
 
 interface ServiceCardProps {
@@ -17,11 +27,11 @@ interface ServiceCardProps {
   onRefresh?: () => void;
 }
 
-const ServiceCard: React.FC<ServiceCardProps> = ({ 
-  data, 
-  loading = false, 
-  serviceName, 
-  icon, 
+const ServiceCard: React.FC<ServiceCardProps> = ({
+  data,
+  loading = false,
+  serviceName,
+  icon,
   description,
   error,
   lastUpdated,
@@ -47,24 +57,24 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
 
   const getStatusMessage = () => {
     if (loading) return 'Loading...';
-    
+
     if (error && isEmpty) {
       return 'Service unavailable';
     }
-    
+
     if (error && !isEmpty) {
       // Show when data was last successfully updated, even if recent update failed
-      return lastUpdated ? `Data from ${formatLastUpdated(lastUpdated)}` : 'Using cached data';
+      return lastUpdated ? `Data from ${formatLastUpdated(lastUpdated)} ` : 'Using cached data';
     }
-    
+
     if (lastUpdated) {
-      return `Successfully updated ${formatLastUpdated(lastUpdated)}`;
+      return `Successfully updated ${formatLastUpdated(lastUpdated)} `;
     }
-    
+
     if (isEmpty) {
       return 'No data available';
     }
-    
+
     return 'Data loaded successfully';
   };
 
@@ -75,6 +85,29 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
     if (lastUpdated || !isEmpty) return 'green.600';
     return 'gray.500';
   };
+
+  // Info Icon Component
+  const InfoIcon = () => (
+    <Box
+      as="span"
+      color="gray.400"
+      cursor="help"
+      _hover={{ color: "blue.500" }}
+      display="inline-flex"
+      alignItems="center"
+      justifyContent="center"
+      width="16px"
+      height="16px"
+      borderRadius="full"
+      border="1px solid"
+      borderColor="currentColor"
+      fontSize="xs"
+      ml="auto"
+      title={`Last updated: ${lastUpdated ? new Date(lastUpdated).toLocaleString() : 'Never'}`}
+    >
+      i
+    </Box>
+  );
 
   const renderContent = () => {
     if (!data) return null;
@@ -103,12 +136,12 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
 
   if (loading) {
     return (
-      <Box 
-        p={4} 
-        borderWidth={1} 
-        borderRadius="lg" 
-        borderColor="gray.200" 
-        bg="white" 
+      <Box
+        p={4}
+        borderWidth={1}
+        borderRadius="lg"
+        borderColor="gray.200"
+        bg="white"
         shadow="sm"
         minH="200px"
       >
@@ -117,7 +150,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
             <Text fontSize="lg">{icon || '🔧'}</Text>
             <Text fontWeight="bold" color="gray.700">{serviceName}</Text>
           </HStack>
-          
+
           <Skeleton height="20px" />
           <Skeleton height="20px" />
           <Skeleton height="60px" />
@@ -129,12 +162,12 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
   // Show error state if there's an error and no data or empty data
   if (error && isEmpty) {
     return (
-      <Box 
-        p={4} 
-        borderWidth={1} 
-        borderRadius="lg" 
-        borderColor="red.200" 
-        bg="red.50" 
+      <Box
+        p={4}
+        borderWidth={1}
+        borderRadius="lg"
+        borderColor="red.200"
+        bg="red.50"
         shadow="sm"
         minH="200px"
       >
@@ -146,7 +179,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
               Error
             </Badge>
           </HStack>
-          
+
           <Box p={3} bg="red.100" borderRadius="md" border="1px solid" borderColor="red.200">
             <Text fontSize="sm" color="red.800" fontWeight="semibold">Service Error</Text>
             <Text fontSize="xs" color="red.700" mt={1}>
@@ -161,7 +194,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
               </Text>
             )}
           </Box>
-          
+
           <Text fontSize="xs" color="gray.500" textAlign="center">
             Data will be retried automatically
           </Text>
@@ -172,21 +205,22 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
 
   if (isEmpty) {
     return (
-      <Box 
-        p={4} 
-        borderWidth={1} 
-        borderRadius="lg" 
-        borderColor="gray.200" 
-        bg="gray.50" 
+      <Box
+        p={4}
+        borderWidth={1}
+        borderRadius="lg"
+        borderColor="gray.200"
+        bg="gray.50"
         shadow="sm"
         minH="200px"
       >
         <VStack gap={3} align="stretch">
-          <HStack gap={2} align="center">
+          <HStack gap={2} align="center" width="100%">
             <Text fontSize="lg">{icon || '🔧'}</Text>
             <Text fontWeight="bold" color="gray.400">{serviceName}</Text>
+            {lastUpdated && <InfoIcon />}
           </HStack>
-          
+
           <Text fontSize="sm" color="gray.500" textAlign="center">
             {description || 'No data available'}
           </Text>
@@ -196,12 +230,12 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
   }
 
   return (
-    <Box 
-      p={4} 
-      borderWidth={1} 
-      borderRadius="lg" 
-      borderColor="gray.200" 
-      bg="white" 
+    <Box
+      p={4}
+      borderWidth={1}
+      borderRadius="lg"
+      borderColor="gray.200"
+      bg="white"
       shadow="sm"
       minH="200px"
       transition="all 0.2s"
@@ -209,13 +243,14 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
       position="relative"
     >
       <VStack gap={3} align="stretch">
-        <HStack gap={2} align="center">
+        <HStack gap={2} align="center" width="100%">
           <Text fontSize="lg">{icon || '🔧'}</Text>
           <Text fontWeight="bold" color="gray.700">{serviceName}</Text>
+          <InfoIcon />
         </HStack>
-        
+
         {renderContent()}
-        
+
         {/* Status footer - always shown */}
         <Box borderTop="1px solid" borderColor="gray.100" pt={2} mt={2}>
           <VStack gap={2}>
@@ -232,12 +267,12 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
           </VStack>
         </Box>
       </VStack>
-      
+
       {/* Refresh button positioned in bottom right corner */}
       {onRefresh && (
-        <Button 
-          size="xs" 
-          variant="ghost" 
+        <Button
+          size="xs"
+          variant="ghost"
           colorScheme="blue"
           onClick={onRefresh}
           disabled={loading}
@@ -272,14 +307,14 @@ const ENSContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) => {
           <Text fontSize="md" color="gray.800">{primaryName}</Text>
         </Box>
       )}
-      
+
       {avatar && (
         <Box>
           <Text fontSize="sm" fontWeight="semibold" color="gray.600">Avatar:</Text>
           <ChakraImage src={avatar} alt="ENS Avatar" maxH="80px" borderRadius="md" />
         </Box>
       )}
-      
+
       {otherNames && otherNames.length > 0 && (
         <Box>
           <Text fontSize="sm" fontWeight="semibold" color="gray.600">Other Names:</Text>
@@ -291,7 +326,7 @@ const ENSContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) => {
           )}
         </Box>
       )}
-      
+
       {profileUrl && (
         <Link href={profileUrl} target="_blank" rel="noopener noreferrer" color="blue.500" fontSize="sm">
           View on ENS ↗
@@ -317,14 +352,14 @@ const FarcasterContent: React.FC<{ data: Record<string, unknown> }> = ({ data })
           <Text fontSize="md" color="gray.800">@{username}</Text>
         </Box>
       )}
-      
+
       {displayName && (
         <Box>
           <Text fontSize="sm" fontWeight="semibold" color="gray.600">Display Name:</Text>
           <Text fontSize="md" color="gray.800">{displayName}</Text>
         </Box>
       )}
-      
+
       {(followerCount !== undefined) && (
         <HStack gap={4}>
           {followerCount !== undefined && (
@@ -335,44 +370,44 @@ const FarcasterContent: React.FC<{ data: Record<string, unknown> }> = ({ data })
           )}
         </HStack>
       )}
-      
+
       {bio && (
         <Box>
           <Text fontSize="sm" fontWeight="semibold" color="gray.600">Bio:</Text>
           <Text fontSize="sm" color="gray.700" truncate>{bio}</Text>
         </Box>
       )}
-      
+
       {neynarScore !== undefined && (
         <Box>
           <Text fontSize="sm" fontWeight="semibold" color="gray.600">Neynar Score:</Text>
           <HStack align="baseline">
             <Text fontSize="lg" fontWeight="bold" color={
               neynarScore >= 0.7 ? "green.500" :
-              neynarScore >= 0.4 ? "yellow.500" :
-              "red.500"
+                neynarScore >= 0.4 ? "yellow.500" :
+                  "red.500"
             }>
               {(neynarScore * 100).toFixed(0)}%
             </Text>
-            <Badge 
+            <Badge
               colorScheme={
                 neynarScore >= 0.7 ? "green" :
-                neynarScore >= 0.4 ? "yellow" :
-                "red"
+                  neynarScore >= 0.4 ? "yellow" :
+                    "red"
               }
               variant="subtle"
             >
               {
                 neynarScore >= 0.7 ? "High" :
-                neynarScore >= 0.4 ? "Medium" :
-                "Low"
+                  neynarScore >= 0.4 ? "Medium" :
+                    "Low"
               }
             </Badge>
             <Text fontSize="xs" color="gray.500">({neynarScore.toFixed(3)})</Text>
           </HStack>
         </Box>
       )}
-      
+
       {profileUrl && (
         <Link href={profileUrl} target="_blank" rel="noopener noreferrer" color="purple.500" fontSize="sm">
           View on Farcaster ↗
@@ -384,8 +419,8 @@ const FarcasterContent: React.FC<{ data: Record<string, unknown> }> = ({ data })
 
 const AlchemyContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) => {
   const totalCount = data.totalCount as number | undefined;
-  const nfts = data.nfts as Array<{ 
-    name: string; 
+  const nfts = data.nfts as Array<{
+    name: string;
     collection: string;
     image?: string;
     tokenId?: string;
@@ -462,7 +497,7 @@ const AlchemyContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =
           </VStack>
         </Box>
       )}
-      
+
       <HStack justify="space-between" align="center">
         {source && source !== 'none' && (
           <Text fontSize="xs" color="gray.500">Source: {source}</Text>
@@ -473,10 +508,10 @@ const AlchemyContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =
 };
 
 const OpenSeaContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) => {
-  const topValuedNFTs = data.topValuedNFTs as Array<{ 
-    name: string; 
+  const topValuedNFTs = data.topValuedNFTs as Array<{
+    name: string;
     collection: string;
-    image?: string; 
+    image?: string;
     floorPrice?: number;
     estimatedValue?: number;
     currency?: string;
@@ -591,7 +626,7 @@ const OpenSeaContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =
           </VStack>
         </Box>
       )}
-      
+
       <HStack justify="space-between" align="center">
         {source && source !== 'none' && (
           <Text fontSize="xs" color="gray.500">Source: {source}</Text>
@@ -621,14 +656,14 @@ const IcebreakerContent: React.FC<{ data: Record<string, unknown> }> = ({ data }
           <Text fontSize="md" color="gray.800">{displayName}</Text>
         </Box>
       )}
-      
+
       {bio && (
         <Box>
           <Text fontSize="sm" fontWeight="semibold" color="gray.600">Bio:</Text>
           <Text fontSize="sm" color="gray.700" truncate>{bio}</Text>
         </Box>
       )}
-      
+
       <HStack gap={4}>
         {verifiedChannelsCount !== undefined && (
           <Box>
@@ -643,7 +678,7 @@ const IcebreakerContent: React.FC<{ data: Record<string, unknown> }> = ({ data }
           </Box>
         )}
       </HStack>
-      
+
       {profileUrl && (
         <Link href={profileUrl} target="_blank" rel="noopener noreferrer" color="green.500" fontSize="sm">
           View on Icebreaker ↗
@@ -690,7 +725,7 @@ const HumanPassportContent: React.FC<{ data: Record<string, unknown> }> = ({ dat
           </HStack>
         </Box>
       )}
-      
+
       {stamps && stamps.length > 0 && (
         <Box>
           <Text fontSize="sm" fontWeight="semibold" color="gray.600">Stamps ({stamps.length}):</Text>
@@ -704,7 +739,7 @@ const HumanPassportContent: React.FC<{ data: Record<string, unknown> }> = ({ dat
           </VStack>
         </Box>
       )}
-      
+
       <Link href="https://passport.xyz" target="_blank" rel="noopener noreferrer" color="blue.500" fontSize="sm">
         View on Human Passport ↗
       </Link>
@@ -734,14 +769,14 @@ const DecentralandContent: React.FC<{ data: Record<string, unknown> }> = ({ data
           </Box>
         )}
       </HStack>
-      
+
       {lastActive && (
         <Box>
           <Text fontSize="sm" fontWeight="semibold" color="gray.600">Last Active:</Text>
           <Text fontSize="sm" color="gray.700">{new Date(lastActive).toLocaleDateString()}</Text>
         </Box>
       )}
-      
+
       {profileUrl && (
         <Link href={profileUrl} target="_blank" rel="noopener noreferrer" color="green.500" fontSize="sm">
           View in Decentraland ↗
@@ -862,7 +897,7 @@ const DeBankContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =>
           </VStack>
         </Box>
       )}
-      
+
       <HStack justify="space-between" align="center">
         {source && source !== 'none' && (
           <Text fontSize="xs" color="gray.500">Source: {source}</Text>
@@ -878,9 +913,9 @@ const DeBankContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =>
 };
 
 // Export individual fast service cards
-export const FastENSCard: React.FC<{ 
-  data: Record<string, unknown> | null; 
-  loading?: boolean; 
+export const FastENSCard: React.FC<{
+  data: Record<string, unknown> | null;
+  loading?: boolean;
   lastUpdated?: string | null;
   error?: { lastError: string; errorCount: number; lastAttempt: string } | null;
   onRefresh?: () => void;
@@ -888,9 +923,9 @@ export const FastENSCard: React.FC<{
   <ServiceCard data={data} loading={loading} serviceName="ENS" icon="🏷️" lastUpdated={lastUpdated} error={error} onRefresh={onRefresh} />
 );
 
-export const FastFarcasterCard: React.FC<{ 
-  data: Record<string, unknown> | null; 
-  loading?: boolean; 
+export const FastFarcasterCard: React.FC<{
+  data: Record<string, unknown> | null;
+  loading?: boolean;
   lastUpdated?: string | null;
   error?: { lastError: string; errorCount: number; lastAttempt: string } | null;
   onRefresh?: () => void;
@@ -898,9 +933,9 @@ export const FastFarcasterCard: React.FC<{
   <ServiceCard data={data} loading={loading} serviceName="Farcaster" icon="🟣" lastUpdated={lastUpdated} error={error} onRefresh={onRefresh} />
 );
 
-export const FastAlchemyCard: React.FC<{ 
-  data: Record<string, unknown> | null; 
-  loading?: boolean; 
+export const FastAlchemyCard: React.FC<{
+  data: Record<string, unknown> | null;
+  loading?: boolean;
   lastUpdated?: string | null;
   error?: { lastError: string; errorCount: number; lastAttempt: string } | null;
   onRefresh?: () => void;
@@ -908,9 +943,9 @@ export const FastAlchemyCard: React.FC<{
   <ServiceCard data={data} loading={loading} serviceName="Alchemy" icon="⚗️" lastUpdated={lastUpdated} error={error} onRefresh={onRefresh} />
 );
 
-export const FastOpenSeaCard: React.FC<{ 
-  data: Record<string, unknown> | null; 
-  loading?: boolean; 
+export const FastOpenSeaCard: React.FC<{
+  data: Record<string, unknown> | null;
+  loading?: boolean;
   lastUpdated?: string | null;
   error?: { lastError: string; errorCount: number; lastAttempt: string } | null;
   onRefresh?: () => void;
@@ -918,9 +953,9 @@ export const FastOpenSeaCard: React.FC<{
   <ServiceCard data={data} loading={loading} serviceName="OpenSea" icon="🌊" lastUpdated={lastUpdated} error={error} onRefresh={onRefresh} />
 );
 
-export const FastIcebreakerCard: React.FC<{ 
-  data: Record<string, unknown> | null; 
-  loading?: boolean; 
+export const FastIcebreakerCard: React.FC<{
+  data: Record<string, unknown> | null;
+  loading?: boolean;
   lastUpdated?: string | null;
   error?: { lastError: string; errorCount: number; lastAttempt: string } | null;
   onRefresh?: () => void;
@@ -928,9 +963,9 @@ export const FastIcebreakerCard: React.FC<{
   <ServiceCard data={data} loading={loading} serviceName="Icebreaker" icon="🧊" lastUpdated={lastUpdated} error={error} onRefresh={onRefresh} />
 );
 
-export const FastHumanPassportCard: React.FC<{ 
-  data: Record<string, unknown> | null; 
-  loading?: boolean; 
+export const FastHumanPassportCard: React.FC<{
+  data: Record<string, unknown> | null;
+  loading?: boolean;
   lastUpdated?: string | null;
   error?: { lastError: string; errorCount: number; lastAttempt: string } | null;
   onRefresh?: () => void;
@@ -938,9 +973,9 @@ export const FastHumanPassportCard: React.FC<{
   <ServiceCard data={data} loading={loading} serviceName="Human Passport" icon="🎫" lastUpdated={lastUpdated} error={error} onRefresh={onRefresh} />
 );
 
-export const FastDecentralandCard: React.FC<{ 
-  data: Record<string, unknown> | null; 
-  loading?: boolean; 
+export const FastDecentralandCard: React.FC<{
+  data: Record<string, unknown> | null;
+  loading?: boolean;
   lastUpdated?: string | null;
   error?: { lastError: string; errorCount: number; lastAttempt: string } | null;
   onRefresh?: () => void;
@@ -948,9 +983,9 @@ export const FastDecentralandCard: React.FC<{
   <ServiceCard data={data} loading={loading} serviceName="Decentraland" icon="🏗️" lastUpdated={lastUpdated} error={error} onRefresh={onRefresh} />
 );
 
-export const FastDeBankCard: React.FC<{ 
-  data: Record<string, unknown> | null; 
-  loading?: boolean; 
+export const FastDeBankCard: React.FC<{
+  data: Record<string, unknown> | null;
+  loading?: boolean;
   lastUpdated?: string | null;
   error?: { lastError: string; errorCount: number; lastAttempt: string } | null;
   onRefresh?: () => void;

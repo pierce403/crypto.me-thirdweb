@@ -38,6 +38,9 @@ Crypto.me Thirdweb is a web3 identity aggregator that creates a unified profile 
 - Use `npm run db:deploy` (`prisma migrate deploy`) for production.
 - **Do not** use `--accept-data-loss` in production scripts.
 
+### Git Workflow
+- **Commit & Push**: Always commit and push your changes after every significant update or task completion. This ensures work is saved and accessible.
+
 ### Adding a New Service
 1.  Add the service configuration to `SERVICES_CONFIG` in `src/lib/cacheStore.ts`.
 2.  Create a new API route in `src/pages/api/services/[new-service].ts`.
