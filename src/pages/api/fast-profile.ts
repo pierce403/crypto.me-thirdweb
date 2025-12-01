@@ -1,29 +1,148 @@
 import { NextApiRequest, NextApiResponse } from 'next';
+import { prisma } from '../../../lib/prisma';
+import {
+  globalFetchLock,
+  addRecentUpdateEvent,
+  FastProfileData,
+  SERVICES_CONFIG,
+} from '../../lib/cacheStore';
 
-// Dynamic imports will be used inside the handler to avoid potential initialization issues
-// import { prisma } from '../../../lib/prisma';
-// import {
-//   globalFetchLock,
-//   addRecentUpdateEvent,
-//   FastProfileData,
-//   SERVICES_CONFIG,
-// } from '../../lib/cacheStore';
+export async function backgroundFetchRealData(address: string, originalInput?: string): Promise<void> {
+  const normalizedAddress = address.toLowerCase();
 
-// We need to define types locally or import them as types only if possible, 
-// but for now let's rely on dynamic imports for the logic.
-// Actually, we can import types safely.
-import type { FastProfileData } from '../../lib/cacheStore';
+  if (globalFetchLock.has(normalizedAddress)) {
+    return;
+  }
 
-// Helper function needs to be moved or adapted if we want to use dynamic imports for it too, 
-// or we can keep it but pass dependencies.
-// For now, let's inline the logic or simplify.
+  addRecentUpdateEvent({ address: normalizedAddress, status: 'fetch_started' });
+  const fetchPromise = (async () => {
+    try {
+      const servicePromises = SERVICES_CONFIG.map(async (service) => {
+        try {
+          // Use the current domain for server-side calls
+          const baseUrl = process.env.VERCEL_URL
+            ? `https://${process.env.VERCEL_URL}`
+            : process.env.NODE_ENV === 'production'
+              ? 'https://crypto-me-thirdweb.vercel.app'  // fallback production URL
+              : 'http://localhost:3000';
 
-export async function backgroundFetchRealData(): Promise<void> {
-  // This function will need to re-import dependencies if called independently, 
-  // or we can pass them. But since it's exported, let's try to keep it simple.
-  // If this is causing the issue, we might need to move it.
-  // For now, let's just return to avoid it being the cause.
-  return;
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+          const serviceUrl = service.url(address, originalInput);
+          console.log(`[fast-profile:debug:${normalizedAddress}] Fetching service: ${service.name}, URL: ${baseUrl}${serviceUrl}`);
+          const response = await fetch(`${baseUrl}${serviceUrl}`, {
+            signal: controller.signal,
+            headers: { 'User-Agent': 'CryptoMe-FastProfile/1.0' }
+          });
+          clearTimeout(timeoutId);
+
+          const now = new Date();
+          const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours expiry
+
+          if (response.ok) {
+            const data = await response.json();
+            console.log(`[fast-profile:debug:${normalizedAddress}] Service ${service.name} OK. Data keys: ${Object.keys(data).join(', ')}`);
+
+            const serviceDataJson = JSON.stringify(data);
+
+            console.log(`[fast-profile:debug:${normalizedAddress}] Service ${service.name} OK. Upserting to DB: data length ${serviceDataJson.length}, expires_at: ${expiresAt.toISOString()}`);
+            await prisma.service_cache.upsert({
+              where: { address_service: { address: normalizedAddress, service: service.name } },
+              update: { data: serviceDataJson, last_updated: now, expires_at: expiresAt, error_count: 0, last_error: null },
+              create: { address: normalizedAddress, service: service.name, data: serviceDataJson, last_updated: now, expires_at: expiresAt },
+            });
+            addRecentUpdateEvent({ address: normalizedAddress, status: 'service_updated', serviceName: service.name });
+          } else {
+            let serviceErrorMessage = `Service returned ${response.status}`;
+            const errorName = `HTTPError${response.status}`;
+            console.log(`[fast-profile:error:${normalizedAddress}] Service ${service.name} failed. Status: ${response.status}, Message: ${serviceErrorMessage}`);
+            try {
+              const errorData = await response.json();
+              if (errorData.error) {
+                serviceErrorMessage = typeof errorData.error === 'string' ? errorData.error : JSON.stringify(errorData.error);
+              } else if (typeof errorData === 'string') {
+                serviceErrorMessage = errorData;
+              } else if (errorData.message && typeof errorData.message === 'string') {
+                serviceErrorMessage = errorData.message;
+              }
+            } catch {
+              // Failed to parse error JSON
+            }
+
+            console.log(`[fast-profile:error:${normalizedAddress}] Service ${service.name} failed. Upserting error to DB with default data: ${JSON.stringify(service.defaultData)}, last_error: ${serviceErrorMessage}`);
+            const shortExpiry = new Date(now.getTime() + 1 * 60 * 60 * 1000); // 1 hour expiry on error
+            await prisma.service_cache.upsert({
+              where: { address_service: { address: normalizedAddress, service: service.name } },
+              update: { error_count: { increment: 1 }, last_error: serviceErrorMessage, expires_at: shortExpiry },
+              create: {
+                address: normalizedAddress,
+                service: service.name,
+                data: JSON.stringify(service.defaultData),
+                last_error: serviceErrorMessage,
+                error_count: 1,
+                expires_at: shortExpiry,
+                last_updated: now
+              },
+            });
+            addRecentUpdateEvent({
+              address: normalizedAddress,
+              status: 'service_failed',
+              serviceName: service.name,
+              message: serviceErrorMessage,
+              errorName: errorName
+            });
+          }
+        } catch (error) {
+          const err = error instanceof Error ? error : new Error('Unknown fetch error');
+          const message = err.message;
+          const errorName = err.name === 'AbortError' ? 'TimeoutError' : err.name;
+          console.error(`[fast-profile:error:${normalizedAddress}] Service ${service.name} exception during fetch/processing: ${err.message}`, err);
+          const now = new Date();
+          const shortExpiry = new Date(now.getTime() + 1 * 60 * 60 * 1000); // 1 hour expiry on error
+
+          console.log(`[fast-profile:error:${normalizedAddress}] Service ${service.name} exception. Upserting error to DB with default data: ${JSON.stringify(service.defaultData)}, last_error: ${message}`);
+          await prisma.service_cache.upsert({
+            where: { address_service: { address: normalizedAddress, service: service.name } },
+            update: { error_count: { increment: 1 }, last_error: message, expires_at: shortExpiry },
+            create: {
+              address: normalizedAddress,
+              service: service.name,
+              data: JSON.stringify(service.defaultData),
+              last_error: message,
+              error_count: 1,
+              expires_at: shortExpiry,
+              last_updated: now
+            },
+          });
+          addRecentUpdateEvent({
+            address: normalizedAddress,
+            status: 'service_failed',
+            serviceName: service.name,
+            message,
+            errorName
+          });
+        }
+      });
+
+      await Promise.allSettled(servicePromises);
+
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error('Outer background fetch error');
+      addRecentUpdateEvent({
+        address: normalizedAddress,
+        status: 'fetch_failed',
+        message: err.message,
+        errorName: err.name
+      });
+    } finally {
+      globalFetchLock.delete(normalizedAddress);
+      addRecentUpdateEvent({ address: normalizedAddress, status: 'fetch_completed' });
+    }
+  })();
+
+  globalFetchLock.set(normalizedAddress, fetchPromise);
+  // Do not await fetchPromise here to allow background execution
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse<FastProfileData | { error: string } | { status: string }>) {
@@ -43,10 +162,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
   console.log(`[fast-profile:info] Handler invoked for address: ${normalizedAddress}`);
 
   try {
-    // Dynamic imports
-    const { prisma } = await import('../../../lib/prisma');
-    const { SERVICES_CONFIG } = await import('../../lib/cacheStore');
-
     const cachedServices = await prisma.service_cache.findMany({
       where: { address: normalizedAddress },
     });
@@ -111,7 +226,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       loadTime: Date.now() - startTime,
     };
 
-    /*
     if (!allServicesFresh) {
       backgroundFetchRealData(normalizedAddress, address).catch(err => {
         const errorInstance = err instanceof Error ? err : new Error(String(err));
@@ -123,7 +237,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
         });
       });
     }
-    */
 
     console.log(`[fast-profile:debug:${normalizedAddress}] Returning responseData. Cache: ${responseData.cacheStatus}, Source: ${responseData.source}, LoadTime: ${responseData.loadTime}ms`);
 
@@ -132,30 +245,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
   } catch (error) {
     const errorInstance = error instanceof Error ? error : new Error(String(error));
     console.error(`[fast-profile:critical:${normalizedAddress}] Main handler error: ${errorInstance.message}. Returning error fallback.`, errorInstance);
-
-    // Try to import addRecentUpdateEvent dynamically if it failed before
-    try {
-      const { addRecentUpdateEvent } = await import('../../lib/cacheStore');
-      addRecentUpdateEvent({
-        address: normalizedAddress,
-        status: 'fetch_failed',
-        message: `Handler error: ${errorInstance.message}`,
-        errorName: errorInstance.name
-      });
-    } catch (e) {
-      console.error('Failed to log error event', e);
-    }
+    addRecentUpdateEvent({
+      address: normalizedAddress,
+      status: 'fetch_failed',
+      message: `Handler error: ${errorInstance.message}`,
+      errorName: errorInstance.name
+    });
 
     // Fallback to default structure if database access fails
     const fallbackServicesData: FastProfileData['services'] = {};
-    try {
-      const { SERVICES_CONFIG } = await import('../../lib/cacheStore');
-      SERVICES_CONFIG.forEach(sc => {
-        fallbackServicesData[sc.name as keyof typeof fallbackServicesData] = sc.defaultData;
-      });
-    } catch (e) {
-      console.error('Failed to load SERVICES_CONFIG for fallback', e);
-    }
+    SERVICES_CONFIG.forEach(sc => {
+      fallbackServicesData[sc.name as keyof typeof fallbackServicesData] = sc.defaultData;
+    });
 
     const errorResponseData = {
       address: normalizedAddress,
