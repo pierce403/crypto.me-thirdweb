@@ -66,8 +66,8 @@ export function backgroundFetchRealData(
           ? SERVICES_CONFIG.filter((service) => servicesToFetch.includes(service.name))
           : SERVICES_CONFIG;
 
-      await runWithConcurrencyLimit(selectedServices, 2, async (service) => {
-        const serviceTimeoutMs = 10000;
+      await runWithConcurrencyLimit(selectedServices, 1, async (service) => {
+        const serviceTimeoutMs = service.timeoutMs ?? 10000;
         try {
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), serviceTimeoutMs);
@@ -280,7 +280,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     if (!allServicesFresh) {
       // Limit background work per request to keep it reliable under serverless constraints.
       // On cache miss/partial, subsequent polls will pick up remaining services.
-      const MAX_SERVICES_PER_BACKGROUND_RUN = 3;
+      const MAX_SERVICES_PER_BACKGROUND_RUN = 2;
       const servicesToFetch = servicesNeedingRefresh.slice(0, MAX_SERVICES_PER_BACKGROUND_RUN);
 
       const baseUrlFromReq = getBaseUrlFromRequest(req);

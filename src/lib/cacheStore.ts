@@ -57,24 +57,28 @@ export const SERVICES_CONFIG = [
     name: 'ens',
     key: 'ens',
     defaultData: {},
+    timeoutMs: 20000,
     url: (address: string) => `/api/services/ens?address=${address}`
   },
   {
     name: 'xmtp',
     key: 'xmtp',
     defaultData: { inboxId: null, connectedIdentities: [], identities: [] },
+    timeoutMs: 20000,
     url: (address: string) => `/api/services/xmtp?address=${address}`
   },
   {
     name: 'farcaster',
     key: 'farcaster',
     defaultData: null,
+    timeoutMs: 15000,
     url: (address: string) => `/api/services/farcaster?address=${address}`
   },
   {
     name: 'alchemy',
     key: 'alchemy',
     defaultData: { totalCount: 0, nfts: [], collections: {}, source: 'none' },
+    timeoutMs: 20000,
     url: (address: string) => `/api/services/alchemy?address=${address}`
   },
   {
@@ -87,6 +91,7 @@ export const SERVICES_CONFIG = [
       portfolioSummary: { totalValue: 0, currency: 'ETH', lastUpdated: '' },
       source: 'none'
     },
+    timeoutMs: 25000,
     url: (address: string) => `/api/services/opensea?address=${address}`
   },
   {
@@ -102,24 +107,28 @@ export const SERVICES_CONFIG = [
       lastUpdated: '',
       source: 'none'
     },
+    timeoutMs: 20000,
     url: (address: string) => `/api/services/debank?address=${address}`
   },
   {
     name: 'icebreaker',
     key: 'icebreaker',
     defaultData: null,
+    timeoutMs: 20000,
     url: (address: string, originalInput?: string) => `/api/services/icebreaker?address=${originalInput || address}`
   },
   {
     name: 'gitcoin-passport',
     key: 'gitcoin-passport',
     defaultData: {},
+    timeoutMs: 20000,
     url: (address: string) => `/api/services/gitcoin-passport?address=${address}`
   },
   {
     name: 'decentraland',
     key: 'decentraland',
     defaultData: {},
+    timeoutMs: 30000,
     url: (address: string) => `/api/services/decentraland?address=${address}`
   },
 ] as const;
