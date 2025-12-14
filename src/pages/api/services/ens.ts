@@ -3,13 +3,21 @@ import { createEnsPublicClient } from '@ensdomains/ensjs';
 import { http } from 'viem';
 import { mainnet } from 'viem/chains';
 
+const alchemyRpcUrl =
+  process.env.ALCHEMY_RPC_URL ||
+  (process.env.ALCHEMY_API_KEY ? `https://eth-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}` : undefined);
+
 const ensClient = createEnsPublicClient({
   chain: mainnet,
-  transport: http(),
+  // Keep this service fast/reliable; background fetcher times out at 10s.
+  transport: http(alchemyRpcUrl, { timeout: 5000, retryCount: 0 }),
 });
 
 // Helper function to fetch all ENS names owned by an address using the ENS subgraph
 async function fetchAllEnsNames(address: string): Promise<string[]> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 6000);
+
   try {
     const query = `
       query GetDomains($address: String!) {
@@ -28,7 +36,8 @@ async function fetchAllEnsNames(address: string): Promise<string[]> {
       body: JSON.stringify({
         query,
         variables: { address: address.toLowerCase() }
-      })
+      }),
+      signal: controller.signal,
     });
 
     if (!response.ok) {
@@ -45,8 +54,12 @@ async function fetchAllEnsNames(address: string): Promise<string[]> {
 
     return data.data?.domains?.map((domain: { name: string }) => domain.name) || [];
   } catch (error) {
-    console.error('Error fetching ENS names from subgraph:', error);
+    const err = error instanceof Error ? error : new Error(String(error));
+    const errorName = err.name === 'AbortError' ? 'TimeoutError' : err.name;
+    console.error(`Error fetching ENS names from subgraph (${errorName}):`, err);
     return [];
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
@@ -84,50 +97,52 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     } else if (queryAddressOrName.startsWith('0x')) {
       resolvedEthAddress = queryAddressOrName as `0x${string}`;
-      try {
-        const nameRecord = await ensClient.getName({ address: resolvedEthAddress });
-        if (nameRecord?.name) {
-          operatingName = nameRecord.name;
-        } else {
-          console.warn(`Could not resolve address ${resolvedEthAddress} to a primary ENS name.`);
-        }
-      } catch (error) {
-        console.error(`Error getting primary name for address ${resolvedEthAddress}:`, error);
-      }
     } else {
       return res.status(400).json({ error: 'Invalid address or ENS name format' });
     }
 
-    // Get avatar for the operatingName (if we have one)
-    if (operatingName) {
+    // Keep this API route fast: do not block on non-essential lookups.
+    // For address inputs, we skip avatar fetching (it would require an extra RPC round-trip).
+    const shouldFetchAvatar = Boolean(operatingName); // Only if user supplied an ENS name
+
+    const primaryNamePromise = !operatingName && resolvedEthAddress
+      ? ensClient.getName({ address: resolvedEthAddress })
+      : Promise.resolve(null);
+
+    const allNamesPromise = resolvedEthAddress
+      ? fetchAllEnsNames(resolvedEthAddress)
+      : Promise.resolve([]);
+
+    const [primaryNameResult, allNamesResult] = await Promise.allSettled([primaryNamePromise, allNamesPromise]);
+
+    if (!operatingName && primaryNameResult.status === 'fulfilled') {
+      const nameRecord = primaryNameResult.value as { name?: string } | null;
+      if (nameRecord?.name) operatingName = nameRecord.name;
+    }
+
+    if (allNamesResult.status === 'fulfilled') {
+      const allNamesForAddress = allNamesResult.value;
+      otherNames = operatingName
+        ? allNamesForAddress.filter(name => name.toLowerCase() !== operatingName?.toLowerCase())
+        : allNamesForAddress;
+    }
+
+    if (shouldFetchAvatar && operatingName) {
       try {
-        const avatarRecord = await ensClient.getTextRecord({ 
-          name: operatingName, 
-          key: 'avatar' 
+        const avatarRecord = await ensClient.getTextRecord({
+          name: operatingName,
+          key: 'avatar'
         });
         if (typeof avatarRecord === 'string') {
           if (avatarRecord.startsWith('ipfs://')) {
             const cid = avatarRecord.slice('ipfs://'.length);
-            // Using a common public gateway, you might prefer a specific one or your own
-            avatar = `https://ipfs.io/ipfs/${cid}`; 
+            avatar = `https://ipfs.io/ipfs/${cid}`;
           } else {
-            avatar = avatarRecord; // Could be http(s) URL or other schemes
+            avatar = avatarRecord;
           }
         }
       } catch (error) {
         console.error(`Error getting avatar for ${operatingName}:`, error);
-      }
-    }
-
-    // Fetch all ENS names owned by the resolvedEthAddress
-    if (resolvedEthAddress) {
-      try {
-        const allNamesForAddress = await fetchAllEnsNames(resolvedEthAddress);
-        otherNames = operatingName 
-          ? allNamesForAddress.filter(name => name.toLowerCase() !== operatingName?.toLowerCase())
-          : allNamesForAddress;
-      } catch (error) {
-        console.error(`Error fetching all ENS names for ${resolvedEthAddress}:`, error);
       }
     }
 

@@ -7,35 +7,51 @@ import {
   SERVICES_CONFIG,
 } from '../../lib/cacheStore';
 
-export async function backgroundFetchRealData(address: string, originalInput?: string): Promise<void> {
+function getBaseUrlForInternalRequests(baseUrlOverride?: string): string {
+  if (baseUrlOverride) return baseUrlOverride;
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  if (process.env.NODE_ENV === 'production') return 'https://crypto-me-thirdweb.vercel.app'; // fallback production URL
+  return 'http://localhost:3000';
+}
+
+function getBaseUrlFromRequest(req: NextApiRequest): string | null {
+  const hostHeader = req.headers['x-forwarded-host'] ?? req.headers.host;
+  const host = Array.isArray(hostHeader) ? hostHeader[0] : hostHeader;
+  if (!host) return null;
+
+  const protoHeader = req.headers['x-forwarded-proto'];
+  const proto = Array.isArray(protoHeader) ? protoHeader[0] : protoHeader;
+  return `${proto || 'http'}://${host}`;
+}
+
+export function backgroundFetchRealData(address: string, originalInput?: string, baseUrlOverride?: string): Promise<void> {
   const normalizedAddress = address.toLowerCase();
 
-  if (globalFetchLock.has(normalizedAddress)) {
-    return;
-  }
+  const existingPromise = globalFetchLock.get(normalizedAddress);
+  if (existingPromise) return existingPromise;
 
   addRecentUpdateEvent({ address: normalizedAddress, status: 'fetch_started' });
+  const baseUrl = getBaseUrlForInternalRequests(baseUrlOverride);
   const fetchPromise = (async () => {
     try {
       const servicePromises = SERVICES_CONFIG.map(async (service) => {
+        const serviceTimeoutMs = 10000;
         try {
-          // Use the current domain for server-side calls
-          const baseUrl = process.env.VERCEL_URL
-            ? `https://${process.env.VERCEL_URL}`
-            : process.env.NODE_ENV === 'production'
-              ? 'https://crypto-me-thirdweb.vercel.app'  // fallback production URL
-              : 'http://localhost:3000';
-
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 10000);
+          const timeoutId = setTimeout(() => controller.abort(), serviceTimeoutMs);
 
           const serviceUrl = service.url(address, originalInput);
           console.log(`[fast-profile:debug:${normalizedAddress}] Fetching service: ${service.name}, URL: ${baseUrl}${serviceUrl}`);
-          const response = await fetch(`${baseUrl}${serviceUrl}`, {
-            signal: controller.signal,
-            headers: { 'User-Agent': 'CryptoMe-FastProfile/1.0' }
-          });
-          clearTimeout(timeoutId);
+          const response = await (async () => {
+            try {
+              return await fetch(`${baseUrl}${serviceUrl}`, {
+                signal: controller.signal,
+                headers: { 'User-Agent': 'CryptoMe-FastProfile/1.0' }
+              });
+            } finally {
+              clearTimeout(timeoutId);
+            }
+          })();
 
           const now = new Date();
           const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours expiry
@@ -95,9 +111,10 @@ export async function backgroundFetchRealData(address: string, originalInput?: s
           }
         } catch (error) {
           const err = error instanceof Error ? error : new Error('Unknown fetch error');
-          const message = err.message;
-          const errorName = err.name === 'AbortError' ? 'TimeoutError' : err.name;
-          console.error(`[fast-profile:error:${normalizedAddress}] Service ${service.name} exception during fetch/processing: ${err.message}`, err);
+          const isTimeout = err.name === 'AbortError';
+          const message = isTimeout ? `Timeout fetching ${service.name} after ${serviceTimeoutMs}ms` : err.message;
+          const errorName = isTimeout ? 'TimeoutError' : err.name;
+          console.error(`[fast-profile:error:${normalizedAddress}] Service ${service.name} exception during fetch/processing: ${message}`, err);
           const now = new Date();
           const shortExpiry = new Date(now.getTime() + 1 * 60 * 60 * 1000); // 1 hour expiry on error
 
@@ -142,7 +159,7 @@ export async function backgroundFetchRealData(address: string, originalInput?: s
   })();
 
   globalFetchLock.set(normalizedAddress, fetchPromise);
-  // Do not await fetchPromise here to allow background execution
+  return fetchPromise;
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse<FastProfileData | { error: string } | { status: string }>) {
@@ -227,7 +244,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     };
 
     if (!allServicesFresh) {
-      backgroundFetchRealData(normalizedAddress, address).catch(err => {
+      const baseUrlFromReq = getBaseUrlFromRequest(req);
+      const backgroundPromise = backgroundFetchRealData(normalizedAddress, address, baseUrlFromReq || undefined);
+      const waitUntil = (res as unknown as { waitUntil?: (promise: Promise<unknown>) => void }).waitUntil;
+      if (typeof waitUntil === 'function') {
+        waitUntil(backgroundPromise);
+      }
+      backgroundPromise.catch(err => {
         const errorInstance = err instanceof Error ? err : new Error(String(err));
         addRecentUpdateEvent({
           address: normalizedAddress,

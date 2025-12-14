@@ -1,15 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { GetServerSideProps } from 'next';
 import Head from 'next/head';
-import { createEnsPublicClient } from '@ensdomains/ensjs';
-import { http } from 'viem';
-import { mainnet } from 'viem/chains';
 import { Box, Container, Heading, Text, VStack, Separator, Button, SimpleGrid, HStack, Badge, Spinner } from '@chakra-ui/react';
 import Image from 'next/image';
 import { useFastProfile } from '../hooks/useFastProfile';
+import { prisma } from '../../lib/prisma';
 import {
   FastENSCard,
+  FastXMTPCard,
   FastFarcasterCard,
   FastAlchemyCard,
   FastOpenSeaCard,
@@ -36,30 +35,39 @@ interface ProfilePageProps {
   avatar: string | null;
 }
 
-const ensClient = createEnsPublicClient({
-  chain: mainnet,
-  transport: http(),
-});
+function isEthereumAddress(input: string): boolean {
+  return /^0x[a-fA-F0-9]{40}$/.test(input);
+}
 
 export const getServerSideProps: GetServerSideProps<ProfilePageProps> = async (context) => {
   const ensName = context.params?.ens as string;
 
-  try {
-    // Do minimal ENS resolution for initial page load
-    const addressRecord = await ensClient.getAddressRecord({ name: ensName });
-    if (!addressRecord?.value || addressRecord.value === '0x0000000000000000000000000000000000000000') {
-      return { props: { ensName, address: null, avatar: null } };
-    }
+  // Cache SSR output briefly to reduce cold starts while keeping pages fresh.
+  context.res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
 
-    // Get basic avatar for initial render
-    const avatarRecord = await ensClient.getTextRecord({ name: ensName, key: 'avatar' });
-    const avatar = typeof avatarRecord === 'string' ? avatarRecord : null;
+  // Support direct address input (homepage allows 0x... searches).
+  if (isEthereumAddress(ensName)) {
+    return { props: { ensName, address: ensName, avatar: null } };
+  }
+
+  try {
+    // Fast path: return cached ENS data instantly if we have it.
+    const cached = await prisma.cached_profiles.findUnique({
+      where: { ens_name: ensName },
+      select: { profile_data: true },
+    });
+
+    if (!cached?.profile_data) return { props: { ensName, address: null, avatar: null } };
+
+    const parsed = JSON.parse(cached.profile_data) as { address?: string; profile_data?: { ens_avatar?: string | null } };
+    const address = typeof parsed.address === 'string' ? parsed.address : null;
+    const avatar = parsed.profile_data?.ens_avatar ?? null;
 
     return {
       props: {
         ensName,
-        address: addressRecord.value,
-        avatar,
+        address,
+        avatar: typeof avatar === 'string' ? avatar : null,
       },
     };
 
@@ -76,6 +84,51 @@ export const getServerSideProps: GetServerSideProps<ProfilePageProps> = async (c
 };
 
 export default function ProfilePage({ ensName, address, avatar }: ProfilePageProps) {
+  const [resolvedAddress, setResolvedAddress] = useState<string | null>(address);
+  const [resolvedAvatar, setResolvedAvatar] = useState<string | null>(avatar);
+  const [isResolving, setIsResolving] = useState(false);
+  const [resolveError, setResolveError] = useState<string | null>(null);
+
+  // If we didn't get an address from SSR/cache, resolve it client-side (so the page can render immediately).
+  useEffect(() => {
+    let cancelled = false;
+
+    async function resolveEns() {
+      if (resolvedAddress) return;
+      if (!ensName || isEthereumAddress(ensName)) return;
+
+      setIsResolving(true);
+      setResolveError(null);
+
+      try {
+        const response = await fetch(`/api/profile?ens_name=${encodeURIComponent(ensName)}`);
+        const result = await response.json();
+        if (cancelled) return;
+
+        if (!response.ok) {
+          setResolveError(result?.error || 'Failed to resolve ENS name');
+          setResolvedAddress(null);
+          return;
+        }
+
+        setResolvedAddress(result?.address || null);
+        setResolvedAvatar(result?.profile_data?.ens_avatar || null);
+      } catch (err) {
+        if (cancelled) return;
+        const message = err instanceof Error ? err.message : 'Failed to resolve ENS name';
+        setResolveError(message);
+        setResolvedAddress(null);
+      } finally {
+        if (!cancelled) setIsResolving(false);
+      }
+    }
+
+    resolveEns();
+    return () => {
+      cancelled = true;
+    };
+  }, [ensName, resolvedAddress]);
+
   // Use the fast profile hook for instant loading
   const {
     data,
@@ -89,6 +142,7 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
     getServiceError,
     // Individual service data
     ens,
+    xmtp,
     farcaster,
     alchemy,
     opensea,
@@ -96,7 +150,7 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
     icebreaker,
     gitcoinPassport,
     decentraland,
-  } = useFastProfile(address, {
+  } = useFastProfile(resolvedAddress, {
     pollInterval: 30000, // Poll every 30 seconds
     initialPollDelay: 10000, // Wait 10s before first background update
     enablePolling: true,
@@ -111,20 +165,40 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
     setTimeout(() => setIsRefreshing(false), 1000);
   };
 
-  if (!address) {
+  if (!resolvedAddress) {
     return (
       <Container maxW="container.md" centerContent>
         <Head>
           <title>{ensName} | Crypto.me Profile</title>
         </Head>
         <Box p={8} mt={10} bg="gray.50" borderRadius="lg" boxShadow="md">
-          <Text fontSize="xl" color="gray.800">ENS name &quot;{ensName}&quot; not found or has no address</Text>
+          <VStack gap={3} align="stretch">
+            <Heading as="h1" size="lg" color="gray.800" textAlign="center">{ensName}</Heading>
+            <Separator />
+            {isResolving ? (
+              <HStack justify="center" gap={3}>
+                <Spinner size="sm" />
+                <Text fontSize="md" color="gray.700">Resolving ENS name…</Text>
+              </HStack>
+            ) : (
+              <Text fontSize="md" color="gray.800" textAlign="center">
+                {resolveError
+                  ? `Could not resolve ENS name: ${resolveError}`
+                  : `ENS name "${ensName}" not found or has no address`}
+              </Text>
+            )}
+            {!isResolving && (
+              <Button onClick={() => window.location.reload()} colorScheme="blue" variant="outline">
+                Try Again
+              </Button>
+            )}
+          </VStack>
         </Box>
       </Container>
     );
   }
 
-  const avatarUrl = avatar ? convertToGatewayUrl(avatar) : null;
+  const avatarUrl = resolvedAvatar ? convertToGatewayUrl(resolvedAvatar) : null;
   const cacheStats = getCacheStats();
 
   // Only show loading when we have no data at all (not even cached data)
@@ -160,13 +234,13 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
 
           <Box>
             <Text fontSize="lg" fontWeight="bold" color="gray.800">ETH Address:</Text>
-            <Text fontSize="md" color="gray.800" wordBreak="break-all">{address}</Text>
+            <Text fontSize="md" color="gray.800" wordBreak="break-all">{resolvedAddress}</Text>
           </Box>
 
-          {avatar && (
+          {resolvedAvatar && (
             <Box>
               <Text fontSize="lg" fontWeight="bold" color="gray.800">Avatar:</Text>
-              <Text fontSize="md" color="gray.800" wordBreak="break-all">{avatar}</Text>
+              <Text fontSize="md" color="gray.800" wordBreak="break-all">{resolvedAvatar}</Text>
             </Box>
           )}
 
@@ -307,6 +381,13 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
                   Social
                 </Heading>
                 <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={6}>
+                  <FastXMTPCard
+                    data={xmtp}
+                    loading={false}
+                    lastUpdated={getServiceTimestamp('xmtp')}
+                    error={getServiceError('xmtp')}
+                    onRefresh={() => refreshService('xmtp')}
+                  />
                   <FastFarcasterCard
                     data={farcaster}
                     loading={false}

@@ -183,7 +183,7 @@ export function useFastProfile(
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-      const serviceUrl = serviceConfig.url(address);
+      const serviceUrl = serviceConfig.url(address, originalInput);
       console.log(`[refresh-service:${serviceName}] Fetching URL: ${serviceUrl}`);
 
       // Use relative URL - browser will automatically use current domain
@@ -228,13 +228,8 @@ export function useFastProfile(
 
   // Helper to check if any service has data
   const hasAnyData = useCallback(() => {
-    if (!data?.services) {
-      console.log(`🔍 hasAnyData: false (no data.services)`);
-      return false;
-    }
-    const hasData = Object.values(data.services).some(service => service !== null);
-    console.log(`🔍 hasAnyData:`, hasData, data.services);
-    return hasData;
+    if (!data) return false;
+    return data.cacheStatus !== 'miss';
   }, [data]);
 
   // Helper to get cache stats
@@ -264,6 +259,7 @@ export function useFastProfile(
 
     // Individual service helpers
     ens: getServiceData('ens'),
+    xmtp: getServiceData('xmtp'),
     farcaster: getServiceData('farcaster'),
     alchemy: getServiceData('alchemy'),
     opensea: getServiceData('opensea'),
@@ -272,4 +268,4 @@ export function useFastProfile(
     gitcoinPassport: getServiceData('gitcoin-passport'),
     decentraland: getServiceData('decentraland'),
   };
-} 
+}

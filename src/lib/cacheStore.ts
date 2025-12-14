@@ -2,6 +2,7 @@ export interface FastProfileData {
   address: string;
   services: {
     ens?: Record<string, unknown> | null;
+    xmtp?: Record<string, unknown> | null;
     farcaster?: Record<string, unknown> | null;
     alchemy?: Record<string, unknown> | null;
     opensea?: Record<string, unknown> | null;
@@ -57,6 +58,12 @@ export const SERVICES_CONFIG = [
     key: 'ens',
     defaultData: {},
     url: (address: string) => `/api/services/ens?address=${address}`
+  },
+  {
+    name: 'xmtp',
+    key: 'xmtp',
+    defaultData: { inboxId: null, connectedIdentities: [], identities: [] },
+    url: (address: string) => `/api/services/xmtp?address=${address}`
   },
   {
     name: 'farcaster',

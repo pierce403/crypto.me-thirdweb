@@ -3,9 +3,13 @@ import { createEnsPublicClient } from '@ensdomains/ensjs';
 import { http } from 'viem';
 import { mainnet } from 'viem/chains';
 
+const alchemyRpcUrl =
+  process.env.ALCHEMY_RPC_URL ||
+  (process.env.ALCHEMY_API_KEY ? `https://eth-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}` : undefined);
+
 const ensClient = createEnsPublicClient({
   chain: mainnet,
-  transport: http(),
+  transport: http(alchemyRpcUrl, { timeout: 8000, retryCount: 1, retryDelay: 300 }),
 });
 
 // Helper function to check if a string is an ENS name

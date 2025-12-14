@@ -115,6 +115,8 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
     switch (serviceName) {
       case 'ENS':
         return <ENSContent data={data} />;
+      case 'XMTP':
+        return <XMTPContent data={data} />;
       case 'Farcaster':
         return <FarcasterContent data={data} />;
       case 'Alchemy':
@@ -912,6 +914,60 @@ const DeBankContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =>
   );
 };
 
+const XMTPContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) => {
+  const inboxId = (data.inboxId as string | null) || null;
+  const connectedIdentities = data.connectedIdentities as Array<{ identifier: string; kind: string }> | undefined;
+  const identities = data.identities as Array<{ identifier: string; kind: string }> | undefined;
+
+  return (
+    <VStack gap={3} align="stretch">
+      <Box>
+        <Text fontSize="sm" fontWeight="semibold" color="gray.600">Inbox ID:</Text>
+        <Text fontSize="sm" color="gray.800" wordBreak="break-all">
+          {inboxId || 'Not registered'}
+        </Text>
+      </Box>
+
+      {connectedIdentities && connectedIdentities.length > 0 ? (
+        <Box>
+          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Connected Identities:</Text>
+          <VStack gap={2} align="stretch" mt={2}>
+            {connectedIdentities.slice(0, 4).map((identity, index) => (
+              <HStack key={index} justify="space-between" align="start">
+                <Badge
+                  size="sm"
+                  colorScheme={identity.kind === 'ethereum' ? 'blue' : identity.kind === 'passkey' ? 'purple' : 'gray'}
+                  textTransform="lowercase"
+                >
+                  {identity.kind}
+                </Badge>
+                <Text fontSize="xs" color="gray.700" wordBreak="break-all" textAlign="right">
+                  {identity.identifier}
+                </Text>
+              </HStack>
+            ))}
+            {connectedIdentities.length > 4 && (
+              <Text fontSize="xs" color="gray.500" textAlign="center">
+                +{connectedIdentities.length - 4} more
+              </Text>
+            )}
+          </VStack>
+        </Box>
+      ) : (
+        <Text fontSize="sm" color="gray.600">
+          {inboxId ? 'No other identities linked.' : 'Not on XMTP.'}
+        </Text>
+      )}
+
+      {identities && identities.length > 0 && (
+        <Text fontSize="xs" color="gray.500">
+          Total identities: {identities.length}
+        </Text>
+      )}
+    </VStack>
+  );
+};
+
 // Export individual fast service cards
 export const FastENSCard: React.FC<{
   data: Record<string, unknown> | null;
@@ -921,6 +977,25 @@ export const FastENSCard: React.FC<{
   onRefresh?: () => void;
 }> = ({ data, loading, lastUpdated, error, onRefresh }) => (
   <ServiceCard data={data} loading={loading} serviceName="ENS" icon="🏷️" lastUpdated={lastUpdated} error={error} onRefresh={onRefresh} />
+);
+
+export const FastXMTPCard: React.FC<{
+  data: Record<string, unknown> | null;
+  loading?: boolean;
+  lastUpdated?: string | null;
+  error?: { lastError: string; errorCount: number; lastAttempt: string } | null;
+  onRefresh?: () => void;
+}> = ({ data, loading, lastUpdated, error, onRefresh }) => (
+  <ServiceCard
+    data={data}
+    loading={loading}
+    serviceName="XMTP"
+    icon="✉️"
+    description="Inbox ID and connected identities"
+    lastUpdated={lastUpdated}
+    error={error}
+    onRefresh={onRefresh}
+  />
 );
 
 export const FastFarcasterCard: React.FC<{
