@@ -5,6 +5,7 @@ import {
   addRecentUpdateEvent,
   FastProfileData,
   SERVICES_CONFIG,
+  ServiceName,
 } from '../../lib/cacheStore';
 
 function getBaseUrlForInternalRequests(baseUrlOverride?: string): string {
@@ -24,7 +25,33 @@ function getBaseUrlFromRequest(req: NextApiRequest): string | null {
   return `${proto || 'http'}://${host}`;
 }
 
-export function backgroundFetchRealData(address: string, originalInput?: string, baseUrlOverride?: string): Promise<void> {
+async function runWithConcurrencyLimit<T>(
+  items: readonly T[],
+  concurrency: number,
+  worker: (item: T) => Promise<void>,
+): Promise<void> {
+  if (items.length === 0) return;
+  const safeConcurrency = Math.max(1, Math.min(concurrency, items.length));
+  let nextIndex = 0;
+
+  const runners = Array.from({ length: safeConcurrency }, async () => {
+    while (true) {
+      const idx = nextIndex;
+      nextIndex += 1;
+      if (idx >= items.length) return;
+      await worker(items[idx]);
+    }
+  });
+
+  await Promise.allSettled(runners);
+}
+
+export function backgroundFetchRealData(
+  address: string,
+  originalInput?: string,
+  baseUrlOverride?: string,
+  servicesToFetch?: readonly ServiceName[],
+): Promise<void> {
   const normalizedAddress = address.toLowerCase();
 
   const existingPromise = globalFetchLock.get(normalizedAddress);
@@ -34,7 +61,12 @@ export function backgroundFetchRealData(address: string, originalInput?: string,
   const baseUrl = getBaseUrlForInternalRequests(baseUrlOverride);
   const fetchPromise = (async () => {
     try {
-      const servicePromises = SERVICES_CONFIG.map(async (service) => {
+      const selectedServices =
+        servicesToFetch && servicesToFetch.length > 0
+          ? SERVICES_CONFIG.filter((service) => servicesToFetch.includes(service.name))
+          : SERVICES_CONFIG;
+
+      await runWithConcurrencyLimit(selectedServices, 2, async (service) => {
         const serviceTimeoutMs = 10000;
         try {
           const controller = new AbortController();
@@ -90,7 +122,7 @@ export function backgroundFetchRealData(address: string, originalInput?: string,
             const shortExpiry = new Date(now.getTime() + 1 * 60 * 60 * 1000); // 1 hour expiry on error
             await prisma.service_cache.upsert({
               where: { address_service: { address: normalizedAddress, service: service.name } },
-              update: { error_count: { increment: 1 }, last_error: serviceErrorMessage, expires_at: shortExpiry },
+              update: { error_count: { increment: 1 }, last_error: serviceErrorMessage, expires_at: shortExpiry, last_updated: now },
               create: {
                 address: normalizedAddress,
                 service: service.name,
@@ -121,7 +153,7 @@ export function backgroundFetchRealData(address: string, originalInput?: string,
           console.log(`[fast-profile:error:${normalizedAddress}] Service ${service.name} exception. Upserting error to DB with default data: ${JSON.stringify(service.defaultData)}, last_error: ${message}`);
           await prisma.service_cache.upsert({
             where: { address_service: { address: normalizedAddress, service: service.name } },
-            update: { error_count: { increment: 1 }, last_error: message, expires_at: shortExpiry },
+            update: { error_count: { increment: 1 }, last_error: message, expires_at: shortExpiry, last_updated: now },
             create: {
               address: normalizedAddress,
               service: service.name,
@@ -141,8 +173,6 @@ export function backgroundFetchRealData(address: string, originalInput?: string,
           });
         }
       });
-
-      await Promise.allSettled(servicePromises);
 
     } catch (error) {
       const err = error instanceof Error ? error : new Error('Outer background fetch error');
@@ -189,8 +219,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     const serviceErrors: { [serviceName: string]: { lastError: string; errorCount: number; lastAttempt: string } } = {};
     const serviceTimestamps: { [serviceName: string]: string } = {};
     let allServicesFresh = true;
+    const servicesNeedingRefresh: ServiceName[] = [];
     let lastContentUpdate: Date | null = null;
 
+    const nowForFreshness = new Date();
     for (const serviceConfig of SERVICES_CONFIG) {
       const cachedEntry = cachedServices.find(cs => cs.service === serviceConfig.name);
       if (cachedEntry) {
@@ -220,12 +252,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
         if (cachedEntry.last_updated && (!lastContentUpdate || cachedEntry.last_updated > lastContentUpdate)) {
           lastContentUpdate = cachedEntry.last_updated;
         }
-        if (!cachedEntry.expires_at || new Date(cachedEntry.expires_at) < new Date()) {
+        if (!cachedEntry.expires_at || new Date(cachedEntry.expires_at) < nowForFreshness) {
           allServicesFresh = false;
+          servicesNeedingRefresh.push(serviceConfig.name);
         }
       } else {
         servicesData[serviceConfig.name as keyof typeof servicesData] = serviceConfig.defaultData;
         allServicesFresh = false;
+        servicesNeedingRefresh.push(serviceConfig.name);
       }
     }
 
@@ -244,8 +278,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     };
 
     if (!allServicesFresh) {
+      // Limit background work per request to keep it reliable under serverless constraints.
+      // On cache miss/partial, subsequent polls will pick up remaining services.
+      const MAX_SERVICES_PER_BACKGROUND_RUN = 3;
+      const servicesToFetch = servicesNeedingRefresh.slice(0, MAX_SERVICES_PER_BACKGROUND_RUN);
+
       const baseUrlFromReq = getBaseUrlFromRequest(req);
-      const backgroundPromise = backgroundFetchRealData(normalizedAddress, address, baseUrlFromReq || undefined);
+      const backgroundPromise = backgroundFetchRealData(normalizedAddress, address, baseUrlFromReq || undefined, servicesToFetch);
       const waitUntil = (res as unknown as { waitUntil?: (promise: Promise<unknown>) => void }).waitUntil;
       if (typeof waitUntil === 'function') {
         waitUntil(backgroundPromise);
