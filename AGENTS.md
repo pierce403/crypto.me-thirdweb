@@ -1,26 +1,38 @@
 # AGENTS.md
 
-## Project Overview
-Crypto.me Thirdweb is a web3 identity aggregator that creates a unified profile page from various on-chain and off-chain services (ENS, Farcaster, DeFi, etc.). It uses a "fast profile" architecture where data is fetched in the background and cached in a PostgreSQL database to ensure instant page loads.
+This file is for coding agents (LLMs). Think of it as a short, practical README so an agent can land changes safely and quickly.
+
+## Mission
+Crypto.me Thirdweb is a Web3 identity aggregator. It builds a unified profile page from on-chain + off-chain services (ENS, Farcaster, DeFi/NFTs, XMTP, etc.) with a **cache-first + background refresh** architecture so pages load fast even when third parties are slow.
+
+## Working Style (inspired by Recurse Center)
+- Be curious: ask clarifying questions early if requirements are ambiguous.
+- Prefer small, reversible changes: ship increments, verify, then iterate.
+- Optimize for “something works” first: return cached/partial data quickly, then refresh in the background.
+- Be kind and assume good intent: keep communication direct, constructive, and low-ego.
 
 ## Architecture
 
 ### Tech Stack
 - **Framework**: Next.js (Pages Router primarily, moving towards App Router).
-- **Database**: PostgreSQL (Production), SQLite (Local Dev).
+- **Database**: PostgreSQL (Production + local dev).
 - **ORM**: Prisma.
 - **Styling**: Chakra UI + Tailwind CSS.
 - **Web3**: `viem`, `@ensdomains/ensjs`.
 
 ### Key Components
-1.  **`src/pages/api/fast-profile.ts`**: The core API endpoint. It checks the DB cache first. If data is missing or stale, it triggers a background fetch (`backgroundFetchRealData`) which calls individual service endpoints.
-2.  **`src/lib/cacheStore.ts`**: Contains shared type definitions (`FastProfileData`, `SERVICES_CONFIG`) and the in-memory `globalFetchLock` to prevent duplicate background fetches.
-3.  **`src/hooks/useFastProfile.ts`**: Custom React hook for the frontend. Handles polling, optimistic updates, and exponential backoff for error handling.
-4.  **`src/lib/prisma.ts`**: Singleton instance of `PrismaClient`. **ALWAYS** import `prisma` from here, never instantiate `new PrismaClient()` directly in API routes.
+1. **`src/pages/[ens].tsx`**: Profile page. SSR uses cached ENS profile data when available; the client can resolve/fill in missing ENS data.
+2. **`src/pages/api/profile.ts`**: ENS resolver + `cached_profiles` SWR cache (serves cached immediately, refreshes when stale).
+3. **`src/pages/api/fast-profile.ts`**: Aggregator endpoint. Reads `service_cache` and triggers background refresh when stale/missing.
+4. **`src/pages/api/services/*`**: Service scrapers (ENS, Farcaster, XMTP, etc.). These should be fast and have timeouts.
+5. **`src/lib/cacheStore.ts`**: Shared types/config (`FastProfileData`, `SERVICES_CONFIG`) and `globalFetchLock`.
+6. **`lib/prisma.ts`**: Prisma singleton. **Always** import `prisma` from here (never instantiate `new PrismaClient()` in routes).
 
 ## Data Flow
 1.  **Request**: User visits `/[ens]`.
-2.  **Frontend**: `useFastProfile` calls `/api/fast-profile?address=...`.
+2.  **SSR**: `src/pages/[ens].tsx` returns cached ENS info immediately if available.
+3.  **Client**: If ENS info is missing, the client calls `/api/profile?ens_name=...` to resolve/fill it in.
+4.  **Client**: `useFastProfile` calls `/api/fast-profile?address=...`.
 3.  **API**:
     *   Checks `service_cache` table.
     *   Returns cached data immediately (even if stale).
@@ -33,13 +45,23 @@ Crypto.me Thirdweb is a web3 identity aggregator that creates a unified profile 
 
 ## Development Guidelines
 
+## Quick Commands
+- Install: `npm install`
+- Dev server: `npm run dev`
+- Production build check: `npm run build`
+- Lint: `npm run lint`
+
 ### Database
 - Use `npm run db:dev` (`prisma db push`) for local schema changes.
 - Use `npm run db:deploy` (`prisma migrate deploy`) for production.
 - **Do not** use `--accept-data-loss` in production scripts.
 
 ### Git Workflow
-- **Commit & Push**: Always commit and push your changes after every significant update or task completion. This ensures work is saved and accessible.
+- **Commit & Push**: After every significant update or task completion:
+  - `git status`
+  - `git commit -am "..."`
+  - `git pull --rebase origin main`
+  - `git push origin main`
 
 ### Adding a New Service
 1.  Add the service configuration to `SERVICES_CONFIG` in `src/lib/cacheStore.ts`.
@@ -51,8 +73,19 @@ Crypto.me Thirdweb is a web3 identity aggregator that creates a unified profile 
 - **Prisma Instances**: We saw connection limit errors because `PrismaClient` was being instantiated in multiple files. We fixed this by enforcing the singleton pattern in `lib/prisma.ts`.
 - **ENS Validation**: We replaced custom regex with `@adraffy/ens-normalize` to handle complex ENS names correctly.
 - **Circular Dependencies**: `fast-profile.ts` and `useFastProfile.ts` used to duplicate config. They now both rely on `src/lib/cacheStore.ts`.
+- **Timeouts**: Never add unbounded `fetch()`/RPC calls in services. Keep service scrapers fast and fail-soft (return defaults + error info).
 
 ## Current Status (as of Dec 2025)
 - **Refactoring**: We recently cleaned up the architecture to use shared configs and a singleton DB client.
 - **Performance**: Polling now has exponential backoff.
 - **UI**: Profile page is organized into sections (Identity, Social, Assets, Worlds) with a summary header.
+
+## Environment Variables (common)
+- `DATABASE_URL` (required)
+- `ALCHEMY_API_KEY` or `ALCHEMY_RPC_URL` (recommended for stable ENS/RPC reads)
+- `NEYNAR_API_KEY` (Farcaster)
+- `OPENSEA_API_KEY` (if/when OpenSea calls are enabled)
+- `XMTP_ENV` (`production` | `dev` | `local`) and optionally `XMTP_GATEWAY_HOST`
+
+## Vercel Logs
+To inspect production logs, you must be authenticated via the Vercel CLI (`vercel login`) or pass `--token`.
