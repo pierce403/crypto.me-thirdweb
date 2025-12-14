@@ -2,6 +2,8 @@
 
 Crypto.me Thirdweb is a central profile page for web3 identities. It allows users to view and manage their Ethereum Name Service (ENS) profiles, displaying the last error or the last successful sync time.
 
+The app aggregates data through **service collectors** (under `src/pages/api/services/*`). Each collector fetches data from a specific provider (ENS, Farcaster, XMTP, etc.) and augments the cached profile that powers `/api/fast-profile` and the profile UI. Collectors can be exercised individually, which helps us debug slow upstreams without running the full app.
+
 ## Tech Stack
 
 - [Next.js](https://nextjs.org): A React framework for building web applications.
@@ -43,6 +45,22 @@ yarn dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+### Running tests locally
+
+- Run the full collector smoke suite (uses stubbed network calls):
+
+```bash
+npm test
+```
+
+- Run a single collector test or test case by name:
+
+```bash
+npm test -- tests/service-collectors.test.ts --test-name-pattern "ENS"
+```
+
+These tests keep service collectors fast and deterministic by injecting stubbed dependencies instead of calling live third-party APIs.
 
 ## Database Setup and Maintenance
 

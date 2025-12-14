@@ -8,7 +8,8 @@
     "db:dev": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "TS_NODE_TRANSPILE_ONLY=1 node --test --require ./scripts/register-ts.js tests/**/*.test.ts"
   },
   "dependencies": {
     "@adraffy/ens-normalize": "^1.11.1",
