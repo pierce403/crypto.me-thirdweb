@@ -12,6 +12,16 @@ const ensClient = createEnsPublicClient({
   transport: http(alchemyRpcUrl, { timeout: 8000, retryCount: 1, retryDelay: 300 }),
 });
 
+type FarcasterDependencies = {
+  ensClient: typeof ensClient;
+  fetchFn: typeof fetch;
+};
+
+const defaultDependencies: FarcasterDependencies = {
+  ensClient,
+  fetchFn: fetch,
+};
+
 // Helper function to check if a string is an ENS name
 function isEnsName(input: string): boolean {
   return input.includes('.') && !input.startsWith('0x');
@@ -22,7 +32,8 @@ function isEthereumAddress(input: string): boolean {
   return /^0x[a-fA-F0-9]{40}$/.test(input);
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export function createHandler(dependencies: FarcasterDependencies = defaultDependencies) {
+  return async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Avoid logging request headers/secrets in production.
   if (process.env.NODE_ENV !== 'production') {
     console.log(`[farcaster.ts:debug] Incoming request. Method: ${req.method}, URL: ${req.url}`);
@@ -45,7 +56,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // If input looks like an ENS name, resolve it to an address
   if (isEnsName(address)) {
     try {
-      const addressRecord = await ensClient.getAddressRecord({ name: address });
+      const addressRecord = await dependencies.ensClient.getAddressRecord({ name: address });
       if (!addressRecord?.value || addressRecord.value === '0x0000000000000000000000000000000000000000') {
         return res.status(404).json({ error: 'ENS name not found or not resolved to a valid address' });
       }
@@ -68,7 +79,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     // First, get user by verified address (now using resolved address)
-    const userResponse = await fetch(`https://api.neynar.com/v2/farcaster/user/bulk-by-address?addresses=${resolvedAddress}`, {
+    const userResponse = await dependencies.fetchFn(`https://api.neynar.com/v2/farcaster/user/bulk-by-address?addresses=${resolvedAddress}`, {
       headers: {
         'accept': 'application/json',
         'x-api-key': apiKey,
@@ -161,4 +172,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       error: 'Failed to fetch Farcaster data. Please check your API key and try again.' 
     });
   }
-} 
+  };
+}
+
+export default createHandler();

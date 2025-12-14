@@ -97,6 +97,11 @@ crypto.me-thirdweb/
     - If data is stale or missing for any service, it returns the available cached data (if any) and triggers an asynchronous background process.
     - The background process fetches updated data from individual `/api/services/*` endpoints and updates the `service_cache` table.
 
+#### Service Collectors (`src/pages/api/services/*.ts`)
+- **Purpose**: Each collector talks to a single upstream provider (ENS, Farcaster, XMTP, OpenSea, etc.) and writes normalized data into the `service_cache` table.
+- **Execution**: Collectors can run independently for debugging or as part of the `fast-profile` background refresh fan-out. They should remain fast and fail-soft so that slow upstreams don't block the page.
+- **Testing**: The `tests/service-collectors.test.ts` suite injects stubbed dependencies to assert that collectors return shaped data and surface configuration errors quickly without live API calls.
+
 #### Recent Profiles (`src/pages/api/recent-profiles.ts`)
 - **Purpose**: Retrieve recently updated profiles
 - **Endpoint**: `GET /api/recent-profiles`

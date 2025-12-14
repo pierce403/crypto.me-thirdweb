@@ -13,8 +13,18 @@ const ensClient = createEnsPublicClient({
   transport: http(alchemyRpcUrl, { timeout: 5000, retryCount: 0 }),
 });
 
+type EnsDependencies = {
+  ensClient: typeof ensClient;
+  fetchFn: typeof fetch;
+};
+
+const defaultDependencies: EnsDependencies = {
+  ensClient,
+  fetchFn: fetch,
+};
+
 // Helper function to fetch all ENS names owned by an address using the ENS subgraph
-async function fetchAllEnsNames(address: string): Promise<string[]> {
+async function fetchAllEnsNames(address: string, fetchFn: typeof fetch): Promise<string[]> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 6000);
 
@@ -28,7 +38,7 @@ async function fetchAllEnsNames(address: string): Promise<string[]> {
       }
     `;
 
-    const response = await fetch('https://api.thegraph.com/subgraphs/name/ensdomains/ens', {
+    const response = await fetchFn('https://api.thegraph.com/subgraphs/name/ensdomains/ens', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -63,7 +73,8 @@ async function fetchAllEnsNames(address: string): Promise<string[]> {
   }
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export function createHandler(dependencies: EnsDependencies = defaultDependencies) {
+  return async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', ['GET']);
     return res.status(405).end(`Method ${req.method} Not Allowed`);
@@ -86,7 +97,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (isEnsNameSyntax(queryAddressOrName)) {
       operatingName = queryAddressOrName;
       try {
-        const addressRecord = await ensClient.getAddressRecord({ name: operatingName });
+        const addressRecord = await dependencies.ensClient.getAddressRecord({ name: operatingName });
         if (addressRecord && addressRecord.id === 60 && addressRecord.value) {
           resolvedEthAddress = addressRecord.value as `0x${string}` | null;
         } else {
@@ -106,11 +117,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const shouldFetchAvatar = Boolean(operatingName); // Only if user supplied an ENS name
 
     const primaryNamePromise = !operatingName && resolvedEthAddress
-      ? ensClient.getName({ address: resolvedEthAddress })
+      ? dependencies.ensClient.getName({ address: resolvedEthAddress })
       : Promise.resolve(null);
 
     const allNamesPromise = resolvedEthAddress
-      ? fetchAllEnsNames(resolvedEthAddress)
+      ? fetchAllEnsNames(resolvedEthAddress, dependencies.fetchFn)
       : Promise.resolve([]);
 
     const [primaryNameResult, allNamesResult] = await Promise.allSettled([primaryNamePromise, allNamesPromise]);
@@ -129,7 +140,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (shouldFetchAvatar && operatingName) {
       try {
-        const avatarRecord = await ensClient.getTextRecord({
+        const avatarRecord = await dependencies.ensClient.getTextRecord({
           name: operatingName,
           key: 'avatar'
         });
@@ -168,4 +179,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       error: 'Failed to fetch ENS data. Please check your configuration.' 
     });
   }
-} 
+  };
+}
+
+export default createHandler();
