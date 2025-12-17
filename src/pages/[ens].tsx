@@ -40,6 +40,10 @@ function isEthereumAddress(input: string): boolean {
   return /^0x[a-fA-F0-9]{40}$/.test(input);
 }
 
+function isEnsName(input: string): boolean {
+  return input.includes('.') && !input.startsWith('0x');
+}
+
 export const getServerSideProps: GetServerSideProps<ProfilePageProps> = async (context) => {
   const ensName = context.params?.ens as string;
 
@@ -221,6 +225,20 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
 
     return names.size;
   })();
+  const convergeUser = (() => {
+    if (isEnsName(ensName)) return ensName;
+
+    const primaryName = (ens as any)?.primaryName;
+    if (typeof primaryName === 'string' && isEnsName(primaryName)) return primaryName;
+
+    const otherNames = (ens as any)?.otherNames;
+    if (Array.isArray(otherNames)) {
+      const name = otherNames.find((value) => typeof value === 'string' && isEnsName(value));
+      if (name) return name;
+    }
+
+    return null;
+  })();
   const netWorthUsd = (() => {
     const zerionData = (data?.services?.zerion as any) ?? null;
     if (zerionData && zerionData.source === 'zerion' && typeof zerionData.totalUSD === 'number') return zerionData.totalUSD;
@@ -230,6 +248,7 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
 
     return null;
   })();
+  const xmtpCardData = xmtp && convergeUser ? { ...xmtp, convergeUser } : xmtp;
 
   // Only show loading when we have no data at all (not even cached data)
   const isInitialLoading = loading && !data;
@@ -412,7 +431,7 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
                 </Heading>
                 <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={6}>
                   <FastXMTPCard
-                    data={xmtp}
+                    data={xmtpCardData}
                     loading={false}
                     lastUpdated={getServiceTimestamp('xmtp')}
                     error={getServiceError('xmtp')}

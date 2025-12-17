@@ -1212,6 +1212,8 @@ const XMTPContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) => {
   const inboxId = (data.inboxId as string | null) || null;
   const connectedIdentities = data.connectedIdentities as Array<{ identifier: string; kind: string }> | undefined;
   const identities = data.identities as Array<{ identifier: string; kind: string }> | undefined;
+  const convergeUser = data.convergeUser as string | undefined;
+  const convergeUrl = convergeUser ? `https://converge.cv/u/${encodeURIComponent(convergeUser)}` : null;
 
   return (
     <VStack gap={3} align="stretch">
@@ -1221,6 +1223,18 @@ const XMTPContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) => {
           {inboxId || 'Not registered'}
         </Text>
       </Box>
+
+      {inboxId && convergeUser && (
+        <Button
+          colorScheme="blue"
+          size="sm"
+          onClick={() => {
+            if (convergeUrl) window.open(convergeUrl, '_blank', 'noopener,noreferrer');
+          }}
+        >
+          Message on Converge
+        </Button>
+      )}
 
       {connectedIdentities && connectedIdentities.length > 0 ? (
         <Box>
