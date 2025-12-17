@@ -139,6 +139,8 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
         return <OpenSeaContent data={data} />;
       case 'DeBank':
         return <DeBankContent data={data} />;
+      case 'Zerion':
+        return <ZerionContent data={data} />;
       case 'Icebreaker':
         return <IcebreakerContent data={data} />;
       case 'Human Passport':
@@ -437,14 +439,32 @@ const FarcasterContent: React.FC<{ data: Record<string, unknown> }> = ({ data })
         <Box>
           <Text fontSize="sm" fontWeight="semibold" color="gray.600">Wallets:</Text>
           {walletAddress && (
-            <Text fontSize="xs" color="gray.700" fontFamily="mono" title={walletAddress}>
-              Lookup: {formatAddress(walletAddress)}
-            </Text>
+            <HStack gap={2}>
+              <Text fontSize="xs" color="gray.600">Lookup:</Text>
+              <Link
+                href={`/${walletAddress}`}
+                fontSize="xs"
+                color="blue.600"
+                fontFamily="mono"
+                title={walletAddress}
+              >
+                {formatAddress(walletAddress)}
+              </Link>
+            </HStack>
           )}
           {custodyAddress && custodyAddress !== walletAddress && (
-            <Text fontSize="xs" color="gray.700" fontFamily="mono" title={custodyAddress}>
-              Custody: {formatAddress(custodyAddress)}
-            </Text>
+            <HStack gap={2}>
+              <Text fontSize="xs" color="gray.600">Custody:</Text>
+              <Link
+                href={`/${custodyAddress}`}
+                fontSize="xs"
+                color="blue.600"
+                fontFamily="mono"
+                title={custodyAddress}
+              >
+                {formatAddress(custodyAddress)}
+              </Link>
+            </HStack>
           )}
         </Box>
       )}
@@ -458,9 +478,17 @@ const FarcasterContent: React.FC<{ data: Record<string, unknown> }> = ({ data })
               <Text fontSize="xs" color="gray.600">Verified ETH wallets ({ethAddresses.length})</Text>
               <VStack gap={0} align="stretch">
                 {ethAddresses.slice(0, 3).map((address, index) => (
-                  <Text key={`${address}-${index}`} fontSize="xs" color="gray.700" fontFamily="mono" title={address}>
+                  <Link
+                    key={`${address}-${index}`}
+                    href={`/${address}`}
+                    fontSize="xs"
+                    color="blue.600"
+                    fontFamily="mono"
+                    title={address}
+                    display="block"
+                  >
                     {formatAddress(address)}
-                  </Text>
+                  </Link>
                 ))}
                 {ethAddresses.length > 3 && (
                   <Text fontSize="xs" color="gray.500">+{ethAddresses.length - 3} more</Text>
@@ -1131,6 +1159,55 @@ const DeBankContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =>
   );
 };
 
+const ZerionContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) => {
+  const totalUSD = data.totalUSD as number | undefined;
+  const currency = data.currency as string | undefined;
+  const profileUrl = data.profileUrl as string | undefined;
+  const source = data.source as string | undefined;
+  const error = data.error as string | undefined;
+
+  if (error === 'NO_API_KEY') {
+    return (
+      <VStack gap={3} align="stretch">
+        <Box p={3} bg="blue.50" borderRadius="md" border="1px solid" borderColor="blue.200">
+          <Text fontSize="sm" color="blue.800" fontWeight="semibold">API Key Required</Text>
+          <Text fontSize="xs" color="blue.700">
+            Add ZERION_API_KEY to your environment to fetch portfolio value and positions.
+          </Text>
+        </Box>
+        <Link href="https://zerion.io/api" target="_blank" rel="noopener noreferrer" color="blue.500" fontSize="sm">
+          Learn about Zerion API ↗
+        </Link>
+      </VStack>
+    );
+  }
+
+  return (
+    <VStack gap={3} align="stretch">
+      {totalUSD !== undefined && (
+        <Box>
+          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Portfolio Value:</Text>
+          <Text fontSize="lg" fontWeight="bold" color="green.600">
+            ${Math.round(Number(totalUSD)).toLocaleString()} {currency || 'USD'}
+          </Text>
+        </Box>
+      )}
+
+      <HStack justify="space-between" align="center">
+        {source && source !== 'none' && (
+          <Text fontSize="xs" color="gray.500">Source: {source}</Text>
+        )}
+      </HStack>
+
+      {profileUrl && (
+        <Link href={profileUrl} target="_blank" rel="noopener noreferrer" color="green.500" fontSize="sm">
+          View on Zerion ↗
+        </Link>
+      )}
+    </VStack>
+  );
+};
+
 const XMTPContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) => {
   const inboxId = (data.inboxId as string | null) || null;
   const connectedIdentities = data.connectedIdentities as Array<{ identifier: string; kind: string }> | undefined;
@@ -1284,3 +1361,22 @@ export const FastDeBankCard: React.FC<{
 }> = ({ data, loading, lastUpdated, error, onRefresh }) => (
   <ServiceCard data={data} loading={loading} serviceName="DeBank" icon="💰" lastUpdated={lastUpdated} error={error} onRefresh={onRefresh} />
 ); 
+
+export const FastZerionCard: React.FC<{
+  data: Record<string, unknown> | null;
+  loading?: boolean;
+  lastUpdated?: string | null;
+  error?: { lastError: string; errorCount: number; lastAttempt: string } | null;
+  onRefresh?: () => void;
+}> = ({ data, loading, lastUpdated, error, onRefresh }) => (
+  <ServiceCard
+    data={data}
+    loading={loading}
+    serviceName="Zerion"
+    icon="📊"
+    description="Portfolio value and positions"
+    lastUpdated={lastUpdated}
+    error={error}
+    onRefresh={onRefresh}
+  />
+);

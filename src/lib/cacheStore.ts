@@ -7,6 +7,7 @@ export interface FastProfileData {
     alchemy?: Record<string, unknown> | null;
     opensea?: Record<string, unknown> | null;
     debank?: Record<string, unknown> | null;
+    zerion?: Record<string, unknown> | null;
     icebreaker?: Record<string, unknown> | null;
     'gitcoin-passport'?: Record<string, unknown> | null;
     decentraland?: Record<string, unknown> | null;
@@ -109,6 +110,18 @@ export const SERVICES_CONFIG = [
     },
     timeoutMs: 20000,
     url: (address: string) => `/api/services/debank?address=${address}`
+  },
+  {
+    name: 'zerion',
+    key: 'zerion',
+    defaultData: {
+      totalUSD: 0,
+      currency: 'USD',
+      profileUrl: '',
+      source: 'none',
+    },
+    timeoutMs: 20000,
+    url: (address: string) => `/api/services/zerion?address=${address}`
   },
   {
     name: 'icebreaker',

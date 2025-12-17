@@ -13,6 +13,7 @@ import {
   FastAlchemyCard,
   FastOpenSeaCard,
   FastDeBankCard,
+  FastZerionCard,
   FastIcebreakerCard,
   FastHumanPassportCard,
   FastDecentralandCard
@@ -147,6 +148,7 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
     alchemy,
     opensea,
     debank,
+    zerion,
     icebreaker,
     gitcoinPassport,
     decentraland,
@@ -218,6 +220,15 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
     }
 
     return names.size;
+  })();
+  const netWorthUsd = (() => {
+    const zerionData = (data?.services?.zerion as any) ?? null;
+    if (zerionData && !zerionData.error && typeof zerionData.totalUSD === 'number') return zerionData.totalUSD;
+
+    const debankData = (data?.services?.debank as any) ?? null;
+    if (debankData && !debankData.error && typeof debankData.totalUSD === 'number') return debankData.totalUSD;
+
+    return null;
   })();
 
   // Only show loading when we have no data at all (not even cached data)
@@ -355,7 +366,7 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
                   <Box>
                     <Text fontSize="sm" color="gray.500">Net Worth (Est.)</Text>
                     <Text fontSize="xl" fontWeight="bold">
-                      ${(data.services.debank as any)?.totalUSD ? Math.round(Number((data.services.debank as any).totalUSD)).toLocaleString() : '0'}
+                      {netWorthUsd === null ? '—' : `$${Math.round(Number(netWorthUsd)).toLocaleString()}`}
                     </Text>
                   </Box>
                 </SimpleGrid>
@@ -436,6 +447,13 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
                     lastUpdated={getServiceTimestamp('debank')}
                     error={getServiceError('debank')}
                     onRefresh={() => refreshService('debank')}
+                  />
+                  <FastZerionCard
+                    data={zerion}
+                    loading={false}
+                    lastUpdated={getServiceTimestamp('zerion')}
+                    error={getServiceError('zerion')}
+                    onRefresh={() => refreshService('zerion')}
                   />
                 </SimpleGrid>
               </Box>

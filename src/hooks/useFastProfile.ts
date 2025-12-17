@@ -264,6 +264,7 @@ export function useFastProfile(
     alchemy: getServiceData('alchemy'),
     opensea: getServiceData('opensea'),
     debank: getServiceData('debank'),
+    zerion: getServiceData('zerion'),
     icebreaker: getServiceData('icebreaker'),
     gitcoinPassport: getServiceData('gitcoin-passport'),
     decentraland: getServiceData('decentraland'),
