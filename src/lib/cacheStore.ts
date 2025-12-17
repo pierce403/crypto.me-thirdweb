@@ -114,12 +114,7 @@ export const SERVICES_CONFIG = [
   {
     name: 'zerion',
     key: 'zerion',
-    defaultData: {
-      totalUSD: 0,
-      currency: 'USD',
-      profileUrl: '',
-      source: 'none',
-    },
+    defaultData: null,
     timeoutMs: 20000,
     url: (address: string) => `/api/services/zerion?address=${address}`
   },

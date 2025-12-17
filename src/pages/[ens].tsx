@@ -223,10 +223,10 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
   })();
   const netWorthUsd = (() => {
     const zerionData = (data?.services?.zerion as any) ?? null;
-    if (zerionData && !zerionData.error && typeof zerionData.totalUSD === 'number') return zerionData.totalUSD;
+    if (zerionData && zerionData.source === 'zerion' && typeof zerionData.totalUSD === 'number') return zerionData.totalUSD;
 
     const debankData = (data?.services?.debank as any) ?? null;
-    if (debankData && !debankData.error && typeof debankData.totalUSD === 'number') return debankData.totalUSD;
+    if (debankData && debankData.source === 'debank' && typeof debankData.totalUSD === 'number') return debankData.totalUSD;
 
     return null;
   })();
