@@ -10,15 +10,24 @@ describe('End-to-End Verification: No Demo Data', async () => {
     let browser: Browser;
     let context: BrowserContext;
     let page: Page;
+    let serverReachable = false;
 
     before(async () => {
-        // Ensure server is reachable
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 1500);
+
         try {
-            const resp = await fetch(`${BASE_URL}/api/health_check_or_root`); // Just fetch root to check
-        } catch (e) {
-            console.log("Server not reachable at localhost:3000. Please start 'npm run dev'.");
-            // We won't throw here to allow partial (API) tests if browser fails, 
-            // but realistically we need the server.
+            const resp = await fetch(`${BASE_URL}/api/health`, { signal: controller.signal });
+            serverReachable = resp.ok;
+        } catch {
+            serverReachable = false;
+        } finally {
+            clearTimeout(timeoutId);
+        }
+
+        if (!serverReachable) {
+            console.log("Server not reachable at localhost:3000. Skipping E2E tests (start with 'npm run dev').");
+            return;
         }
 
         browser = await chromium.launch({ headless: true }); // Headless for CI/Script consistency
@@ -31,7 +40,9 @@ describe('End-to-End Verification: No Demo Data', async () => {
     });
 
     describe('API Level Checks', () => {
-        it('Alchemy API should return error NO_API_KEY and NO demo data', async () => {
+        it('Alchemy API should return error NO_API_KEY and NO demo data', async (t) => {
+            if (!serverReachable) return t.skip("Dev server isn't running");
+
             const res = await fetch(`${BASE_URL}/api/services/alchemy?address=${TEST_ADDRESS}`);
             const data: any = await res.json();
 
@@ -47,71 +58,63 @@ describe('End-to-End Verification: No Demo Data', async () => {
             assert.strictEqual(hasFakeApe, false, 'Should NOT contain Bored Ape demo data');
         });
 
-        it('OpenSea API should return error API_INTEGRATION_PENDING (or KEY_REQUIRED) and NO demo data', async () => {
+        it('OpenSea API should return no demo data', async (t) => {
+            if (!serverReachable) return t.skip("Dev server isn't running");
+
             const res = await fetch(`${BASE_URL}/api/services/opensea?address=${TEST_ADDRESS}`);
             const data: any = await res.json();
 
-            // Depending on env vars, might be NO_API_KEY or PENDING
-            // But definitely not demo data.
-            const isErrorState = data.error === 'OPENSEA_API_KEY_REQUIRED' || data.error === 'API_INTEGRATION_PENDING';
-            assert.ok(isErrorState, `Expected error state, got ${data.error}`);
+            assert.strictEqual(res.status, 200);
 
-            assert.deepStrictEqual(data.topValuedNFTs, []);
-            assert.strictEqual(data.marketStats.totalNFTs, 0);
-            assert.strictEqual(data.source, 'none');
+            if (data.error) {
+                const isExpectedError =
+                    data.error === 'OPENSEA_API_KEY_REQUIRED' ||
+                    data.error === 'SERVICE_ERROR' ||
+                    data.error === 'API_INTEGRATION_PENDING';
+                assert.ok(isExpectedError, `Unexpected error state: ${data.error}`);
+                assert.deepStrictEqual(data.topValuedNFTs, []);
+                assert.strictEqual(data.source, 'none');
+            } else {
+                assert.strictEqual(data.source, 'opensea');
+                assert.ok(Array.isArray(data.topValuedNFTs));
+            }
+
+            const hasFakeApe = (data.topValuedNFTs || []).some((n: any) => String(n.name).includes('Bored Ape'));
+            assert.strictEqual(hasFakeApe, false, 'Should NOT contain Bored Ape demo data');
         });
 
-        it('DeBank API should return error API_INTEGRATION_PENDING and NO demo data', async () => {
+        it('DeBank API should return no demo data', async (t) => {
+            if (!serverReachable) return t.skip("Dev server isn't running");
+
             const res = await fetch(`${BASE_URL}/api/services/debank?address=${TEST_ADDRESS}`);
             const data: any = await res.json();
 
-            assert.strictEqual(data.error, 'API_INTEGRATION_PENDING');
-            assert.strictEqual(data.totalUSD, 0);
-            assert.deepStrictEqual(data.topTokens, []);
-            assert.strictEqual(data.source, 'none');
+            assert.strictEqual(res.status, 200);
+
+            if (data.error) {
+                const isExpectedError = data.error === 'NO_API_KEY' || data.error === 'SERVICE_ERROR';
+                assert.ok(isExpectedError, `Unexpected error state: ${data.error}`);
+                assert.strictEqual(data.totalUSD, 0);
+                assert.deepStrictEqual(data.topTokens, []);
+                assert.strictEqual(data.source, 'none');
+            } else {
+                assert.strictEqual(data.source, 'debank');
+                assert.ok(Array.isArray(data.topTokens));
+            }
         });
     });
 
     describe('Frontend Visual Checks', () => {
-        it('Should display "No API Key" / "Pending Integration" messages on cards', async () => {
+        it('Should not display demo data on cards', async (t) => {
+            if (!serverReachable) return t.skip("Dev server isn't running");
+
             await page.goto(`${BASE_URL}/${TEST_ADDRESS}?refresh=true`);
 
             // Wait for hydration and data load
             // The cards show "Loading..." initially, then update.
             // We wait for a specific selector or text that appears when loaded.
 
-            // Check Alchemy Card
-            // Expect to find "API Key Required" text inside the Alchemy card area
-            // We can search for the text generally or scope it.
-            try {
-                // Wait for any service card to load to be safe
-                await page.waitForSelector('text=API Key Required', { timeout: 10000 });
-            } catch (e) {
-                // Ignore timeout if it's just one card, we verify assert below
-            }
-
-            const alchemyContent = await page.content();
-            // Alchemy might show "API Key Required" (if NO_API_KEY) or "Service Error" (if API_ERROR)
-            assert.ok(
-                alchemyContent.includes('API Key Required') ||
-                alchemyContent.includes('No API Key Configured') ||
-                alchemyContent.includes('Service Error'),
-                'Alchemy card should show API Key warning or Service Error'
-            );
-
-            // Check OpenSea Card
-            const openSeaText = await page.getByText('Pending API Integration').count();
-            // Note: We used "Pending API Integration" in the footer logic I added.
-            // Also "Integration in Progress" in the body for OpenSea.
-
-            // We can use more specific locators if needed, but text presence is a good start.
             const bodyText = await page.innerText('body');
-
-            assert.ok(bodyText.includes('Pending API Integration'), 'Should show Pending API Integration status');
-            assert.ok(bodyText.includes('Real OpenSea data integration is being implemented'), 'Should show OpenSea specific pending message');
-
-            // Check DeBank Card
-            assert.ok(bodyText.includes('Real DeBank portfolio data integration is coming soon'), 'Should show DeBank specific pending message');
 
             // Crucially: Assert NO Fake Data
             assert.ok(!bodyText.includes('Bored Ape'), 'UI should NOT show Bored Ape');

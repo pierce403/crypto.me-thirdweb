@@ -159,11 +159,28 @@ describe('Alchemy service collector', () => {
 });
 
 describe('DeBank service collector', () => {
-  it('returns API_INTEGRATION_PENDING error', async () => {
+  let originalKey: string | undefined;
+
+  beforeEach(() => {
+    originalKey = process.env.DEBANK_API_KEY;
+  });
+
+  afterEach(() => {
+    if (originalKey === undefined) {
+      delete process.env.DEBANK_API_KEY;
+    } else {
+      process.env.DEBANK_API_KEY = originalKey;
+    }
+  });
+
+  it('returns NO_API_KEY when key is missing', async () => {
+    delete process.env.DEBANK_API_KEY;
+
     const handler = createDebankHandler({
       ensClient: {
         getAddressRecord: async () => ({ value: demoAddress, id: 60 }),
-      } as const
+      } as const,
+      fetchFn: async () => mockResponse({}, 500),
     });
 
     const { req, res } = createMocks({ method: 'GET', query: { address: demoAddress } });
@@ -171,8 +188,54 @@ describe('DeBank service collector', () => {
 
     assert.equal(res._getStatusCode(), 200);
     const payload = res._getJSONData();
-    assert.equal(payload.error, 'API_INTEGRATION_PENDING');
+    assert.equal(payload.error, 'NO_API_KEY');
     assert.equal(payload.source, 'none');
+  });
+
+  it('returns normalized data when API responds', async () => {
+    process.env.DEBANK_API_KEY = 'test-key';
+
+    const fetchFn = async (url: string) => {
+      if (url.includes('/total_balance')) {
+        return mockResponse({ total_usd_value: 123.45 });
+      }
+      if (url.includes('/token_list')) {
+        return mockResponse([
+          { symbol: 'ETH', name: 'Ethereum', amount: 1, price: 1000, logo_url: 'https://static.debank.com/logo.png' },
+        ]);
+      }
+      if (url.includes('/complex_protocol_list')) {
+        return mockResponse([
+          {
+            name: 'Aave',
+            logo_url: 'https://static.debank.com/aave.png',
+            portfolio_item_list: [{ name: 'Supplied', stats: { net_usd_value: 50 } }],
+          },
+        ]);
+      }
+
+      return mockResponse({}, 404);
+    };
+
+    const handler = createDebankHandler({
+      ensClient: {
+        getAddressRecord: async () => ({ value: demoAddress, id: 60 }),
+      } as const,
+      fetchFn,
+    });
+
+    const { req, res } = createMocks({ method: 'GET', query: { address: demoAddress } });
+    await handler(req as unknown as NextApiRequest, res as unknown as NextApiResponse);
+
+    assert.equal(res._getStatusCode(), 200);
+    const payload = res._getJSONData();
+    assert.equal(payload.source, 'debank');
+    assert.equal(payload.totalUSD, 123.45);
+    assert.equal(payload.totalProtocols, 1);
+    assert.equal(payload.topTokens[0].symbol, 'ETH');
+    assert.equal(payload.topTokens[0].usdValue, 1000);
+    assert.equal(payload.protocolPositions[0].name, 'Aave');
+    assert.equal(payload.protocolPositions[0].usdValue, 50);
   });
 });
 
@@ -243,12 +306,28 @@ describe('Icebreaker service collector', () => {
 });
 
 describe('OpenSea service collector', () => {
-  it('returns pending integration message', async () => {
-    process.env.OPENSEA_API_KEY = 'test-key';
+  let originalKey: string | undefined;
+
+  beforeEach(() => {
+    originalKey = process.env.OPENSEA_API_KEY;
+  });
+
+  afterEach(() => {
+    if (originalKey === undefined) {
+      delete process.env.OPENSEA_API_KEY;
+    } else {
+      process.env.OPENSEA_API_KEY = originalKey;
+    }
+  });
+
+  it('returns OPENSEA_API_KEY_REQUIRED when key is missing', async () => {
+    delete process.env.OPENSEA_API_KEY;
+
     const handler = createOpenseaHandler({
       ensClient: {
         getAddressRecord: async () => ({ value: demoAddress, id: 60 }),
-      } as const
+      } as const,
+      fetchFn: async () => mockResponse({}, 500),
     });
 
     const { req, res } = createMocks({ method: 'GET', query: { address: demoAddress } });
@@ -256,7 +335,45 @@ describe('OpenSea service collector', () => {
 
     assert.equal(res._getStatusCode(), 200);
     const payload = res._getJSONData();
-    assert.equal(payload.error, 'API_INTEGRATION_PENDING');
+    assert.equal(payload.error, 'OPENSEA_API_KEY_REQUIRED');
+    assert.equal(payload.source, 'none');
+    assert.deepEqual(payload.topValuedNFTs, []);
+  });
+
+  it('returns normalized NFTs when API responds', async () => {
+    process.env.OPENSEA_API_KEY = 'test-key';
+
+    const fetchFn = async () =>
+      mockResponse({
+        nfts: [
+          {
+            name: 'Example NFT',
+            identifier: '1',
+            collection: 'Example Collection',
+            image_url: 'https://i2c.seadn.io/example.png',
+            opensea_url: 'https://opensea.io/assets/ethereum/0xdeadbeef/1',
+          },
+        ],
+      });
+
+    const handler = createOpenseaHandler({
+      ensClient: {
+        getAddressRecord: async () => ({ value: demoAddress, id: 60 }),
+      } as const,
+      fetchFn,
+    });
+
+    const { req, res } = createMocks({ method: 'GET', query: { address: demoAddress } });
+    await handler(req as unknown as NextApiRequest, res as unknown as NextApiResponse);
+
+    assert.equal(res._getStatusCode(), 200);
+    const payload = res._getJSONData();
+    assert.equal(payload.source, 'opensea');
+    assert.equal(payload.marketStats.uniqueCollections, 1);
+    assert.equal(payload.marketStats.totalNFTs, 1);
+    assert.equal(payload.topValuedNFTs.length, 1);
+    assert.equal(payload.topValuedNFTs[0].name, 'Example NFT');
+    assert.equal(payload.topValuedNFTs[0].collection, 'Example Collection');
   });
 });
 

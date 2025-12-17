@@ -70,11 +70,12 @@ interface OpenSeaResult {
 
 const defaultDependencies = {
   ensClient,
+  fetchFn: fetch,
 };
 
 export function createHandler(dependencies = defaultDependencies) {
   return async function handler(req: NextApiRequest, res: NextApiResponse) {
-    const { ensClient } = dependencies;
+    const { ensClient, fetchFn } = dependencies;
 
     // Simulate market data (would use real OpenSea API in production)
     async function fetchMarketDataFromOpenSea(address: string): Promise<OpenSeaResult> {
@@ -105,7 +106,7 @@ export function createHandler(dependencies = defaultDependencies) {
           };
         }
 
-        const response = await fetch(`https://api.opensea.io/api/v2/chain/ethereum/account/${address}/nfts?limit=20`, {
+        const response = await fetchFn(`https://api.opensea.io/api/v2/chain/ethereum/account/${address}/nfts?limit=20`, {
           headers: {
             'x-api-key': openSeaApiKey,
             'accept': 'application/json'

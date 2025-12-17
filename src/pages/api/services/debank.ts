@@ -61,11 +61,12 @@ interface DeBankResult {
 
 const defaultDependencies = {
   ensClient,
+  fetchFn: fetch,
 };
 
 export function createHandler(dependencies = defaultDependencies) {
   return async function handler(req: NextApiRequest, res: NextApiResponse) {
-    const { ensClient } = dependencies;
+    const { ensClient, fetchFn } = dependencies;
 
     if (req.method !== 'GET') {
       res.setHeader('Allow', ['GET']);
@@ -121,13 +122,13 @@ export function createHandler(dependencies = defaultDependencies) {
 
       // Real DeBank Open API calls
       const [balanceRes, tokensRes, protocolsRes] = await Promise.all([
-        fetch(`https://openapi.debank.com/v1/user/total_balance?id=${resolvedAddress}`, {
+        fetchFn(`https://openapi.debank.com/v1/user/total_balance?id=${resolvedAddress}`, {
           headers: { 'AccessKey': apiKey }
         }),
-        fetch(`https://openapi.debank.com/v1/user/token_list?id=${resolvedAddress}&is_all=false`, {
+        fetchFn(`https://openapi.debank.com/v1/user/token_list?id=${resolvedAddress}&is_all=false`, {
           headers: { 'AccessKey': apiKey }
         }),
-        fetch(`https://openapi.debank.com/v1/user/complex_protocol_list?id=${resolvedAddress}`, {
+        fetchFn(`https://openapi.debank.com/v1/user/complex_protocol_list?id=${resolvedAddress}`, {
           headers: { 'AccessKey': apiKey }
         })
       ]);
