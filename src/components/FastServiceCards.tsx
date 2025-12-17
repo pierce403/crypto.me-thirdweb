@@ -357,6 +357,7 @@ const FarcasterContent: React.FC<{ data: Record<string, unknown> }> = ({ data })
   const farname = data.farname as string | undefined;
   const basename = data.basename as string | undefined;
   const fid = data.fid as number | undefined;
+  const handle = farname ?? username;
   const displayName = data.displayName as string | undefined;
   const followerCount = data.followerCount as number | undefined;
   const followingCount = data.followingCount as number | undefined;
@@ -391,13 +392,19 @@ const FarcasterContent: React.FC<{ data: Record<string, unknown> }> = ({ data })
     return value.filter((item): item is string => typeof item === 'string');
   })();
 
+  const ensDomains = (() => {
+    const value = verifiedAddresses?.ensDomains;
+    if (!Array.isArray(value)) return [];
+    return value.filter((item): item is string => typeof item === 'string');
+  })();
+
   return (
     <VStack gap={3} align="stretch">
-      {username && (
+      {handle && (
         <Box>
-          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Username:</Text>
+          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Farname:</Text>
           <HStack justify="space-between" align="baseline">
-            <Text fontSize="md" color="gray.800">@{username}</Text>
+            <Text fontSize="md" color="gray.800">@{handle}</Text>
             {fid !== undefined && (
               <Text fontSize="xs" color="gray.500">FID {fid}</Text>
             )}
@@ -412,10 +419,10 @@ const FarcasterContent: React.FC<{ data: Record<string, unknown> }> = ({ data })
         </Box>
       )}
 
-      {(farname && farname !== username) && (
+      {(username && farname && farname !== username) && (
         <Box>
-          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Farname:</Text>
-          <Text fontSize="sm" color="gray.700">{farname}</Text>
+          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Username (API):</Text>
+          <Text fontSize="sm" color="gray.700">@{username}</Text>
         </Box>
       )}
 
@@ -442,7 +449,7 @@ const FarcasterContent: React.FC<{ data: Record<string, unknown> }> = ({ data })
         </Box>
       )}
 
-      {(ethAddresses.length > 0 || solAddresses.length > 0 || (connectedAccounts && connectedAccounts.length > 0)) && (
+      {(ethAddresses.length > 0 || solAddresses.length > 0 || ensDomains.length > 0 || (connectedAccounts && connectedAccounts.length > 0)) && (
         <Box>
           <Text fontSize="sm" fontWeight="semibold" color="gray.600">Connected Identities:</Text>
 
@@ -473,6 +480,22 @@ const FarcasterContent: React.FC<{ data: Record<string, unknown> }> = ({ data })
                 ))}
                 {solAddresses.length > 3 && (
                   <Text fontSize="xs" color="gray.500">+{solAddresses.length - 3} more</Text>
+                )}
+              </VStack>
+            </Box>
+          )}
+
+          {ensDomains.length > 0 && (
+            <Box mt={2}>
+              <Text fontSize="xs" color="gray.600">Verified names ({ensDomains.length})</Text>
+              <VStack gap={0} align="stretch">
+                {ensDomains.slice(0, 3).map((name, index) => (
+                  <Text key={`${name}-${index}`} fontSize="xs" color="gray.700" truncate title={name}>
+                    {name}
+                  </Text>
+                ))}
+                {ensDomains.length > 3 && (
+                  <Text fontSize="xs" color="gray.500">+{ensDomains.length - 3} more</Text>
                 )}
               </VStack>
             </Box>
