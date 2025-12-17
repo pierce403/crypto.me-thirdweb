@@ -200,6 +200,25 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
 
   const avatarUrl = resolvedAvatar ? convertToGatewayUrl(resolvedAvatar) : null;
   const cacheStats = getCacheStats();
+  const ensNamesCount = (() => {
+    const ensData = (data?.services?.ens as any) ?? null;
+    if (!ensData) return 0;
+
+    const names = new Set<string>();
+    const primaryName = ensData.primaryName;
+    if (typeof primaryName === 'string' && primaryName.includes('.') && !primaryName.startsWith('0x')) {
+      names.add(primaryName);
+    }
+
+    const otherNames = ensData.otherNames;
+    if (Array.isArray(otherNames)) {
+      for (const name of otherNames) {
+        if (typeof name === 'string') names.add(name);
+      }
+    }
+
+    return names.size;
+  })();
 
   // Only show loading when we have no data at all (not even cached data)
   const isInitialLoading = loading && !data;
@@ -315,7 +334,7 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
                   <Box>
                     <Text fontSize="sm" color="gray.500">ENS Names</Text>
                     <Text fontSize="xl" fontWeight="bold">
-                      {(data.services.ens as any)?.domains?.length || 0}
+                      {ensNamesCount}
                     </Text>
                   </Box>
                   <Box>
