@@ -10,7 +10,7 @@ const alchemyRpcUrl =
 
 const ensClient = createEnsPublicClient({
   chain: mainnet,
-  transport: http(alchemyRpcUrl, { timeout: 8000, retryCount: 1, retryDelay: 300 }),
+  transport: http('https://rpc.ankr.com/eth', { timeout: 8000, retryCount: 1, retryDelay: 300 }),
 });
 
 type XmtpEnv = 'local' | 'dev' | 'production';
@@ -45,98 +45,113 @@ function identifierKindToString(identifierKind: number): 'ethereum' | 'passkey' 
   return 'unknown';
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'GET') {
-    res.setHeader('Allow', ['GET']);
-    return res.status(405).end(`Method ${req.method} Not Allowed`);
+const defaultDependencies = {
+  ensClient,
+  xmtp: {
+    getInboxIdForIdentifier,
+    Client,
   }
+};
 
-  const { address } = req.query;
-  if (!address || typeof address !== 'string') {
-    return res.status(400).json({ error: 'Address or ENS name is required' });
-  }
+export function createHandler(dependencies = defaultDependencies) {
+  return async function handler(req: NextApiRequest, res: NextApiResponse) {
+    const { ensClient, xmtp } = dependencies;
+    const { getInboxIdForIdentifier, Client } = xmtp;
 
-  const env = getXmtpEnv();
-  const gatewayHost = process.env.XMTP_GATEWAY_HOST || undefined;
-
-  let resolvedAddress = address;
-  if (isEnsName(address)) {
-    try {
-      const addressRecord = await ensClient.getAddressRecord({ name: address });
-      if (!addressRecord?.value || addressRecord.value === '0x0000000000000000000000000000000000000000') {
-        return res.status(404).json({ error: 'ENS name not found or not resolved to a valid address' });
-      }
-      resolvedAddress = addressRecord.value;
-    } catch (error) {
-      console.error('[xmtp] Error resolving ENS name:', error);
-      return res.status(400).json({ error: 'Invalid ENS name or resolution failed' });
+    if (req.method !== 'GET') {
+      res.setHeader('Allow', ['GET']);
+      return res.status(405).end(`Method ${req.method} Not Allowed`);
     }
-  } else if (!isEthereumAddress(address)) {
-    return res.status(400).json({ error: 'Invalid Ethereum address or ENS name format' });
-  }
 
-  try {
-    const identifier = {
-      identifier: resolvedAddress,
-      identifierKind: 0, // IdentifierKind.Ethereum
-    };
+    const { address } = req.query;
+    if (!address || typeof address !== 'string') {
+      return res.status(400).json({ error: 'Address or ENS name is required' });
+    }
 
-    const inboxId = await withTimeout(
-      getInboxIdForIdentifier(identifier, env, gatewayHost),
-      8000,
-      'XMTP inbox ID lookup timed out',
-    );
+    const env = getXmtpEnv();
+    const gatewayHost = process.env.XMTP_GATEWAY_HOST || undefined;
 
-    if (!inboxId) {
+    let resolvedAddress = address;
+    if (isEnsName(address)) {
+      try {
+        const addressRecord = await ensClient.getAddressRecord({ name: address });
+        if (!addressRecord?.value || addressRecord.value === '0x0000000000000000000000000000000000000000') {
+          return res.status(404).json({ error: 'ENS name not found or not resolved to a valid address' });
+        }
+        resolvedAddress = addressRecord.value;
+      } catch (error) {
+        console.error('[xmtp] Error resolving ENS name:', error);
+        return res.status(400).json({ error: 'Invalid ENS name or resolution failed' });
+      }
+    } else if (!isEthereumAddress(address)) {
+      return res.status(400).json({ error: 'Invalid Ethereum address or ENS name format' });
+    }
+
+    try {
+      const identifier = {
+        identifier: resolvedAddress,
+        identifierKind: 0, // IdentifierKind.Ethereum
+      };
+
+      const inboxId = await withTimeout(
+        getInboxIdForIdentifier(identifier, env, gatewayHost),
+        8000,
+        'XMTP inbox ID lookup timed out',
+      );
+
+      if (!inboxId) {
+        return res.status(200).json({
+          inboxId: null,
+          identities: [],
+          connectedIdentities: [],
+          source: 'xmtp',
+          env,
+        });
+      }
+
+      const inboxStates = await withTimeout(
+        Client.inboxStateFromInboxIds([inboxId], env, gatewayHost),
+        8000,
+        'XMTP inbox state lookup timed out',
+      );
+
+      const inboxState = inboxStates?.[0];
+      const identifiers = inboxState?.identifiers || [];
+      const normalizedInput = resolvedAddress.toLowerCase();
+
+      const identities = identifiers.map((id) => ({
+        identifier: id.identifier,
+        kind: identifierKindToString(id.identifierKind),
+      }));
+
+      const connectedIdentities = identifiers
+        .filter((id) => !(id.identifierKind === 0 && id.identifier.toLowerCase() === normalizedInput))
+        .map((id) => ({
+          identifier: id.identifier,
+          kind: identifierKindToString(id.identifierKind),
+        }));
+
       return res.status(200).json({
+        inboxId: inboxState?.inboxId || inboxId,
+        identities,
+        connectedIdentities,
+        source: 'xmtp',
+        env,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('[xmtp] Failed to fetch XMTP data:', message, error);
+      return res.status(500).json({
         inboxId: null,
         identities: [],
         connectedIdentities: [],
         source: 'xmtp',
         env,
+        error: message,
       });
     }
-
-    const inboxStates = await withTimeout(
-      Client.inboxStateFromInboxIds([inboxId], env, gatewayHost),
-      8000,
-      'XMTP inbox state lookup timed out',
-    );
-
-    const inboxState = inboxStates?.[0];
-    const identifiers = inboxState?.identifiers || [];
-    const normalizedInput = resolvedAddress.toLowerCase();
-
-    const identities = identifiers.map((id) => ({
-      identifier: id.identifier,
-      kind: identifierKindToString(id.identifierKind),
-    }));
-
-    const connectedIdentities = identifiers
-      .filter((id) => !(id.identifierKind === 0 && id.identifier.toLowerCase() === normalizedInput))
-      .map((id) => ({
-        identifier: id.identifier,
-        kind: identifierKindToString(id.identifierKind),
-      }));
-
-    return res.status(200).json({
-      inboxId: inboxState?.inboxId || inboxId,
-      identities,
-      connectedIdentities,
-      source: 'xmtp',
-      env,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error('[xmtp] Failed to fetch XMTP data:', message, error);
-    return res.status(500).json({
-      inboxId: null,
-      identities: [],
-      connectedIdentities: [],
-      source: 'xmtp',
-      env,
-      error: message,
-    });
-  }
+  };
 }
+
+export default createHandler();
 

@@ -9,7 +9,7 @@ const alchemyRpcUrl =
 
 const ensClient = createEnsPublicClient({
   chain: mainnet,
-  transport: http(alchemyRpcUrl, { timeout: 8000, retryCount: 1, retryDelay: 300 }),
+  transport: http('https://rpc.ankr.com/eth', { timeout: 8000, retryCount: 1, retryDelay: 300 }),
 });
 
 // Helper function to check if a string is an ENS name
@@ -101,141 +101,153 @@ interface AlchemyResult {
   error?: string;
 }
 
-async function fetchNFTsFromAlchemy(address: string): Promise<AlchemyResult> {
-  try {
-    const alchemyApiKey = process.env.ALCHEMY_API_KEY;
-    
-    if (!alchemyApiKey) {
-      return {
-        totalCount: 0,
-        nfts: [],
-        collections: {},
-        source: 'none',
-        error: 'NO_API_KEY'
-      };
-    }
+const defaultDependencies = {
+  ensClient,
+  fetchFn: fetch,
+};
 
-    const response = await fetch(
-      `https://eth-mainnet.g.alchemy.com/nft/v3/${alchemyApiKey}/getNFTsForOwner?owner=${address}&limit=20&exclude_filters[]=SPAM`,
-      {
-        headers: {
-          'Accept': 'application/json',
-        },
-      }
-    );
+export function createHandler(dependencies = defaultDependencies) {
+  return async function handler(req: NextApiRequest, res: NextApiResponse) {
+    // Helper function to fetch data using injected fetchFn
+    const { fetchFn, ensClient } = dependencies;
 
-    if (!response.ok) {
-      console.log(`Alchemy API returned ${response.status}: ${response.statusText}`);
-      return {
-        totalCount: 0,
-        nfts: [],
-        collections: {},
-        source: 'none',
-        error: 'API_ERROR'
-      };
-    }
+    async function fetchNFTsFromAlchemy(address: string): Promise<AlchemyResult> {
+      try {
+        const alchemyApiKey = process.env.ALCHEMY_API_KEY;
 
-    const data: AlchemyResponse = await response.json();
-    console.log(`Alchemy found ${data.totalCount} NFTs for ${address}`);
+        if (!alchemyApiKey) {
+          return {
+            totalCount: 0,
+            nfts: [],
+            collections: {},
+            source: 'none',
+            error: 'NO_API_KEY'
+          };
+        }
 
-    // Process NFTs
-    const nfts: ProcessedNFT[] = data.ownedNfts.slice(0, 6).map((nft: AlchemyNFT) => {
-      const name = nft.metadata?.name || nft.title || 'Unnamed NFT';
-      const collection = nft.contractMetadata?.name || nft.contract.name || 'Unknown Collection';
-      const image = nft.metadata?.image || nft.media?.[0]?.gateway || nft.media?.[0]?.thumbnail || '';
-      
-      return {
-        name,
-        collection,
-        image,
-        tokenId: nft.id.tokenId,
-        contractAddress: nft.contract.address,
-        description: nft.metadata?.description || nft.description,
-        attributes: nft.metadata?.attributes,
-        lastUpdated: nft.timeLastUpdated
-      };
-    });
+        const response = await fetchFn(
+          `https://eth-mainnet.g.alchemy.com/nft/v3/${alchemyApiKey}/getNFTsForOwner?owner=${address}&limit=20&exclude_filters[]=SPAM`,
+          {
+            headers: {
+              'Accept': 'application/json',
+            },
+          }
+        );
 
-    // Group by collections
-    const collections: { [key: string]: { name: string; count: number; symbol?: string } } = {};
-    data.ownedNfts.forEach((nft) => {
-      const collectionName = nft.contractMetadata?.name || nft.contract.name || 'Unknown Collection';
-      const address = nft.contract.address;
-      
-      if (!collections[address]) {
-        collections[address] = {
-          name: collectionName,
-          count: 0,
-          symbol: nft.contractMetadata?.symbol || nft.contract.symbol
+        if (!response.ok) {
+          console.log(`Alchemy API returned ${response.status}: ${response.statusText}`);
+          return {
+            totalCount: 0,
+            nfts: [],
+            collections: {},
+            source: 'none',
+            error: 'API_ERROR'
+          };
+        }
+
+        const data: AlchemyResponse = await response.json();
+        console.log(`Alchemy found ${data.totalCount} NFTs for ${address}`);
+
+        // Process NFTs
+        const nfts: ProcessedNFT[] = data.ownedNfts.slice(0, 6).map((nft: AlchemyNFT) => {
+          const name = nft.metadata?.name || nft.title || 'Unnamed NFT';
+          const collection = nft.contractMetadata?.name || nft.contract.name || 'Unknown Collection';
+          const image = nft.metadata?.image || nft.media?.[0]?.gateway || nft.media?.[0]?.thumbnail || '';
+
+          return {
+            name,
+            collection,
+            image,
+            tokenId: nft.id.tokenId,
+            contractAddress: nft.contract.address,
+            description: nft.metadata?.description || nft.description,
+            attributes: nft.metadata?.attributes,
+            lastUpdated: nft.timeLastUpdated
+          };
+        });
+
+        // Group by collections
+        const collections: { [key: string]: { name: string; count: number; symbol?: string } } = {};
+        data.ownedNfts.forEach((nft) => {
+          const collectionName = nft.contractMetadata?.name || nft.contract.name || 'Unknown Collection';
+          const address = nft.contract.address;
+
+          if (!collections[address]) {
+            collections[address] = {
+              name: collectionName,
+              count: 0,
+              symbol: nft.contractMetadata?.symbol || nft.contract.symbol
+            };
+          }
+          collections[address].count++;
+        });
+
+        return {
+          totalCount: data.totalCount,
+          nfts,
+          collections,
+          source: 'alchemy'
+        };
+
+      } catch (error) {
+        console.error('Alchemy API error:', error);
+        return {
+          totalCount: 0,
+          nfts: [],
+          collections: {},
+          source: 'none',
+          error: 'FETCH_ERROR'
         };
       }
-      collections[address].count++;
-    });
+    }
 
-    return {
-      totalCount: data.totalCount,
-      nfts,
-      collections,
-      source: 'alchemy'
-    };
+    if (req.method !== 'GET') {
+      res.setHeader('Allow', ['GET']);
+      return res.status(405).end(`Method ${req.method} Not Allowed`);
+    }
 
-  } catch (error) {
-    console.error('Alchemy API error:', error);
-    return {
-      totalCount: 0,
-      nfts: [],
-      collections: {},
-      source: 'none',
-      error: 'FETCH_ERROR'
-    };
-  }
+    const { address } = req.query;
+
+    if (!address || typeof address !== 'string') {
+      return res.status(400).json({ error: 'Address is required' });
+    }
+
+    let resolvedAddress = address;
+
+    // If input looks like an ENS name, resolve it to an address
+    if (isENSName(address)) {
+      try {
+        const addressRecord = await ensClient.getAddressRecord({ name: address });
+        if (!addressRecord?.value || addressRecord.value === '0x0000000000000000000000000000000000000000') {
+          return res.status(404).json({ error: 'ENS name not found or not resolved to a valid address' });
+        }
+        resolvedAddress = addressRecord.value;
+        console.log(`Resolved ${address} to ${resolvedAddress}`);
+      } catch (error) {
+        console.error('Error resolving ENS name:', error);
+        return res.status(400).json({ error: 'Invalid ENS name or resolution failed' });
+      }
+    } else if (!isEthereumAddress(address)) {
+      return res.status(400).json({ error: 'Invalid Ethereum address or ENS name format' });
+    }
+
+    console.log(`Fetching NFT data from Alchemy for: ${resolvedAddress}`);
+
+    try {
+      const result = await fetchNFTsFromAlchemy(resolvedAddress);
+      return res.status(200).json(result);
+    } catch (error) {
+      console.error('Alchemy service error:', error);
+
+      return res.status(200).json({
+        totalCount: 0,
+        nfts: [],
+        collections: {},
+        source: 'none',
+        error: 'SERVICE_ERROR'
+      });
+    }
+  };
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'GET') {
-    res.setHeader('Allow', ['GET']);
-    return res.status(405).end(`Method ${req.method} Not Allowed`);
-  }
-
-  const { address } = req.query;
-
-  if (!address || typeof address !== 'string') {
-    return res.status(400).json({ error: 'Address is required' });
-  }
-
-  let resolvedAddress = address;
-
-  // If input looks like an ENS name, resolve it to an address
-  if (isENSName(address)) {
-    try {
-      const addressRecord = await ensClient.getAddressRecord({ name: address });
-      if (!addressRecord?.value || addressRecord.value === '0x0000000000000000000000000000000000000000') {
-        return res.status(404).json({ error: 'ENS name not found or not resolved to a valid address' });
-      }
-      resolvedAddress = addressRecord.value;
-      console.log(`Resolved ${address} to ${resolvedAddress}`);
-    } catch (error) {
-      console.error('Error resolving ENS name:', error);
-      return res.status(400).json({ error: 'Invalid ENS name or resolution failed' });
-    }
-  } else if (!isEthereumAddress(address)) {
-    return res.status(400).json({ error: 'Invalid Ethereum address or ENS name format' });
-  }
-
-  console.log(`Fetching NFT data from Alchemy for: ${resolvedAddress}`);
-
-  try {
-    const result = await fetchNFTsFromAlchemy(resolvedAddress);
-    return res.status(200).json(result);
-  } catch (error) {
-    console.error('Alchemy service error:', error);
-    
-    return res.status(200).json({
-      totalCount: 0,
-      nfts: [],
-      collections: {},
-      source: 'none',
-      error: 'SERVICE_ERROR'
-    });
-  }
-} 
+export default createHandler(); 

@@ -9,7 +9,9 @@ const nextConfig = {
       'openseauserdata.com',
       'peer.decentraland.org',
       'profile.decentraland.org',
-      'api.decentraland.org'
+      'api.decentraland.org',
+      'assets.coingecko.com',
+      'ipfs.io'
     ],
   },
 };

@@ -9,7 +9,7 @@ const alchemyRpcUrl =
 
 const ensClient = createEnsPublicClient({
   chain: mainnet,
-  transport: http(alchemyRpcUrl, { timeout: 8000, retryCount: 1, retryDelay: 300 }),
+  transport: http('https://rpc.ankr.com/eth', { timeout: 8000, retryCount: 1, retryDelay: 300 }),
 });
 
 // Helper function to check if a string is an ENS name
@@ -60,15 +60,133 @@ interface OpenSeaResult {
   error?: string;
 }
 
-// Simulate market data (would use real OpenSea API in production)
-async function fetchMarketDataFromOpenSea(address: string): Promise<OpenSeaResult> {
-  try {
-    const openSeaApiKey = process.env.OPENSEA_API_KEY;
-    
-    if (!openSeaApiKey) {
-      // Return empty data when no API key instead of demo data
-      return {
-        profileUrl: `https://opensea.io/${address}`,
+const defaultDependencies = {
+  ensClient,
+};
+
+export function createHandler(dependencies = defaultDependencies) {
+  return async function handler(req: NextApiRequest, res: NextApiResponse) {
+    const { ensClient } = dependencies;
+
+    // Simulate market data (would use real OpenSea API in production)
+    async function fetchMarketDataFromOpenSea(address: string): Promise<OpenSeaResult> {
+      try {
+        const openSeaApiKey = process.env.OPENSEA_API_KEY;
+
+        if (!openSeaApiKey) {
+          // Return empty data when no API key instead of demo data
+          return {
+            profileUrl: `https://opensea.io/${address}`,
+            topValuedNFTs: [],
+            marketStats: {
+              totalEstimatedValue: 0,
+              totalFloorValue: 0,
+              uniqueCollections: 0,
+              totalNFTs: 0,
+              topCollectionsByValue: []
+            },
+            portfolioSummary: {
+              totalValue: 0,
+              currency: 'ETH',
+              lastUpdated: new Date().toISOString()
+            },
+            source: 'none',
+            error: 'OPENSEA_API_KEY_REQUIRED'
+          };
+        }
+
+        // In a real implementation, this would call OpenSea's API
+        // const response = await fetch(`https://api.opensea.io/v2/chain/ethereum/account/${address}/nfts`, {
+        //   headers: {
+        //     'X-API-KEY': openSeaApiKey,
+        //     'Accept': 'application/json'
+        //   }
+        // });
+
+        // For now, return empty data since we don't have real API integration
+        console.log('OpenSea API key available, but real API integration not implemented yet');
+        return {
+          profileUrl: `https://opensea.io/${address}`,
+          topValuedNFTs: [],
+          marketStats: {
+            totalEstimatedValue: 0,
+            totalFloorValue: 0,
+            uniqueCollections: 0,
+            totalNFTs: 0,
+            topCollectionsByValue: []
+          },
+          portfolioSummary: {
+            totalValue: 0,
+            currency: 'ETH',
+            lastUpdated: new Date().toISOString()
+          },
+          source: 'none',
+          error: 'API_INTEGRATION_PENDING'
+        };
+
+      } catch (error) {
+        console.error('OpenSea market data error:', error);
+        return {
+          profileUrl: `https://opensea.io/${address}`,
+          topValuedNFTs: [],
+          marketStats: {
+            totalEstimatedValue: 0,
+            totalFloorValue: 0,
+            uniqueCollections: 0,
+            totalNFTs: 0,
+            topCollectionsByValue: []
+          },
+          portfolioSummary: {
+            totalValue: 0,
+            currency: 'ETH',
+            lastUpdated: new Date().toISOString()
+          },
+          source: 'none',
+          error: 'SERVICE_ERROR'
+        };
+      }
+    }
+
+    if (req.method !== 'GET') {
+      res.setHeader('Allow', ['GET']);
+      return res.status(405).end(`Method ${req.method} Not Allowed`);
+    }
+
+    const { address } = req.query;
+
+    if (!address || typeof address !== 'string') {
+      return res.status(400).json({ error: 'Address is required' });
+    }
+
+    let resolvedAddress = address;
+
+    // If input looks like an ENS name, resolve it to an address
+    if (isENSName(address)) {
+      try {
+        const addressRecord = await ensClient.getAddressRecord({ name: address });
+        if (!addressRecord?.value || addressRecord.value === '0x0000000000000000000000000000000000000000') {
+          return res.status(404).json({ error: 'ENS name not found or not resolved to a valid address' });
+        }
+        resolvedAddress = addressRecord.value;
+        console.log(`Resolved ${address} to ${resolvedAddress}`);
+      } catch (error) {
+        console.error('Error resolving ENS name:', error);
+        return res.status(400).json({ error: 'Invalid ENS name or resolution failed' });
+      }
+    } else if (!isEthereumAddress(address)) {
+      return res.status(400).json({ error: 'Invalid Ethereum address or ENS name format' });
+    }
+
+    console.log(`Fetching OpenSea market data for: ${resolvedAddress}`);
+
+    try {
+      const result = await fetchMarketDataFromOpenSea(resolvedAddress);
+      return res.status(200).json(result);
+    } catch (error) {
+      console.error('OpenSea service error:', error);
+
+      return res.status(200).json({
+        profileUrl: `https://opensea.io/${resolvedAddress}`,
         topValuedNFTs: [],
         marketStats: {
           totalEstimatedValue: 0,
@@ -83,118 +201,10 @@ async function fetchMarketDataFromOpenSea(address: string): Promise<OpenSeaResul
           lastUpdated: new Date().toISOString()
         },
         source: 'none',
-        error: 'OPENSEA_API_KEY_REQUIRED'
-      };
+        error: 'SERVICE_ERROR'
+      });
     }
-
-    // In a real implementation, this would call OpenSea's API
-    // const response = await fetch(`https://api.opensea.io/v2/chain/ethereum/account/${address}/nfts`, {
-    //   headers: {
-    //     'X-API-KEY': openSeaApiKey,
-    //     'Accept': 'application/json'
-    //   }
-    // });
-
-    // For now, return empty data since we don't have real API integration
-    console.log('OpenSea API key available, but real API integration not implemented yet');
-    return {
-      profileUrl: `https://opensea.io/${address}`,
-      topValuedNFTs: [],
-      marketStats: {
-        totalEstimatedValue: 0,
-        totalFloorValue: 0,
-        uniqueCollections: 0,
-        totalNFTs: 0,
-        topCollectionsByValue: []
-      },
-      portfolioSummary: {
-        totalValue: 0,
-        currency: 'ETH',
-        lastUpdated: new Date().toISOString()
-      },
-      source: 'none',
-      error: 'API_INTEGRATION_PENDING'
-    };
-
-  } catch (error) {
-    console.error('OpenSea market data error:', error);
-    return {
-      profileUrl: `https://opensea.io/${address}`,
-      topValuedNFTs: [],
-      marketStats: {
-        totalEstimatedValue: 0,
-        totalFloorValue: 0,
-        uniqueCollections: 0,
-        totalNFTs: 0,
-        topCollectionsByValue: []
-      },
-      portfolioSummary: {
-        totalValue: 0,
-        currency: 'ETH',
-        lastUpdated: new Date().toISOString()
-      },
-      source: 'none',
-      error: 'SERVICE_ERROR'
-    };
-  }
+  };
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'GET') {
-    res.setHeader('Allow', ['GET']);
-    return res.status(405).end(`Method ${req.method} Not Allowed`);
-  }
-
-  const { address } = req.query;
-
-  if (!address || typeof address !== 'string') {
-    return res.status(400).json({ error: 'Address is required' });
-  }
-
-  let resolvedAddress = address;
-
-  // If input looks like an ENS name, resolve it to an address
-  if (isENSName(address)) {
-    try {
-      const addressRecord = await ensClient.getAddressRecord({ name: address });
-      if (!addressRecord?.value || addressRecord.value === '0x0000000000000000000000000000000000000000') {
-        return res.status(404).json({ error: 'ENS name not found or not resolved to a valid address' });
-      }
-      resolvedAddress = addressRecord.value;
-      console.log(`Resolved ${address} to ${resolvedAddress}`);
-    } catch (error) {
-      console.error('Error resolving ENS name:', error);
-      return res.status(400).json({ error: 'Invalid ENS name or resolution failed' });
-    }
-  } else if (!isEthereumAddress(address)) {
-    return res.status(400).json({ error: 'Invalid Ethereum address or ENS name format' });
-  }
-
-  console.log(`Fetching OpenSea market data for: ${resolvedAddress}`);
-
-  try {
-    const result = await fetchMarketDataFromOpenSea(resolvedAddress);
-    return res.status(200).json(result);
-  } catch (error) {
-    console.error('OpenSea service error:', error);
-    
-    return res.status(200).json({
-      profileUrl: `https://opensea.io/${resolvedAddress}`,
-      topValuedNFTs: [],
-      marketStats: {
-        totalEstimatedValue: 0,
-        totalFloorValue: 0,
-        uniqueCollections: 0,
-        totalNFTs: 0,
-        topCollectionsByValue: []
-      },
-      portfolioSummary: {
-        totalValue: 0,
-        currency: 'ETH',
-        lastUpdated: new Date().toISOString()
-      },
-      source: 'none',
-      error: 'SERVICE_ERROR'
-    });
-  }
-} 
+export default createHandler(); 

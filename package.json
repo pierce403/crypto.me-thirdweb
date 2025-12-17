@@ -9,7 +9,8 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "lint": "next lint",
-    "test": "TS_NODE_TRANSPILE_ONLY=1 node --test --require ./scripts/register-ts.js tests/**/*.test.ts"
+    "test": "TS_NODE_TRANSPILE_ONLY=1 node --test --require ./scripts/register-ts.js tests/**/*.test.ts",
+    "test:e2e": "TS_NODE_TRANSPILE_ONLY=1 node --test --require ./scripts/register-ts.js tests/e2e-no-demo-data.test.ts"
   },
   "dependencies": {
     "@adraffy/ens-normalize": "^1.11.1",

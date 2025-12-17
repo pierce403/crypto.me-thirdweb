@@ -58,6 +58,15 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
   const getStatusMessage = () => {
     if (loading) return 'Loading...';
 
+    // Handle missing API key/Pending integration explicitly
+    const hasApiKeyError = data && (data.error === 'NO_API_KEY' || data.error === 'OPENSEA_API_KEY_REQUIRED' || data.error === 'API_INTEGRATION_PENDING');
+    if (hasApiKeyError) {
+      if (data?.error === 'API_INTEGRATION_PENDING') {
+        return 'Pending API Integration';
+      }
+      return 'No API Key Configured';
+    }
+
     if (error && isEmpty) {
       return 'Service unavailable';
     }
@@ -80,6 +89,11 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
 
   const getStatusColor = () => {
     if (loading) return 'gray.500';
+
+    // Check for explicit API errors in data payload
+    const hasApiKeyError = data && (data.error === 'NO_API_KEY' || data.error === 'OPENSEA_API_KEY_REQUIRED' || data.error === 'API_INTEGRATION_PENDING');
+    if (hasApiKeyError) return 'gray.500';
+
     if (error && isEmpty) return 'red.600';
     if (error && !isEmpty) return 'orange.600';
     if (lastUpdated || !isEmpty) return 'green.600';
@@ -538,6 +552,27 @@ const OpenSeaContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =
   } | undefined;
   const profileUrl = data.profileUrl as string | undefined;
   const source = data.source as string | undefined;
+  const error = data.error as string | undefined;
+
+  if (error === 'OPENSEA_API_KEY_REQUIRED' || error === 'API_INTEGRATION_PENDING') {
+    return (
+      <VStack gap={3} align="stretch">
+        <Box p={3} bg="blue.50" borderRadius="md" border="1px solid" borderColor="blue.200">
+          <Text fontSize="sm" color="blue.800" fontWeight="semibold">
+            {error === 'API_INTEGRATION_PENDING' ? 'Integration in Progress' : 'API Key Required'}
+          </Text>
+          <Text fontSize="xs" color="blue.700">
+            {error === 'API_INTEGRATION_PENDING'
+              ? 'Real OpenSea data integration is being implemented.'
+              : 'Add OPENSEA_API_KEY to your environment to see real market data.'}
+          </Text>
+        </Box>
+        <Link href="https://opensea.io" target="_blank" rel="noopener noreferrer" color="blue.500" fontSize="sm">
+          Visit OpenSea ↗
+        </Link>
+      </VStack>
+    );
+  }
 
   return (
     <VStack gap={3} align="stretch">
@@ -809,6 +844,22 @@ const DeBankContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =>
   }> | undefined;
   const portfolioUrl = data.portfolioUrl as string | undefined;
   const source = data.source as string | undefined;
+  const error = data.error as string | undefined;
+  if (error === 'API_INTEGRATION_PENDING') {
+    return (
+      <VStack gap={3} align="stretch">
+        <Box p={3} bg="blue.50" borderRadius="md" border="1px solid" borderColor="blue.200">
+          <Text fontSize="sm" color="blue.800" fontWeight="semibold">Pending Integration</Text>
+          <Text fontSize="xs" color="blue.700">
+            Real DeBank portfolio data integration is coming soon.
+          </Text>
+        </Box>
+        <Link href="https://debank.com" target="_blank" rel="noopener noreferrer" color="blue.500" fontSize="sm">
+          Visit DeBank ↗
+        </Link>
+      </VStack>
+    );
+  }
 
   return (
     <VStack gap={3} align="stretch">
