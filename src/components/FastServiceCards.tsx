@@ -845,13 +845,17 @@ const DeBankContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =>
   const portfolioUrl = data.portfolioUrl as string | undefined;
   const source = data.source as string | undefined;
   const error = data.error as string | undefined;
-  if (error === 'API_INTEGRATION_PENDING') {
+  if (error === 'API_INTEGRATION_PENDING' || error === 'NO_API_KEY') {
     return (
       <VStack gap={3} align="stretch">
         <Box p={3} bg="blue.50" borderRadius="md" border="1px solid" borderColor="blue.200">
-          <Text fontSize="sm" color="blue.800" fontWeight="semibold">Pending Integration</Text>
+          <Text fontSize="sm" color="blue.800" fontWeight="semibold">
+            {error === 'API_INTEGRATION_PENDING' ? 'Pending Integration' : 'API Key Required'}
+          </Text>
           <Text fontSize="xs" color="blue.700">
-            Real DeBank portfolio data integration is coming soon.
+            {error === 'API_INTEGRATION_PENDING'
+              ? 'Real DeBank portfolio data integration is coming soon.'
+              : 'Add DEBANK_API_KEY to your environment to see real portfolio usage.'}
           </Text>
         </Box>
         <Link href="https://debank.com" target="_blank" rel="noopener noreferrer" color="blue.500" fontSize="sm">

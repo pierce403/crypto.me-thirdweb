@@ -11,7 +11,11 @@ const nextConfig = {
       'profile.decentraland.org',
       'api.decentraland.org',
       'assets.coingecko.com',
-      'ipfs.io'
+      'ipfs.io',
+      'euc.li',
+      'static.debank.com',
+      'debank.com',
+      'i2c.seadn.io'
     ],
   },
 };

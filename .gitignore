@@ -25,6 +25,11 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# local dev artifacts
+dev.log
+prisma/dev.db
+prisma/*.db-journal
+
 # local env files
 .env*.local
 .env

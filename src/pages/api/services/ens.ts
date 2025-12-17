@@ -7,10 +7,12 @@ const alchemyRpcUrl =
   process.env.ALCHEMY_RPC_URL ||
   (process.env.ALCHEMY_API_KEY ? `https://eth-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}` : undefined);
 
+const rpcUrl = alchemyRpcUrl ?? 'https://eth.llamarpc.com';
+
 const ensClient = createEnsPublicClient({
   chain: mainnet,
   // Keep this service fast/reliable; background fetcher times out at 10s.
-  transport: http('https://eth.llamarpc.com', { timeout: 5000, retryCount: 0 }),
+  transport: http(rpcUrl, { timeout: 5000, retryCount: 0 }),
 });
 
 type EnsDependencies = {

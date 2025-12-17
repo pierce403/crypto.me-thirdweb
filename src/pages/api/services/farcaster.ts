@@ -7,9 +7,11 @@ const alchemyRpcUrl =
   process.env.ALCHEMY_RPC_URL ||
   (process.env.ALCHEMY_API_KEY ? `https://eth-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}` : undefined);
 
+const rpcUrl = alchemyRpcUrl ?? 'https://rpc.ankr.com/eth';
+
 const ensClient = createEnsPublicClient({
   chain: mainnet,
-  transport: http('https://rpc.ankr.com/eth', { timeout: 8000, retryCount: 1, retryDelay: 300 }),
+  transport: http(rpcUrl, { timeout: 8000, retryCount: 1, retryDelay: 300 }),
 });
 
 type FarcasterDependencies = {

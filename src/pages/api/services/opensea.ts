@@ -7,10 +7,18 @@ const alchemyRpcUrl =
   process.env.ALCHEMY_RPC_URL ||
   (process.env.ALCHEMY_API_KEY ? `https://eth-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}` : undefined);
 
+const rpcUrl = alchemyRpcUrl ?? 'https://rpc.ankr.com/eth';
+
 const ensClient = createEnsPublicClient({
   chain: mainnet,
-  transport: http('https://rpc.ankr.com/eth', { timeout: 8000, retryCount: 1, retryDelay: 300 }),
+  transport: http(rpcUrl, { timeout: 8000, retryCount: 1, retryDelay: 300 }),
 });
+
+type UnknownRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is UnknownRecord {
+  return typeof value === 'object' && value !== null;
+}
 
 // Helper function to check if a string is an ENS name
 function isENSName(address: string): boolean {
@@ -72,6 +80,8 @@ export function createHandler(dependencies = defaultDependencies) {
     async function fetchMarketDataFromOpenSea(address: string): Promise<OpenSeaResult> {
       try {
         const openSeaApiKey = process.env.OPENSEA_API_KEY;
+        // const openSeaApiKey = ''; // Force missing key for UI testing
+
 
         if (!openSeaApiKey) {
           // Return empty data when no API key instead of demo data
@@ -95,33 +105,114 @@ export function createHandler(dependencies = defaultDependencies) {
           };
         }
 
-        // In a real implementation, this would call OpenSea's API
-        // const response = await fetch(`https://api.opensea.io/v2/chain/ethereum/account/${address}/nfts`, {
-        //   headers: {
-        //     'X-API-KEY': openSeaApiKey,
-        //     'Accept': 'application/json'
-        //   }
-        // });
+        const response = await fetch(`https://api.opensea.io/api/v2/chain/ethereum/account/${address}/nfts?limit=20`, {
+          headers: {
+            'x-api-key': openSeaApiKey,
+            'accept': 'application/json'
+          }
+        });
 
-        // For now, return empty data since we don't have real API integration
-        console.log('OpenSea API key available, but real API integration not implemented yet');
+        if (!response.ok) {
+          console.error(`OpenSea API error: ${response.status} ${response.statusText}`);
+          return {
+            profileUrl: `https://opensea.io/${address}`,
+            topValuedNFTs: [],
+            marketStats: {
+              totalEstimatedValue: 0,
+              totalFloorValue: 0,
+              uniqueCollections: 0,
+              totalNFTs: 0,
+              topCollectionsByValue: []
+            },
+            portfolioSummary: {
+              totalValue: 0,
+              currency: 'ETH',
+              lastUpdated: new Date().toISOString()
+            },
+            source: 'none',
+            error: 'SERVICE_ERROR'
+          };
+        }
+
+        const data: unknown = await response.json();
+        const nfts = isRecord(data) && Array.isArray(data.nfts) ? data.nfts : [];
+
+        // Process NFTs
+        // Create a basic map to aggregate collection stats from the fetched NFTs
+        const collectionStats: Record<string, { count: number; name: string; totalValue: number }> = {};
+
+        const valuedNFTs: ValuedNFT[] = nfts.flatMap((nftUnknown) => {
+          if (!isRecord(nftUnknown)) return [];
+
+          const collectionName = typeof nftUnknown.collection === 'string' ? nftUnknown.collection : 'Unknown Collection';
+
+          if (!collectionStats[collectionName]) {
+            collectionStats[collectionName] = { count: 0, name: collectionName, totalValue: 0 };
+          }
+          collectionStats[collectionName].count++;
+
+          // Attempt to find image
+          const imageUrl = typeof nftUnknown.image_url === 'string' ? nftUnknown.image_url : undefined;
+          const displayImageUrl = typeof nftUnknown.display_image_url === 'string' ? nftUnknown.display_image_url : undefined;
+          const metadataImage = (() => {
+            const metadata = nftUnknown.metadata;
+            if (!isRecord(metadata)) return undefined;
+            return typeof metadata.image === 'string' ? metadata.image : undefined;
+          })();
+          const image = imageUrl ?? displayImageUrl ?? metadataImage ?? '';
+
+          // Attempt to find value (this is limited in the basic endpoint)
+          // We might not get floor price or estimated value easily here without extra calls.
+          // For now, we'll default to 0 unless we find something.
+          const estimatedValue = 0;
+
+          const nftName = typeof nftUnknown.name === 'string' ? nftUnknown.name : undefined;
+          const identifier = typeof nftUnknown.identifier === 'string' ? nftUnknown.identifier : undefined;
+          const openseaUrl = typeof nftUnknown.opensea_url === 'string' ? nftUnknown.opensea_url : `https://opensea.io/${address}`;
+
+          return [{
+            name: nftName ?? (identifier ? `#${identifier}` : 'NFT'),
+            collection: collectionName,
+            image,
+            floorPrice: 0,
+            lastSalePrice: 0, // Not easily available in this endpoint output sometimes
+            currency: 'ETH',
+            permalink: openseaUrl,
+            rarity: undefined,
+            estimatedValue
+          }];
+        });
+
+        // Unique collections
+        const uniqueCollections = Object.keys(collectionStats).length;
+        const totalNFTs = nfts.length; // This is just the page limit, but serves as "recent" count
+
+        const topCollectionsByValue = Object.values(collectionStats)
+          .sort((a, b) => b.count - a.count) // Sort by count for now as we don't have value
+          .slice(0, 3)
+          .map(c => ({
+            name: c.name,
+            count: c.count,
+            floorPrice: 0,
+            totalValue: 0
+          }));
+
         return {
           profileUrl: `https://opensea.io/${address}`,
-          topValuedNFTs: [],
+          topValuedNFTs: valuedNFTs.slice(0, 5),
           marketStats: {
             totalEstimatedValue: 0,
             totalFloorValue: 0,
-            uniqueCollections: 0,
-            totalNFTs: 0,
-            topCollectionsByValue: []
+            uniqueCollections,
+            totalNFTs,
+            topCollectionsByValue
           },
           portfolioSummary: {
             totalValue: 0,
             currency: 'ETH',
             lastUpdated: new Date().toISOString()
           },
-          source: 'none',
-          error: 'API_INTEGRATION_PENDING'
+          source: 'opensea'
         };
 
       } catch (error) {
