@@ -354,18 +354,54 @@ const ENSContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) => {
 
 const FarcasterContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) => {
   const username = data.username as string | undefined;
+  const farname = data.farname as string | undefined;
+  const basename = data.basename as string | undefined;
+  const fid = data.fid as number | undefined;
   const displayName = data.displayName as string | undefined;
   const followerCount = data.followerCount as number | undefined;
+  const followingCount = data.followingCount as number | undefined;
+  const powerBadge = data.powerBadge as boolean | undefined;
   const bio = data.bio as string | undefined;
   const profileUrl = data.profileUrl as string | undefined;
   const neynarScore = data.neynarScore as number | undefined;
+  const walletAddress = data.walletAddress as string | undefined;
+  const custodyAddress = data.custodyAddress as string | undefined;
+  const connectedAddresses = data.connectedAddresses as string[] | undefined;
+  const verifiedAddresses = data.verifiedAddresses as Record<string, unknown> | undefined;
+  const connectedAccounts = data.connectedAccounts as Array<{ platform: string; username: string }> | undefined;
+
+  const formatAddress = (address: string) => {
+    if (!address.startsWith('0x') || address.length < 10) return address;
+    return `${address.slice(0, 6)}…${address.slice(-4)}`;
+  };
+
+  const ethAddresses = (() => {
+    const fromVerified = verifiedAddresses && Array.isArray(verifiedAddresses.ethAddresses)
+      ? verifiedAddresses.ethAddresses
+      : undefined;
+    const fromConnected = Array.isArray(connectedAddresses) ? connectedAddresses : undefined;
+    const addresses = (fromVerified ?? fromConnected ?? []).filter((value): value is string => typeof value === 'string');
+    const unique = new Set(addresses.map((value) => value.toLowerCase()));
+    return Array.from(unique).map((lower) => addresses.find((value) => value.toLowerCase() === lower) as string);
+  })();
+
+  const solAddresses = (() => {
+    const value = verifiedAddresses?.solAddresses;
+    if (!Array.isArray(value)) return [];
+    return value.filter((item): item is string => typeof item === 'string');
+  })();
 
   return (
     <VStack gap={3} align="stretch">
       {username && (
         <Box>
           <Text fontSize="sm" fontWeight="semibold" color="gray.600">Username:</Text>
-          <Text fontSize="md" color="gray.800">@{username}</Text>
+          <HStack justify="space-between" align="baseline">
+            <Text fontSize="md" color="gray.800">@{username}</Text>
+            {fid !== undefined && (
+              <Text fontSize="xs" color="gray.500">FID {fid}</Text>
+            )}
+          </HStack>
         </Box>
       )}
 
@@ -376,12 +412,110 @@ const FarcasterContent: React.FC<{ data: Record<string, unknown> }> = ({ data })
         </Box>
       )}
 
+      {(farname && farname !== username) && (
+        <Box>
+          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Farname:</Text>
+          <Text fontSize="sm" color="gray.700">{farname}</Text>
+        </Box>
+      )}
+
+      {basename && (
+        <Box>
+          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Basename:</Text>
+          <Text fontSize="sm" color="gray.700">{basename}</Text>
+        </Box>
+      )}
+
+      {(walletAddress || custodyAddress) && (
+        <Box>
+          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Wallets:</Text>
+          {walletAddress && (
+            <Text fontSize="xs" color="gray.700" fontFamily="mono" title={walletAddress}>
+              Lookup: {formatAddress(walletAddress)}
+            </Text>
+          )}
+          {custodyAddress && custodyAddress !== walletAddress && (
+            <Text fontSize="xs" color="gray.700" fontFamily="mono" title={custodyAddress}>
+              Custody: {formatAddress(custodyAddress)}
+            </Text>
+          )}
+        </Box>
+      )}
+
+      {(ethAddresses.length > 0 || solAddresses.length > 0 || (connectedAccounts && connectedAccounts.length > 0)) && (
+        <Box>
+          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Connected Identities:</Text>
+
+          {ethAddresses.length > 0 && (
+            <Box mt={1}>
+              <Text fontSize="xs" color="gray.600">Verified ETH wallets ({ethAddresses.length})</Text>
+              <VStack gap={0} align="stretch">
+                {ethAddresses.slice(0, 3).map((address, index) => (
+                  <Text key={`${address}-${index}`} fontSize="xs" color="gray.700" fontFamily="mono" title={address}>
+                    {formatAddress(address)}
+                  </Text>
+                ))}
+                {ethAddresses.length > 3 && (
+                  <Text fontSize="xs" color="gray.500">+{ethAddresses.length - 3} more</Text>
+                )}
+              </VStack>
+            </Box>
+          )}
+
+          {solAddresses.length > 0 && (
+            <Box mt={2}>
+              <Text fontSize="xs" color="gray.600">Verified Solana wallets ({solAddresses.length})</Text>
+              <VStack gap={0} align="stretch">
+                {solAddresses.slice(0, 3).map((address, index) => (
+                  <Text key={`${address}-${index}`} fontSize="xs" color="gray.700" fontFamily="mono" title={address}>
+                    {address.length > 16 ? `${address.slice(0, 8)}…${address.slice(-4)}` : address}
+                  </Text>
+                ))}
+                {solAddresses.length > 3 && (
+                  <Text fontSize="xs" color="gray.500">+{solAddresses.length - 3} more</Text>
+                )}
+              </VStack>
+            </Box>
+          )}
+
+          {connectedAccounts && connectedAccounts.length > 0 && (
+            <Box mt={2}>
+              <Text fontSize="xs" color="gray.600">Linked accounts ({connectedAccounts.length})</Text>
+              <VStack gap={0} align="stretch">
+                {connectedAccounts.slice(0, 3).map((account, index) => (
+                  <Text key={`${account.platform}-${account.username}-${index}`} fontSize="xs" color="gray.700">
+                    {account.platform}: {account.username}
+                  </Text>
+                ))}
+                {connectedAccounts.length > 3 && (
+                  <Text fontSize="xs" color="gray.500">+{connectedAccounts.length - 3} more</Text>
+                )}
+              </VStack>
+            </Box>
+          )}
+        </Box>
+      )}
+
       {(followerCount !== undefined) && (
         <HStack gap={4}>
           {followerCount !== undefined && (
             <Box>
               <Text fontSize="xs" color="gray.600">Followers</Text>
               <Text fontSize="lg" fontWeight="bold" color="purple.600">{followerCount.toLocaleString()}</Text>
+            </Box>
+          )}
+          {followingCount !== undefined && (
+            <Box>
+              <Text fontSize="xs" color="gray.600">Following</Text>
+              <Text fontSize="lg" fontWeight="bold" color="gray.700">{followingCount.toLocaleString()}</Text>
+            </Box>
+          )}
+          {powerBadge !== undefined && (
+            <Box>
+              <Text fontSize="xs" color="gray.600">Power Badge</Text>
+              <Text fontSize="lg" fontWeight="bold" color={powerBadge ? 'green.600' : 'gray.500'}>
+                {powerBadge ? 'Yes' : 'No'}
+              </Text>
             </Box>
           )}
         </HStack>
@@ -728,7 +862,7 @@ const IcebreakerContent: React.FC<{ data: Record<string, unknown> }> = ({ data }
 const HumanPassportContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) => {
   const score = data.score as number | undefined;
   const trustLevel = data.trustLevel as string | undefined;
-  const stamps = data.stamps as Array<{ name: string }> | undefined;
+  const stamps = data.stamps as Array<{ provider: string; verified: boolean; category: string }> | undefined;
   const error = data.error as string | undefined;
 
   if (error === 'NO_API_ACCESS') {
@@ -768,7 +902,12 @@ const HumanPassportContent: React.FC<{ data: Record<string, unknown> }> = ({ dat
           <Text fontSize="sm" fontWeight="semibold" color="gray.600">Stamps ({stamps.length}):</Text>
           <VStack gap={1} align="stretch">
             {stamps.slice(0, 3).map((stamp, index) => (
-              <Text key={index} fontSize="sm" color="gray.700">{stamp.name}</Text>
+              <HStack key={index} justify="space-between">
+                <Text fontSize="sm" color="gray.700" truncate>{stamp.provider}</Text>
+                <Badge colorScheme={stamp.verified ? 'green' : 'gray'} variant="subtle" fontSize="xs">
+                  {stamp.verified ? 'Verified' : 'Unverified'}
+                </Badge>
+              </HStack>
             ))}
             {stamps.length > 3 && (
               <Text fontSize="xs" color="gray.500">+{stamps.length - 3} more stamps</Text>

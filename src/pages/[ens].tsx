@@ -370,19 +370,19 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
                   Identity & Proofs
                 </Heading>
                 <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={6}>
+                  <FastFarcasterCard
+                    data={farcaster}
+                    loading={false}
+                    lastUpdated={getServiceTimestamp('farcaster')}
+                    error={getServiceError('farcaster')}
+                    onRefresh={() => refreshService('farcaster')}
+                  />
                   <FastENSCard
                     data={ens}
                     loading={false}
                     lastUpdated={getServiceTimestamp('ens')}
                     error={getServiceError('ens')}
                     onRefresh={() => refreshService('ens')}
-                  />
-                  <FastHumanPassportCard
-                    data={gitcoinPassport}
-                    loading={false}
-                    lastUpdated={getServiceTimestamp('gitcoin-passport')}
-                    error={getServiceError('gitcoin-passport')}
-                    onRefresh={() => refreshService('gitcoin-passport')}
                   />
                   <FastIcebreakerCard
                     data={icebreaker}
@@ -406,13 +406,6 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
                     lastUpdated={getServiceTimestamp('xmtp')}
                     error={getServiceError('xmtp')}
                     onRefresh={() => refreshService('xmtp')}
-                  />
-                  <FastFarcasterCard
-                    data={farcaster}
-                    loading={false}
-                    lastUpdated={getServiceTimestamp('farcaster')}
-                    error={getServiceError('farcaster')}
-                    onRefresh={() => refreshService('farcaster')}
                   />
                 </SimpleGrid>
               </Box>
@@ -459,6 +452,22 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
                     lastUpdated={getServiceTimestamp('decentraland')}
                     error={getServiceError('decentraland')}
                     onRefresh={() => refreshService('decentraland')}
+                  />
+                </SimpleGrid>
+              </Box>
+
+              {/* Reputation */}
+              <Box>
+                <Heading as="h3" size="md" mb={4} color="gray.700" borderBottom="1px solid" borderColor="gray.200" pb={2}>
+                  Reputation
+                </Heading>
+                <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={6}>
+                  <FastHumanPassportCard
+                    data={gitcoinPassport}
+                    loading={false}
+                    lastUpdated={getServiceTimestamp('gitcoin-passport')}
+                    error={getServiceError('gitcoin-passport')}
+                    onRefresh={() => refreshService('gitcoin-passport')}
                   />
                 </SimpleGrid>
               </Box>

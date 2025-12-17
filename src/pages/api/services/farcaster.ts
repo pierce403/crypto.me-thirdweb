@@ -14,6 +14,12 @@ const ensClient = createEnsPublicClient({
   transport: http(rpcUrl, { timeout: 8000, retryCount: 1, retryDelay: 300 }),
 });
 
+type UnknownRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is UnknownRecord {
+  return typeof value === 'object' && value !== null;
+}
+
 type FarcasterDependencies = {
   ensClient: typeof ensClient;
   fetchFn: typeof fetch;
@@ -146,14 +152,110 @@ export function createHandler(dependencies: FarcasterDependencies = defaultDepen
         neynarScore = Math.min(neynarScore, 1.0); // Cap at 1.0
       }
 
+      const fid = typeof user.fid === 'number' ? user.fid : undefined;
+      const custodyAddress = typeof user.custody_address === 'string' ? user.custody_address : undefined;
+
+      const verifiedAddressesRaw = isRecord(user.verified_addresses) ? user.verified_addresses : null;
+      const ethAddressesRaw: unknown[] = verifiedAddressesRaw && Array.isArray(verifiedAddressesRaw.eth_addresses)
+        ? (verifiedAddressesRaw.eth_addresses as unknown[])
+        : [];
+      const solAddressesRaw: unknown[] = verifiedAddressesRaw && Array.isArray(verifiedAddressesRaw.sol_addresses)
+        ? (verifiedAddressesRaw.sol_addresses as unknown[])
+        : [];
+      const ensDomainsRaw = verifiedAddressesRaw && Array.isArray((verifiedAddressesRaw as UnknownRecord).ens_domains)
+        ? ((verifiedAddressesRaw as UnknownRecord).ens_domains as unknown[])
+        : [];
+
+      const ethAddresses = ethAddressesRaw.filter((value): value is string => typeof value === 'string');
+      const solAddresses = solAddressesRaw.filter((value): value is string => typeof value === 'string');
+      const ensDomains = ensDomainsRaw.filter((value): value is string => typeof value === 'string');
+      const verificationsRaw = Array.isArray((user as UnknownRecord).verifications)
+        ? ((user as UnknownRecord).verifications as unknown[])
+        : [];
+      const verificationAddresses = verificationsRaw.filter((value): value is string => typeof value === 'string');
+
+      const farname =
+        typeof (user as UnknownRecord).fname === 'string'
+          ? ((user as UnknownRecord).fname as string)
+          : (typeof user.username === 'string' ? user.username : undefined);
+
+      const basename = (() => {
+        const direct = (user as UnknownRecord).basename;
+        if (typeof direct === 'string') return direct;
+        return ensDomains.find((name) => name.toLowerCase().endsWith('.base.eth'));
+      })();
+
+      const profileUrl = typeof user.username === 'string'
+        ? `https://warpcast.com/${user.username}`
+        : (fid ? `https://warpcast.com/~/profiles/${fid}` : undefined);
+
+      const pfpUrl = typeof user.pfp_url === 'string' ? user.pfp_url : undefined;
+      const bio = (() => {
+        const profile = (user as UnknownRecord).profile;
+        if (!isRecord(profile)) return undefined;
+        const profileBio = profile.bio;
+        if (!isRecord(profileBio)) return undefined;
+        return typeof profileBio.text === 'string' ? profileBio.text : undefined;
+      })();
+
+      const connectedAccounts = (() => {
+        const accounts: Array<{ platform: string; username: string }> = [];
+        const candidates = ['verified_accounts', 'connected_accounts'] as const;
+
+        for (const key of candidates) {
+          const value = (user as UnknownRecord)[key];
+          if (!isRecord(value)) continue;
+
+          for (const [platform, accountValue] of Object.entries(value)) {
+            if (typeof accountValue === 'string') {
+              accounts.push({ platform, username: accountValue });
+              continue;
+            }
+
+            if (!isRecord(accountValue)) continue;
+            const username =
+              typeof accountValue.username === 'string'
+                ? accountValue.username
+                : (typeof accountValue.handle === 'string' ? accountValue.handle : undefined);
+
+            if (username) accounts.push({ platform, username });
+          }
+        }
+
+        // Deduplicate by platform+username
+        const seen = new Set<string>();
+        return accounts.filter((account) => {
+          const key = `${account.platform}:${account.username}`.toLowerCase();
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+      })();
+
       const result = {
+        fid,
         username: user.username,
+        farname,
+        basename,
         displayName: user.display_name || user.username,
         createdAt: user.created_at ? new Date(user.created_at).toISOString() : new Date().toISOString(),
-        connectedAddresses: user.verified_addresses?.eth_addresses || [],
+        walletAddress: resolvedAddress,
+        custodyAddress,
+        connectedAddresses: ethAddresses.length > 0 ? ethAddresses : verificationAddresses,
+        verifiedAddresses: {
+          ethAddresses,
+          solAddresses,
+          ensDomains,
+        },
+        connectedAccounts,
+        pfpUrl,
+        bio,
         followerCount: followerCount,
+        followingCount: followingCount,
+        powerBadge: powerBadge,
         neynarScore: neynarScore,
         resolvedAddress: resolvedAddress, // Include the resolved address for debugging
+        profileUrl,
       };
 
       res.status(200).json(result);
