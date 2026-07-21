@@ -74,6 +74,19 @@ can be uploaded:
 npm run deploy
 ```
 
+Production is also connected to Cloudflare Workers Builds:
+
+- Repository: `pierce403/crypto.me-thirdweb`
+- Production branch: `main`
+- Build command: `npm run cf:build`
+- Deploy command: `OPEN_NEXT_DEPLOY=true npx wrangler deploy --keep-vars`
+
+Every push to `main` builds and deploys Worker `crypto-me`. The
+`OPEN_NEXT_DEPLOY` flag tells Wrangler to upload the artifact that Workers
+Builds already produced instead of starting OpenNext's local platform proxy,
+which would require a local Hyperdrive connection string in CI. The deployed
+Worker still receives the remote `HYPERDRIVE` binding from `wrangler.jsonc`.
+
 Do not replace that with a bare `opennextjs-cloudflare deploy`: OpenNext copies
 values from Next `.env*` files into its generated output by default.
 `scripts/sanitize-opennext-env.js` removes generated env files and refuses to
@@ -85,6 +98,9 @@ Database migrations are intentionally separate from application deployment:
 npm run db:deploy
 npm run deploy
 ```
+
+Workers Builds does not run database migrations. Apply a pending production
+migration explicitly before merging the application change that depends on it.
 
 Set provider credentials as Worker secrets, never as committed `vars` and never
 as raw production database URLs. Hyperdrive is the only production database

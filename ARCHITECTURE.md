@@ -207,6 +207,16 @@ npm run db:deploy       # only when a migration is pending
 npm run deploy
 ```
 
+Cloudflare Workers Builds watches `pierce403/crypto.me-thirdweb` on `main`.
+Its build command is `npm run cf:build`; its deploy command is
+`OPEN_NEXT_DEPLOY=true npx wrangler deploy --keep-vars`. The flag prevents
+Wrangler from delegating back through OpenNext's local platform proxy after the
+OpenNext artifact has already been built and sanitized. Production Hyperdrive,
+Queue, service, Images, and asset bindings still come from `wrangler.jsonc`.
+
+Workers Builds deploys application code only. Production Prisma migrations
+remain an explicit operator step before merging code that depends on them.
+
 `npm run cf:build` is a security boundary. OpenNext normally copies `.env*`
 values into generated `next-env.mjs` and server-function env files. The
 sanitizer removes those files and byte-scans the complete `.open-next` output
