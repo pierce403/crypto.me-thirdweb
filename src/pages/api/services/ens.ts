@@ -1,19 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createEnsPublicClient } from '@ensdomains/ensjs';
-import { http } from 'viem';
-import { mainnet } from 'viem/chains';
+import { appEnsClient, safeEnsError } from '../../../lib/ensClient';
 
-const alchemyRpcUrl =
-  process.env.ALCHEMY_RPC_URL ||
-  (process.env.ALCHEMY_API_KEY ? `https://eth-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}` : undefined);
-
-const rpcUrl = alchemyRpcUrl ?? 'https://eth.llamarpc.com';
-
-const ensClient = createEnsPublicClient({
-  chain: mainnet,
-  // Keep this service fast/reliable; background fetcher times out at 10s.
-  transport: http(rpcUrl, { timeout: 5000, retryCount: 0 }),
-});
+const ensClient = appEnsClient;
 
 type EnsDependencies = {
   ensClient: typeof ensClient;
@@ -111,7 +99,11 @@ export function createHandler(dependencies: EnsDependencies = defaultDependencie
             console.warn(`Could not resolve ENS name ${operatingName} to an ETH address. Record: `, addressRecord);
           }
         } catch (error) {
-          console.error(`Error resolving ENS name ${operatingName} to ETH address:`, error);
+          console.error(JSON.stringify({
+            event: 'ens_service_address_lookup_failed',
+            ensName: operatingName,
+            error: safeEnsError(error),
+          }));
         }
       } else if (queryAddressOrName.startsWith('0x')) {
         resolvedEthAddress = queryAddressOrName as `0x${string}`;
@@ -160,7 +152,11 @@ export function createHandler(dependencies: EnsDependencies = defaultDependencie
             }
           }
         } catch (error) {
-          console.error(`Error getting avatar for ${operatingName}:`, error);
+          console.error(JSON.stringify({
+            event: 'ens_service_avatar_lookup_failed',
+            ensName: operatingName,
+            error: safeEnsError(error),
+          }));
         }
       }
 
@@ -181,7 +177,10 @@ export function createHandler(dependencies: EnsDependencies = defaultDependencie
       res.status(200).json(responseData);
 
     } catch (error) {
-      console.error('Error fetching ENS data:', error);
+      console.error(JSON.stringify({
+        event: 'ens_service_request_failed',
+        error: safeEnsError(error),
+      }));
       res.status(500).json({
         error: 'Failed to fetch ENS data. Please check your configuration.'
       });
