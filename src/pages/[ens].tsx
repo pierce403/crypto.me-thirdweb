@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { GetServerSideProps } from 'next';
 import Head from 'next/head';
-import { Box, Container, Heading, Text, VStack, Separator, Button, SimpleGrid, HStack, Badge, Spinner } from '@chakra-ui/react';
+import { Box, Container, Heading, Text, VStack, Separator, Button, SimpleGrid, HStack, Badge, Spinner, Grid, Flex, Link } from '@chakra-ui/react';
 import Image from 'next/image';
 import { useFastProfile } from '../hooks/useFastProfile';
 import { withPrisma } from '../../lib/prisma';
@@ -48,6 +48,25 @@ function isEthereumAddress(input: string): boolean {
 
 function isEnsName(input: string): boolean {
   return input.includes('.') && !input.startsWith('0x');
+}
+
+function ProfileSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <Box
+      as="section"
+      bg="white"
+      border="1px solid"
+      borderColor="gray.200"
+      borderRadius="xl"
+      boxShadow="sm"
+      p={{ base: 4, md: 6 }}
+    >
+      <Heading as="h3" size="md" color="gray.800" mb={5}>
+        {title}
+      </Heading>
+      {children}
+    </Box>
+  );
 }
 
 export const getServerSideProps: GetServerSideProps<ProfilePageProps> = async (context) => {
@@ -260,182 +279,202 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
   const isInitialLoading = loading && !data;
 
   return (
-    <Container maxW="container.xl" centerContent py={8}>
+    <Box minH="100vh" bg="#f4f2ee">
       <Head>
-        <title>{ensName} | Crypto.me Profile</title>
+        <title>{`${ensName} | Crypto.me Profile`}</title>
       </Head>
 
-      {/* Main Profile Header */}
-      <Box p={8} mb={8} bg="gray.50" borderRadius="lg" boxShadow="md" width="100%" maxW="container.md">
-        <VStack gap={4} align="stretch">
-          {avatarUrl && (
-            <Box alignSelf="center">
-              <Image
-                src={avatarUrl}
-                alt={`${ensName} avatar`}
-                width={150}
-                height={150}
-                style={{ borderRadius: '50%' }}
-              />
-            </Box>
-          )}
-          <Heading as="h1" size="2xl" color="gray.800" textAlign="center">{ensName}</Heading>
-          <Separator />
-
-          <Box>
-            <Text fontSize="lg" fontWeight="bold" color="gray.800">ENS Name:</Text>
-            <Text fontSize="md" color="gray.800">{ensName}</Text>
-          </Box>
-
-          <Box>
-            <Text fontSize="lg" fontWeight="bold" color="gray.800">ETH Address:</Text>
-            <Text fontSize="md" color="gray.800" wordBreak="break-all">{resolvedAddress}</Text>
-          </Box>
-
-          {resolvedAvatar && (
-            <Box>
-              <Text fontSize="lg" fontWeight="bold" color="gray.800">Avatar:</Text>
-              <Text fontSize="md" color="gray.800" wordBreak="break-all">{resolvedAvatar}</Text>
-            </Box>
-          )}
-
-          {/* Cache Status & Performance */}
-          <Box>
-            <Text fontSize="lg" fontWeight="bold" color="gray.800">Cache Status:</Text>
-            <HStack gap={2} flexWrap="wrap">
-              <Badge colorScheme={cacheStats.cacheStatus === 'hit' ? 'green' : 'yellow'}>
-                {cacheStats.cacheStatus}
-              </Badge>
-              <Badge colorScheme="blue">
-                {cacheStats.source}
-              </Badge>
-              <Badge colorScheme="purple">
-                {cacheStats.loadTime}ms
-              </Badge>
-              {loading && <Spinner size="sm" />}
-            </HStack>
-            {cacheStats.lastUpdate && (
-              <Text fontSize="sm" color="gray.600">
-                Last updated: {new Date(cacheStats.lastUpdate).toLocaleString()}
-              </Text>
-            )}
-          </Box>
-
-          <Button
-            onClick={handleRefresh}
-            disabled={isRefreshing || isInitialLoading}
-            colorScheme="blue"
-          >
-            {isRefreshing || isInitialLoading ? 'Refreshing...' : 'Refresh Profile'}
-          </Button>
-
-          {error && (
-            <Box p={3} bg="red.50" borderRadius="md" border="1px solid" borderColor="red.200">
-              <Text fontSize="sm" color="red.800">Error: {error}</Text>
-            </Box>
-          )}
-        </VStack>
+      <Box as="header" bg="white" borderBottom="1px solid" borderColor="gray.200" position="sticky" top={0} zIndex={20}>
+        <Container maxW="1200px" py={2} px={{ base: 4, md: 6 }}>
+          <HStack justify="space-between">
+            <Link href="/" _hover={{ textDecoration: 'none' }}>
+              <HStack gap={2}>
+                <Flex width="34px" height="34px" borderRadius="md" bg="blue.600" color="white" align="center" justify="center" fontWeight="bold">
+                  c
+                </Flex>
+                <Text fontSize="lg" fontWeight="bold" color="gray.800">crypto.me</Text>
+              </HStack>
+            </Link>
+            <Badge colorScheme="blue" variant="subtle">Web3 identity</Badge>
+          </HStack>
+        </Container>
       </Box>
 
-      {/* Service Cards */}
-      <Box width="100%">
-        <Heading as="h2" size="lg" color="gray.800" textAlign="center" mb={6}>
-          Connected Services
-        </Heading>
+      <Container maxW="1200px" py={{ base: 4, lg: 6 }} px={{ base: 3, md: 6 }}>
+        <Grid
+          data-testid="profile-layout"
+          templateColumns={{ base: 'minmax(0, 1fr)', lg: '280px minmax(0, 1fr)' }}
+          gap={6}
+          alignItems="start"
+        >
+          <Box
+            data-testid="profile-sidebar"
+            position={{ base: 'static', lg: 'sticky' }}
+            top={{ lg: '76px' }}
+          >
+            <Box bg="white" border="1px solid" borderColor="gray.200" borderRadius="xl" boxShadow="sm" overflow="hidden">
+              <Box height={{ base: '96px', lg: '76px' }} background="linear-gradient(120deg, #0a66c2 0%, #4f46e5 58%, #7c3aed 100%)" />
+              <VStack align="stretch" gap={4} px={5} pb={5} mt="-52px">
+                <Box
+                  alignSelf="center"
+                  width="112px"
+                  height="112px"
+                  borderRadius="full"
+                  border="4px solid white"
+                  bg="blue.50"
+                  overflow="hidden"
+                  boxShadow="sm"
+                >
+                  {avatarUrl ? (
+                    <Image
+                      src={avatarUrl}
+                      alt={`${ensName} avatar`}
+                      width={112}
+                      height={112}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                  ) : (
+                    <Flex width="100%" height="100%" align="center" justify="center">
+                      <Text fontSize="4xl" fontWeight="bold" color="blue.600">
+                        {isEnsName(ensName) ? ensName.charAt(0).toUpperCase() : 'Ξ'}
+                      </Text>
+                    </Flex>
+                  )}
+                </Box>
 
-        {isInitialLoading ? (
-          <Box p={6} bg="blue.50" borderRadius="lg" border="1px solid" borderColor="blue.200" mb={6}>
-            <HStack justify="center" gap={3}>
-              <Spinner size="sm" />
-              <Text fontSize="sm" color="blue.800" textAlign="center">
-                Loading profile data...
-              </Text>
-            </HStack>
+                <VStack gap={1} textAlign="center">
+                  <Heading as="h1" size="lg" color="gray.900" wordBreak="break-word">{ensName}</Heading>
+                  <Text fontSize="xs" color="gray.600" fontFamily="mono" wordBreak="break-all" title={resolvedAddress}>
+                    {resolvedAddress}
+                  </Text>
+                  <Badge colorScheme="blue" variant="subtle">
+                    {isEnsName(ensName) ? 'ENS profile' : 'Ethereum profile'}
+                  </Badge>
+                </VStack>
+
+                <Separator />
+
+                <Box>
+                  <Text fontSize="xs" color="gray.500" textTransform="uppercase" letterSpacing="wide" fontWeight="semibold" mb={2}>
+                    Profile status
+                  </Text>
+                  <HStack gap={2} flexWrap="wrap">
+                    <Badge colorScheme={cacheStats.cacheStatus === 'hit' ? 'green' : 'yellow'}>
+                      {cacheStats.cacheStatus}
+                    </Badge>
+                    <Badge colorScheme="blue">{cacheStats.source}</Badge>
+                    <Badge colorScheme="purple">{cacheStats.loadTime}ms</Badge>
+                    {loading && <Spinner size="sm" />}
+                  </HStack>
+                  {cacheStats.lastUpdate && (
+                    <Text fontSize="xs" color="gray.500" mt={2}>
+                      Updated {new Date(cacheStats.lastUpdate).toLocaleString()}
+                    </Text>
+                  )}
+                </Box>
+
+                <Button
+                  onClick={handleRefresh}
+                  disabled={isRefreshing || isInitialLoading}
+                  colorScheme="blue"
+                  width="full"
+                >
+                  {isRefreshing || isInitialLoading ? 'Refreshing...' : 'Refresh Profile'}
+                </Button>
+
+                {error && (
+                  <Box p={3} bg="red.50" borderRadius="md" border="1px solid" borderColor="red.200">
+                    <Text fontSize="sm" color="red.800">Error: {error}</Text>
+                  </Box>
+                )}
+              </VStack>
+            </Box>
           </Box>
-        ) : (
-          <>
-            {!hasAnyData() && (
-              <Box p={6} bg="yellow.50" borderRadius="lg" border="1px solid" borderColor="yellow.200" mb={6}>
-                <Text fontSize="sm" color="yellow.800" textAlign="center">
-                  🔄 Service data is being loaded in the background. This profile will update automatically as data becomes available.
-                </Text>
-              </Box>
-            )}
 
-            {/* Identity Summary */}
-            {data && (
-              <Box p={6} bg="white" borderRadius="lg" boxShadow="sm" mb={8} border="1px solid" borderColor="gray.100">
-                <Heading as="h3" size="md" mb={4}>Identity Summary</Heading>
-                <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} gap={4}>
-                  <Box>
-                    <Text fontSize="sm" color="gray.500">ENS Names</Text>
-                    <Text fontSize="xl" fontWeight="bold">
-                      {ensNamesCount}
-                    </Text>
-                  </Box>
-                  <Box>
-                    <Text fontSize="sm" color="gray.500">Farcaster</Text>
-                    <Text fontSize="xl" fontWeight="bold">
-                      {(data.services.farcaster as any)?.username ? `@${(data.services.farcaster as any).username}` : '-'}
-                    </Text>
-                    {(data.services.farcaster as any)?.followerCount && (
-                      <Text fontSize="xs" color="gray.400">{(data.services.farcaster as any).followerCount} followers</Text>
-                    )}
-                  </Box>
-                  <Box>
-                    <Text fontSize="sm" color="gray.500">Gitcoin Passport</Text>
-                    <Text fontSize="xl" fontWeight="bold">
-                      {(data.services['gitcoin-passport'] as any)?.score ? Math.round(Number((data.services['gitcoin-passport'] as any).score) * 100) / 100 : '-'}
-                    </Text>
-                  </Box>
-                  <Box>
-                    <Text fontSize="sm" color="gray.500">Net Worth (Est.)</Text>
-                    <Text fontSize="xl" fontWeight="bold">
-                      {netWorthUsd === null ? '—' : `$${Math.round(Number(netWorthUsd)).toLocaleString()}`}
-                    </Text>
-                  </Box>
-                </SimpleGrid>
-              </Box>
-            )}
-
-            <VStack gap={8} align="stretch" width="100%">
-
-              {/* Identity & Proofs */}
+          <Box data-testid="profile-main" minW={0}>
+            <HStack justify="space-between" align="start" mb={4} px={1}>
               <Box>
-                <Heading as="h3" size="md" mb={4} color="gray.700" borderBottom="1px solid" borderColor="gray.200" pb={2}>
-                  Identity & Proofs
-                </Heading>
-                <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={6}>
-                  <FastFarcasterCard
-                    data={farcaster}
-                    loading={false}
-                    lastUpdated={getServiceTimestamp('farcaster')}
-                    error={getServiceError('farcaster')}
-                    onRefresh={() => refreshService('farcaster')}
-                  />
-                  <FastENSCard
-                    data={ens}
-                    loading={false}
-                    lastUpdated={getServiceTimestamp('ens')}
-                    error={getServiceError('ens')}
-                    onRefresh={() => refreshService('ens')}
-                  />
-                  <FastIcebreakerCard
-                    data={icebreaker}
-                    loading={false}
-                    lastUpdated={getServiceTimestamp('icebreaker')}
-                    error={getServiceError('icebreaker')}
-                    onRefresh={() => refreshService('icebreaker')}
-                  />
-                </SimpleGrid>
+                <Heading as="h2" size="lg" color="gray.900">Connected Services</Heading>
+                <Text fontSize="sm" color="gray.600" mt={1}>On-chain identity, social graph, assets, and reputation.</Text>
               </Box>
+            </HStack>
 
-              {/* Social */}
-              <Box>
-                <Heading as="h3" size="md" mb={4} color="gray.700" borderBottom="1px solid" borderColor="gray.200" pb={2}>
-                  Social
-                </Heading>
-                <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={6}>
+            {isInitialLoading ? (
+              <Box p={6} bg="blue.50" borderRadius="xl" border="1px solid" borderColor="blue.200">
+                <HStack justify="center" gap={3}>
+                  <Spinner size="sm" />
+                  <Text fontSize="sm" color="blue.800" textAlign="center">Loading profile data...</Text>
+                </HStack>
+              </Box>
+            ) : (
+              <VStack gap={4} align="stretch" width="100%">
+                {!hasAnyData() && (
+                  <Box p={5} bg="yellow.50" borderRadius="xl" border="1px solid" borderColor="yellow.200">
+                    <Text fontSize="sm" color="yellow.800" textAlign="center">
+                      🔄 Service data is being loaded in the background. This profile will update automatically as data becomes available.
+                    </Text>
+                  </Box>
+                )}
+
+                {data && (
+                  <ProfileSection title="Identity Summary">
+                    <SimpleGrid columns={{ base: 1, sm: 2, md: 4, lg: 2, xl: 4 }} gap={4}>
+                      <Box>
+                        <Text fontSize="sm" color="gray.500">ENS Names</Text>
+                        <Text fontSize="xl" fontWeight="bold">{ensNamesCount}</Text>
+                      </Box>
+                      <Box minW={0}>
+                        <Text fontSize="sm" color="gray.500">Farcaster</Text>
+                        <Text fontSize="xl" fontWeight="bold" truncate>
+                          {(data.services.farcaster as any)?.username ? `@${(data.services.farcaster as any).username}` : '-'}
+                        </Text>
+                        {(data.services.farcaster as any)?.followerCount && (
+                          <Text fontSize="xs" color="gray.400">{(data.services.farcaster as any).followerCount} followers</Text>
+                        )}
+                      </Box>
+                      <Box>
+                        <Text fontSize="sm" color="gray.500">Gitcoin Passport</Text>
+                        <Text fontSize="xl" fontWeight="bold">
+                          {(data.services['gitcoin-passport'] as any)?.score ? Math.round(Number((data.services['gitcoin-passport'] as any).score) * 100) / 100 : '-'}
+                        </Text>
+                      </Box>
+                      <Box>
+                        <Text fontSize="sm" color="gray.500">Net Worth (Est.)</Text>
+                        <Text fontSize="xl" fontWeight="bold">
+                          {netWorthUsd === null ? '—' : `$${Math.round(Number(netWorthUsd)).toLocaleString()}`}
+                        </Text>
+                      </Box>
+                    </SimpleGrid>
+                  </ProfileSection>
+                )}
+
+                <ProfileSection title="Identity & Proofs">
+                  <SimpleGrid columns={{ base: 1, md: 2 }} gap={5}>
+                    <FastFarcasterCard
+                      data={farcaster}
+                      loading={false}
+                      lastUpdated={getServiceTimestamp('farcaster')}
+                      error={getServiceError('farcaster')}
+                      onRefresh={() => refreshService('farcaster')}
+                    />
+                    <FastENSCard
+                      data={ens}
+                      loading={false}
+                      lastUpdated={getServiceTimestamp('ens')}
+                      error={getServiceError('ens')}
+                      onRefresh={() => refreshService('ens')}
+                    />
+                    <FastIcebreakerCard
+                      data={icebreaker}
+                      loading={false}
+                      lastUpdated={getServiceTimestamp('icebreaker')}
+                      error={getServiceError('icebreaker')}
+                      onRefresh={() => refreshService('icebreaker')}
+                    />
+                  </SimpleGrid>
+                </ProfileSection>
+
+                <ProfileSection title="Messaging">
                   <FastXMTPCard
                     data={xmtpCardData}
                     loading={false}
@@ -443,83 +482,64 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
                     error={getServiceError('xmtp')}
                     onRefresh={() => refreshService('xmtp')}
                   />
-                </SimpleGrid>
-              </Box>
+                </ProfileSection>
 
-              {/* Assets */}
-              <Box>
-                <Heading as="h3" size="md" mb={4} color="gray.700" borderBottom="1px solid" borderColor="gray.200" pb={2}>
-                  Assets
-                </Heading>
-                <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={6}>
-                  <FastAlchemyCard
-                    data={alchemy}
-                    loading={false}
-                    lastUpdated={getServiceTimestamp('alchemy')}
-                    error={getServiceError('alchemy')}
-                    onRefresh={() => refreshService('alchemy')}
-                  />
-                  <FastOpenSeaCard
-                    data={opensea}
-                    loading={false}
-                    lastUpdated={getServiceTimestamp('opensea')}
-                    error={getServiceError('opensea')}
-                    onRefresh={() => refreshService('opensea')}
-                  />
-                  <FastDeBankCard
-                    data={debank}
-                    loading={false}
-                    lastUpdated={getServiceTimestamp('debank')}
-                    error={getServiceError('debank')}
-                    onRefresh={() => refreshService('debank')}
-                  />
-                  <FastZerionCard
-                    data={zerion}
-                    loading={false}
-                    lastUpdated={getServiceTimestamp('zerion')}
-                    error={getServiceError('zerion')}
-                    onRefresh={() => refreshService('zerion')}
-                  />
-                </SimpleGrid>
-              </Box>
+                <ProfileSection title="Assets & Portfolio">
+                  <SimpleGrid columns={{ base: 1, md: 2 }} gap={5}>
+                    <FastAlchemyCard
+                      data={alchemy}
+                      loading={false}
+                      lastUpdated={getServiceTimestamp('alchemy')}
+                      error={getServiceError('alchemy')}
+                      onRefresh={() => refreshService('alchemy')}
+                    />
+                    <FastOpenSeaCard
+                      data={opensea}
+                      loading={false}
+                      lastUpdated={getServiceTimestamp('opensea')}
+                      error={getServiceError('opensea')}
+                      onRefresh={() => refreshService('opensea')}
+                    />
+                    <FastDeBankCard
+                      data={debank}
+                      loading={false}
+                      lastUpdated={getServiceTimestamp('debank')}
+                      error={getServiceError('debank')}
+                      onRefresh={() => refreshService('debank')}
+                    />
+                    <FastZerionCard
+                      data={zerion}
+                      loading={false}
+                      lastUpdated={getServiceTimestamp('zerion')}
+                      error={getServiceError('zerion')}
+                      onRefresh={() => refreshService('zerion')}
+                    />
+                  </SimpleGrid>
+                </ProfileSection>
 
-              {/* Worlds / Metaverse */}
-              <Box>
-                <Heading as="h3" size="md" mb={4} color="gray.700" borderBottom="1px solid" borderColor="gray.200" pb={2}>
-                  Worlds
-                </Heading>
-                <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={6}>
-                  <FastDecentralandCard
-                    data={decentraland}
-                    loading={false}
-                    lastUpdated={getServiceTimestamp('decentraland')}
-                    error={getServiceError('decentraland')}
-                    onRefresh={() => refreshService('decentraland')}
-                  />
-                </SimpleGrid>
-              </Box>
-
-              {/* Reputation */}
-              <Box>
-                <Heading as="h3" size="md" mb={4} color="gray.700" borderBottom="1px solid" borderColor="gray.200" pb={2}>
-                  Reputation
-                </Heading>
-                <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={6}>
-                  <FastHumanPassportCard
-                    data={gitcoinPassport}
-                    loading={false}
-                    lastUpdated={getServiceTimestamp('gitcoin-passport')}
-                    error={getServiceError('gitcoin-passport')}
-                    onRefresh={() => refreshService('gitcoin-passport')}
-                  />
-                </SimpleGrid>
-              </Box>
-
-            </VStack>
-
-          </>
-        )}
-      </Box>
-    </Container>
+                <ProfileSection title="Reputation & Worlds">
+                  <SimpleGrid columns={{ base: 1, md: 2 }} gap={5}>
+                    <FastHumanPassportCard
+                      data={gitcoinPassport}
+                      loading={false}
+                      lastUpdated={getServiceTimestamp('gitcoin-passport')}
+                      error={getServiceError('gitcoin-passport')}
+                      onRefresh={() => refreshService('gitcoin-passport')}
+                    />
+                    <FastDecentralandCard
+                      data={decentraland}
+                      loading={false}
+                      lastUpdated={getServiceTimestamp('decentraland')}
+                      error={getServiceError('decentraland')}
+                      onRefresh={() => refreshService('decentraland')}
+                    />
+                  </SimpleGrid>
+                </ProfileSection>
+              </VStack>
+            )}
+          </Box>
+        </Grid>
+      </Container>
+    </Box>
   );
 }
