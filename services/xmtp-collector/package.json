@@ -1,0 +1,24 @@
+{
+  "name": "crypto-me-xmtp-collector",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "build:image": "docker build --platform linux/amd64 -t crypto-me-xmtp-collector:local .",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "@cloudflare/containers": "0.3.7",
+    "@xmtp/node-sdk": "6.0.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20260721.1",
+    "typescript": "5.9.3",
+    "wrangler": "4.112.0"
+  }
+}

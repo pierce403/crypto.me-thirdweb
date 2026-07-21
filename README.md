@@ -118,8 +118,10 @@ Zerion, Passport, or other credentials deliberately produce degraded collector
 data instead of taking down the profile page.
 
 XMTP's Node SDK uses native modules that cannot execute in `workerd`. Production
-XMTP refreshes therefore require a Node-compatible collector configured through
-`XMTP_SERVICE_URL` and, optionally, `XMTP_SERVICE_TOKEN`.
+XMTP refreshes therefore use the separate Cloudflare Container in
+`services/xmtp-collector`. Configure `XMTP_SERVICE_URL` with its `/xmtp`
+endpoint and set the matching `XMTP_SERVICE_TOKEN`; both are required for the
+authenticated production collector.
 
 ## Primary endpoints
 

@@ -528,4 +528,44 @@ describe('XMTP service collector', () => {
       else process.env.XMTP_SERVICE_URL = originalUrl;
     }
   });
+
+  it('rejects a complete collector response for a different queried identity', async () => {
+    const originalUrl = process.env.XMTP_SERVICE_URL;
+    process.env.XMTP_SERVICE_URL = 'https://collector.example/xmtp';
+    const differentAddress = '0x9999999999999999999999999999999999999999';
+
+    try {
+      const handler = createXmtpHandler({
+        ensClient: {
+          getAddressRecord: async () => ({ value: demoAddress, id: 60 }),
+        } as const,
+        fetchFn: async () => mockResponse({
+          schemaVersion: 2,
+          registered: true,
+          inboxId: 'different-inbox',
+          queriedIdentifier: { identifier: differentAddress, kind: 'ethereum' },
+          recoveryIdentifier: null,
+          identities: [{
+            identifier: differentAddress,
+            kind: 'ethereum',
+            isViewedProfile: true,
+            isRecovery: false,
+          }],
+          connectedIdentities: [],
+          installationCount: 1,
+          source: 'xmtp',
+          env: 'production',
+        }),
+      });
+
+      const { req, res } = createMocks({ method: 'GET', query: { address: demoAddress } });
+      await handler(req as unknown as NextApiRequest, res as unknown as NextApiResponse);
+
+      assert.equal(res._getStatusCode(), 502);
+      assert.equal(res._getJSONData().code, 'XMTP_COLLECTOR_INVALID_RESPONSE');
+    } finally {
+      if (originalUrl === undefined) delete process.env.XMTP_SERVICE_URL;
+      else process.env.XMTP_SERVICE_URL = originalUrl;
+    }
+  });
 });

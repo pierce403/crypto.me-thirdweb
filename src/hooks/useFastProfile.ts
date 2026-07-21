@@ -181,7 +181,8 @@ export function useFastProfile(
       }
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const timeoutMs = serviceName === 'xmtp' ? serviceConfig.timeoutMs : 10000;
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
       const serviceUrl = serviceConfig.url(address, originalInput);
       console.log(`[refresh-service:${serviceName}] Fetching URL: ${serviceUrl}`);

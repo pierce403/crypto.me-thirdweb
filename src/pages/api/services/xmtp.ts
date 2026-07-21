@@ -59,12 +59,21 @@ function isCollectorIdentity(value: unknown, requireProperties: boolean): boolea
   return typeof value.isViewedProfile === 'boolean' && typeof value.isRecovery === 'boolean';
 }
 
-function isCollectorPayload(value: unknown): boolean {
+function collectorIdentityKey(identity: Record<string, unknown>): string {
+  const identifier = identity.kind === 'ethereum'
+    ? String(identity.identifier).toLowerCase()
+    : String(identity.identifier);
+  return `${identity.kind}:${identifier}`;
+}
+
+function isCollectorPayload(value: unknown, expectedAddress: string): boolean {
   if (!isRecord(value)) return false;
+  if (!isEthereumAddress(expectedAddress)) return false;
   if (value.schemaVersion !== 2 || value.source !== 'xmtp' || typeof value.registered !== 'boolean') return false;
   if (value.env !== 'local' && value.env !== 'dev' && value.env !== 'production') return false;
   if (!isCollectorIdentity(value.queriedIdentifier, false)) return false;
   if (!isRecord(value.queriedIdentifier) || value.queriedIdentifier.kind !== 'ethereum') return false;
+  if (String(value.queriedIdentifier.identifier).toLowerCase() !== expectedAddress.toLowerCase()) return false;
   if (value.recoveryIdentifier !== null && !isCollectorIdentity(value.recoveryIdentifier, false)) return false;
   if (!Array.isArray(value.identities) || !value.identities.every((identity) => isCollectorIdentity(identity, true))) {
     return false;
@@ -72,6 +81,38 @@ function isCollectorPayload(value: unknown): boolean {
   if (
     !Array.isArray(value.connectedIdentities)
     || !value.connectedIdentities.every((identity) => isCollectorIdentity(identity, true))
+  ) {
+    return false;
+  }
+
+  const identities = value.identities as Array<Record<string, unknown>>;
+  const connectedIdentities = value.connectedIdentities as Array<Record<string, unknown>>;
+  const identityKeys = identities.map(collectorIdentityKey);
+  if (new Set(identityKeys).size !== identityKeys.length) return false;
+
+  const viewedIdentities = identities.filter((identity) => identity.isViewedProfile === true);
+  const expectedConnectedKeys = new Set(
+    identities
+      .filter((identity) => identity.isViewedProfile === false)
+      .map(collectorIdentityKey),
+  );
+  const connectedKeys = connectedIdentities.map(collectorIdentityKey);
+  if (
+    connectedIdentities.some((identity) => identity.isViewedProfile !== false)
+    || new Set(connectedKeys).size !== connectedKeys.length
+    || connectedKeys.length !== expectedConnectedKeys.size
+    || connectedKeys.some((key) => !expectedConnectedKeys.has(key))
+  ) {
+    return false;
+  }
+
+  const recoveryIdentities = identities.filter((identity) => identity.isRecovery === true);
+  if (value.recoveryIdentifier === null) {
+    if (recoveryIdentities.length !== 0) return false;
+  } else if (
+    recoveryIdentities.length !== 1
+    || collectorIdentityKey(recoveryIdentities[0])
+      !== collectorIdentityKey(value.recoveryIdentifier as Record<string, unknown>)
   ) {
     return false;
   }
@@ -83,7 +124,12 @@ function isCollectorPayload(value: unknown): boolean {
   }
 
   if (value.registered) {
-    return typeof value.inboxId === 'string' && Boolean(value.inboxId.trim()) && value.identities.length > 0;
+    return typeof value.inboxId === 'string'
+      && Boolean(value.inboxId.trim())
+      && identities.length > 0
+      && viewedIdentities.length === 1
+      && viewedIdentities[0].kind === 'ethereum'
+      && String(viewedIdentities[0].identifier).toLowerCase() === expectedAddress.toLowerCase();
   }
 
   return value.inboxId === null
@@ -172,10 +218,13 @@ export function createHandler(dependencies = defaultDependencies) {
         }
         const response = await (dependencies.fetchFn ?? fetch)(url, {
           headers,
-          signal: AbortSignal.timeout(8000),
+          // The collector permits up to 17 seconds for instance/port readiness
+          // and then applies a 15-second end-to-end XMTP deadline. Keep this
+          // below the enclosing 36-second service refresh budget.
+          signal: AbortSignal.timeout(33000),
         });
         const payload: unknown = await response.json();
-        if (response.ok && !isCollectorPayload(payload)) {
+        if (response.ok && !isCollectorPayload(payload, address)) {
           return res.status(502).json({
             error: 'XMTP collector returned an invalid or incomplete v2 payload',
             code: 'XMTP_COLLECTOR_INVALID_RESPONSE',

@@ -55,7 +55,8 @@ export const SERVICES_CONFIG = [
     name: 'xmtp',
     key: 'xmtp',
     defaultData: { inboxId: null, connectedIdentities: [], identities: [] },
-    timeoutMs: 20000,
+    // Covers a Container cold start plus the collector's bounded lookup.
+    timeoutMs: 36000,
     url: (address: string) => `/api/services/xmtp?address=${address}`
   },
   {

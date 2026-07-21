@@ -1,0 +1,40 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "crypto-me-xmtp-collector",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-07-21",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "containers": [
+    {
+      "name": "crypto-me-xmtp",
+      "class_name": "XmtpCollectorContainer",
+      "image": "./Dockerfile",
+      "instance_type": "basic",
+      "max_instances": 1,
+      "rollout_step_percentage": 100,
+      "rollout_active_grace_period": 30
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "XMTP_CONTAINER",
+        "class_name": "XmtpCollectorContainer"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["XmtpCollectorContainer"]
+    }
+  ],
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1
+    }
+  }
+}

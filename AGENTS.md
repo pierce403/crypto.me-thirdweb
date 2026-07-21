@@ -103,8 +103,8 @@ so a connection cannot leak across request contexts.
 
 Common service settings include `NEYNAR_API_KEY`, `ALCHEMY_API_KEY` or
 `ALCHEMY_RPC_URL`, `OPENSEA_API_KEY`, `DEBANK_API_KEY`, `ZERION_API_KEY`, and
-Passport credentials. XMTP uses `XMTP_SERVICE_URL` and optional
-`XMTP_SERVICE_TOKEN`.
+Passport credentials. The production XMTP Container uses both
+`XMTP_SERVICE_URL` and the required matching `XMTP_SERVICE_TOKEN`.
 
 Use Workers observability and `npx wrangler tail crypto-me` for production
 logs. Verify both the workers.dev URL and `https://crypto.me` after deployment.
