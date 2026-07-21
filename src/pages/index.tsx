@@ -15,6 +15,7 @@ import {
   Link
 } from '@chakra-ui/react';
 import { ens_normalize } from '@adraffy/ens-normalize';
+import { ColorModeToggle } from '../components/ColorMode';
 
 // Function to validate if a string is a valid ENS name or address
 const isValidENSName = (name: string): boolean => {
@@ -34,10 +35,10 @@ const isValidENSName = (name: string): boolean => {
 };
 
 const FeatureCard = ({ emoji, title, desc }: { emoji: string, title: string, desc: string }) => (
-  <Box bg="white" p={8} borderRadius="xl" boxShadow="sm" border="1px" borderColor="gray.100" height="100%">
+  <Box bg="bg.panel" p={8} borderRadius="xl" boxShadow="sm" border="1px" borderColor="border.muted" height="100%">
     <Text fontSize="4xl" mb={4}>{emoji}</Text>
-    <Heading size="md" mb={2} color="gray.800">{title}</Heading>
-    <Text color="gray.600">{desc}</Text>
+    <Heading size="md" mb={2} color="fg">{title}</Heading>
+    <Text color="fg.muted">{desc}</Text>
   </Box>
 );
 
@@ -74,14 +75,17 @@ const Home: React.FC = () => {
   };
 
   return (
-    <Box minH="100vh" bg="gray.50">
+    <Box data-testid="home-shell" minH="100vh" bg="bg.subtle" color="fg" _dark={{ bg: 'bg' }}>
       <Head>
         <title>Crypto.me | Web3 Identity Aggregator</title>
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
       {/* Hero Section */}
-      <Box bg="white" borderBottom="1px" borderColor="gray.200" pb={20} pt={16}>
+      <Box position="relative" bg="bg.panel" borderBottom="1px" borderColor="border" pb={20} pt={16}>
+        <Box position="absolute" top={4} right={{ base: 4, md: 8 }} zIndex={1}>
+          <ColorModeToggle />
+        </Box>
         <Container maxW="container.lg">
           <VStack gap={8} align="center" textAlign="center">
             <Heading
@@ -98,7 +102,7 @@ const Home: React.FC = () => {
             >
               crypto.me
             </Heading>
-            <Text fontSize="xl" color="gray.600" maxW="2xl" lineHeight="tall">
+            <Text fontSize="xl" color="fg.muted" maxW="2xl" lineHeight="tall">
               The fastest way to view your aggregated Web3 identity. <br />
               <strong>ENS, Farcaster, DeFi, and NFTs</strong> — all in one place.
             </Text>
@@ -111,9 +115,12 @@ const Home: React.FC = () => {
                     placeholder="Search ENS (e.g. vitalik.eth) or 0x..."
                     value={ensName}
                     onChange={(e) => setEnsName(e.target.value)}
-                    bg="white"
+                    bg="bg.panel"
+                    color="fg"
+                    borderColor="border"
                     boxShadow="md"
-                    _focus={{ boxShadow: "lg", borderColor: "blue.500" }}
+                    _placeholder={{ color: 'fg.muted' }}
+                    _focus={{ boxShadow: "lg", borderColor: "blue.focusRing" }}
                     height="60px"
                     fontSize="lg"
                     borderRadius="full"
@@ -139,7 +146,7 @@ const Home: React.FC = () => {
             {/* Recent Profiles */}
             {recentProfiles.length > 0 && (
               <Box mt={6}>
-                <Text fontSize="sm" color="gray.500" mb={3} textTransform="uppercase" letterSpacing="wider" fontWeight="bold">Recently Viewed</Text>
+                <Text fontSize="sm" color="fg.muted" mb={3} textTransform="uppercase" letterSpacing="wider" fontWeight="bold">Recently Viewed</Text>
                 <Flex gap={2} wrap="wrap" justify="center">
                   {recentProfiles.map((profile) => (
                     <Link
@@ -153,7 +160,7 @@ const Home: React.FC = () => {
                         borderRadius="full"
                         colorScheme="gray"
                         cursor="pointer"
-                        _hover={{ bg: "gray.200" }}
+                        _hover={{ bg: "bg.emphasized" }}
                         fontSize="sm"
                         textTransform="none"
                       >
@@ -190,7 +197,7 @@ const Home: React.FC = () => {
       </Container>
 
       {/* Footer */}
-      <Box py={10} textAlign="center" color="gray.400" fontSize="sm" borderTop="1px" borderColor="gray.200">
+      <Box py={10} textAlign="center" color="fg.muted" fontSize="sm" borderTop="1px" borderColor="border">
         <Text>Built with Next.js, Prisma & Chakra UI</Text>
       </Box>
     </Box>

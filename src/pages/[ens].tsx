@@ -18,6 +18,7 @@ import {
   FastHumanPassportCard,
   FastDecentralandCard
 } from '../components/FastServiceCards';
+import { ColorModeToggle } from '../components/ColorMode';
 
 // Add this function
 function convertToGatewayUrl(ipfsUrl: string | null): string | null {
@@ -54,17 +55,40 @@ function ProfileSection({ title, children }: { title: string; children: ReactNod
   return (
     <Box
       as="section"
-      bg="white"
+      bg="bg.panel"
       border="1px solid"
-      borderColor="gray.200"
+      borderColor="border"
       borderRadius="xl"
       boxShadow="sm"
       p={{ base: 4, md: 6 }}
     >
-      <Heading as="h3" size="md" color="gray.800" mb={5}>
+      <Heading as="h3" size="md" color="fg" mb={5}>
         {title}
       </Heading>
       {children}
+    </Box>
+  );
+}
+
+function ProfileHeader() {
+  return (
+    <Box as="header" bg="bg.panel" borderBottom="1px solid" borderColor="border" position="sticky" top={0} zIndex={20}>
+      <Container maxW="1200px" py={2} px={{ base: 4, md: 6 }}>
+        <HStack justify="space-between">
+          <Link href="/" _hover={{ textDecoration: 'none' }}>
+            <HStack gap={2}>
+              <Flex width="34px" height="34px" borderRadius="md" bg="blue.600" color="white" align="center" justify="center" fontWeight="bold">
+                c
+              </Flex>
+              <Text fontSize="lg" fontWeight="bold" color="fg">crypto.me</Text>
+            </HStack>
+          </Link>
+          <HStack gap={2}>
+            <Badge colorScheme="blue" variant="subtle" display={{ base: 'none', sm: 'inline-flex' }}>Web3 identity</Badge>
+            <ColorModeToggle />
+          </HStack>
+        </HStack>
+      </Container>
     </Box>
   );
 }
@@ -198,34 +222,37 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
 
   if (!resolvedAddress) {
     return (
-      <Container maxW="container.md" centerContent>
+      <Box minH="100vh" bg="bg.subtle" color="fg" _dark={{ bg: 'bg' }}>
         <Head>
-          <title>{ensName} | Crypto.me Profile</title>
+          <title>{`${ensName} | Crypto.me Profile`}</title>
         </Head>
-        <Box p={8} mt={10} bg="gray.50" borderRadius="lg" boxShadow="md">
-          <VStack gap={3} align="stretch">
-            <Heading as="h1" size="lg" color="gray.800" textAlign="center">{ensName}</Heading>
-            <Separator />
-            {isResolving ? (
-              <HStack justify="center" gap={3}>
-                <Spinner size="sm" />
-                <Text fontSize="md" color="gray.700">Resolving ENS name…</Text>
-              </HStack>
-            ) : (
-              <Text fontSize="md" color="gray.800" textAlign="center">
-                {resolveError
-                  ? `Could not resolve ENS name: ${resolveError}`
-                  : `ENS name "${ensName}" not found or has no address`}
-              </Text>
-            )}
-            {!isResolving && (
-              <Button onClick={() => window.location.reload()} colorScheme="blue" variant="outline">
-                Try Again
-              </Button>
-            )}
-          </VStack>
-        </Box>
-      </Container>
+        <ProfileHeader />
+        <Container maxW="container.md" centerContent>
+          <Box p={8} mt={10} bg="bg.panel" border="1px solid" borderColor="border" borderRadius="lg" boxShadow="md">
+            <VStack gap={3} align="stretch">
+              <Heading as="h1" size="lg" color="fg" textAlign="center">{ensName}</Heading>
+              <Separator />
+              {isResolving ? (
+                <HStack justify="center" gap={3}>
+                  <Spinner size="sm" />
+                  <Text fontSize="md" color="fg.muted">Resolving ENS name…</Text>
+                </HStack>
+              ) : (
+                <Text fontSize="md" color="fg" textAlign="center">
+                  {resolveError
+                    ? `Could not resolve ENS name: ${resolveError}`
+                    : `ENS name "${ensName}" not found or has no address`}
+                </Text>
+              )}
+              {!isResolving && (
+                <Button onClick={() => window.location.reload()} colorScheme="blue" variant="outline">
+                  Try Again
+                </Button>
+              )}
+            </VStack>
+          </Box>
+        </Container>
+      </Box>
     );
   }
 
@@ -279,26 +306,12 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
   const isInitialLoading = loading && !data;
 
   return (
-    <Box minH="100vh" bg="#f4f2ee">
+    <Box data-testid="profile-shell" minH="100vh" bg="bg.subtle" color="fg" _dark={{ bg: 'bg' }}>
       <Head>
         <title>{`${ensName} | Crypto.me Profile`}</title>
       </Head>
 
-      <Box as="header" bg="white" borderBottom="1px solid" borderColor="gray.200" position="sticky" top={0} zIndex={20}>
-        <Container maxW="1200px" py={2} px={{ base: 4, md: 6 }}>
-          <HStack justify="space-between">
-            <Link href="/" _hover={{ textDecoration: 'none' }}>
-              <HStack gap={2}>
-                <Flex width="34px" height="34px" borderRadius="md" bg="blue.600" color="white" align="center" justify="center" fontWeight="bold">
-                  c
-                </Flex>
-                <Text fontSize="lg" fontWeight="bold" color="gray.800">crypto.me</Text>
-              </HStack>
-            </Link>
-            <Badge colorScheme="blue" variant="subtle">Web3 identity</Badge>
-          </HStack>
-        </Container>
-      </Box>
+      <ProfileHeader />
 
       <Container maxW="1200px" py={{ base: 4, lg: 6 }} px={{ base: 3, md: 6 }}>
         <Grid
@@ -312,7 +325,7 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
             position={{ base: 'static', lg: 'sticky' }}
             top={{ lg: '76px' }}
           >
-            <Box bg="white" border="1px solid" borderColor="gray.200" borderRadius="xl" boxShadow="sm" overflow="hidden">
+            <Box bg="bg.panel" border="1px solid" borderColor="border" borderRadius="xl" boxShadow="sm" overflow="hidden">
               <Box height={{ base: '96px', lg: '76px' }} background="linear-gradient(120deg, #0a66c2 0%, #4f46e5 58%, #7c3aed 100%)" />
               <VStack align="stretch" gap={4} px={5} pb={5} mt="-52px">
                 <Box
@@ -320,8 +333,9 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
                   width="112px"
                   height="112px"
                   borderRadius="full"
-                  border="4px solid white"
-                  bg="blue.50"
+                  border="4px solid"
+                  borderColor="bg.panel"
+                  bg="blue.subtle"
                   overflow="hidden"
                   boxShadow="sm"
                 >
@@ -335,7 +349,7 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
                     />
                   ) : (
                     <Flex width="100%" height="100%" align="center" justify="center">
-                      <Text fontSize="4xl" fontWeight="bold" color="blue.600">
+                      <Text fontSize="4xl" fontWeight="bold" color="blue.fg">
                         {isEnsName(ensName) ? ensName.charAt(0).toUpperCase() : 'Ξ'}
                       </Text>
                     </Flex>
@@ -343,8 +357,8 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
                 </Box>
 
                 <VStack gap={1} textAlign="center">
-                  <Heading as="h1" size="lg" color="gray.900" wordBreak="break-word">{ensName}</Heading>
-                  <Text fontSize="xs" color="gray.600" fontFamily="mono" wordBreak="break-all" title={resolvedAddress}>
+                  <Heading as="h1" size="lg" color="fg" wordBreak="break-word">{ensName}</Heading>
+                  <Text fontSize="xs" color="fg.muted" fontFamily="mono" wordBreak="break-all" title={resolvedAddress}>
                     {resolvedAddress}
                   </Text>
                   <Badge colorScheme="blue" variant="subtle">
@@ -355,7 +369,7 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
                 <Separator />
 
                 <Box>
-                  <Text fontSize="xs" color="gray.500" textTransform="uppercase" letterSpacing="wide" fontWeight="semibold" mb={2}>
+                  <Text fontSize="xs" color="fg.muted" textTransform="uppercase" letterSpacing="wide" fontWeight="semibold" mb={2}>
                     Profile status
                   </Text>
                   <HStack gap={2} flexWrap="wrap">
@@ -367,7 +381,7 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
                     {loading && <Spinner size="sm" />}
                   </HStack>
                   {cacheStats.lastUpdate && (
-                    <Text fontSize="xs" color="gray.500" mt={2}>
+                    <Text fontSize="xs" color="fg.muted" mt={2}>
                       Updated {new Date(cacheStats.lastUpdate).toLocaleString()}
                     </Text>
                   )}
@@ -383,8 +397,8 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
                 </Button>
 
                 {error && (
-                  <Box p={3} bg="red.50" borderRadius="md" border="1px solid" borderColor="red.200">
-                    <Text fontSize="sm" color="red.800">Error: {error}</Text>
+                  <Box p={3} bg="bg.error" borderRadius="md" border="1px solid" borderColor="border.error">
+                    <Text fontSize="sm" color="fg.error">Error: {error}</Text>
                   </Box>
                 )}
               </VStack>
@@ -394,23 +408,23 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
           <Box data-testid="profile-main" minW={0}>
             <HStack justify="space-between" align="start" mb={4} px={1}>
               <Box>
-                <Heading as="h2" size="lg" color="gray.900">Connected Services</Heading>
-                <Text fontSize="sm" color="gray.600" mt={1}>On-chain identity, social graph, assets, and reputation.</Text>
+                <Heading as="h2" size="lg" color="fg">Connected Services</Heading>
+                <Text fontSize="sm" color="fg.muted" mt={1}>On-chain identity, social graph, assets, and reputation.</Text>
               </Box>
             </HStack>
 
             {isInitialLoading ? (
-              <Box p={6} bg="blue.50" borderRadius="xl" border="1px solid" borderColor="blue.200">
+              <Box p={6} bg="bg.info" borderRadius="xl" border="1px solid" borderColor="border.info">
                 <HStack justify="center" gap={3}>
                   <Spinner size="sm" />
-                  <Text fontSize="sm" color="blue.800" textAlign="center">Loading profile data...</Text>
+                  <Text fontSize="sm" color="fg.info" textAlign="center">Loading profile data...</Text>
                 </HStack>
               </Box>
             ) : (
               <VStack gap={4} align="stretch" width="100%">
                 {!hasAnyData() && (
-                  <Box p={5} bg="yellow.50" borderRadius="xl" border="1px solid" borderColor="yellow.200">
-                    <Text fontSize="sm" color="yellow.800" textAlign="center">
+                  <Box p={5} bg="bg.warning" borderRadius="xl" border="1px solid" borderColor="border.warning">
+                    <Text fontSize="sm" color="fg.warning" textAlign="center">
                       🔄 Service data is being loaded in the background. This profile will update automatically as data becomes available.
                     </Text>
                   </Box>
@@ -420,26 +434,26 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
                   <ProfileSection title="Identity Summary">
                     <SimpleGrid columns={{ base: 1, sm: 2, md: 4, lg: 2, xl: 4 }} gap={4}>
                       <Box>
-                        <Text fontSize="sm" color="gray.500">ENS Names</Text>
+                        <Text fontSize="sm" color="fg.muted">ENS Names</Text>
                         <Text fontSize="xl" fontWeight="bold">{ensNamesCount}</Text>
                       </Box>
                       <Box minW={0}>
-                        <Text fontSize="sm" color="gray.500">Farcaster</Text>
+                        <Text fontSize="sm" color="fg.muted">Farcaster</Text>
                         <Text fontSize="xl" fontWeight="bold" truncate>
                           {(data.services.farcaster as any)?.username ? `@${(data.services.farcaster as any).username}` : '-'}
                         </Text>
                         {(data.services.farcaster as any)?.followerCount && (
-                          <Text fontSize="xs" color="gray.400">{(data.services.farcaster as any).followerCount} followers</Text>
+                          <Text fontSize="xs" color="fg.muted">{(data.services.farcaster as any).followerCount} followers</Text>
                         )}
                       </Box>
                       <Box>
-                        <Text fontSize="sm" color="gray.500">Gitcoin Passport</Text>
+                        <Text fontSize="sm" color="fg.muted">Gitcoin Passport</Text>
                         <Text fontSize="xl" fontWeight="bold">
                           {(data.services['gitcoin-passport'] as any)?.score ? Math.round(Number((data.services['gitcoin-passport'] as any).score) * 100) / 100 : '-'}
                         </Text>
                       </Box>
                       <Box>
-                        <Text fontSize="sm" color="gray.500">Net Worth (Est.)</Text>
+                        <Text fontSize="sm" color="fg.muted">Net Worth (Est.)</Text>
                         <Text fontSize="xl" fontWeight="bold">
                           {netWorthUsd === null ? '—' : `$${Math.round(Number(netWorthUsd)).toLocaleString()}`}
                         </Text>

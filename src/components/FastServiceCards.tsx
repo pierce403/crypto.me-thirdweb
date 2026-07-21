@@ -88,25 +88,25 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
   };
 
   const getStatusColor = () => {
-    if (loading) return 'gray.500';
+    if (loading) return 'fg.muted';
 
     // Check for explicit API errors in data payload
     const hasApiKeyError = data && (data.error === 'NO_API_KEY' || data.error === 'OPENSEA_API_KEY_REQUIRED' || data.error === 'API_INTEGRATION_PENDING');
-    if (hasApiKeyError) return 'gray.500';
+    if (hasApiKeyError) return 'fg.muted';
 
-    if (error && isEmpty) return 'red.600';
-    if (error && !isEmpty) return 'orange.600';
-    if (lastUpdated || !isEmpty) return 'green.600';
-    return 'gray.500';
+    if (error && isEmpty) return 'fg.error';
+    if (error && !isEmpty) return 'fg.warning';
+    if (lastUpdated || !isEmpty) return 'fg.success';
+    return 'fg.muted';
   };
 
   // Info Icon Component
   const InfoIcon = () => (
     <Box
       as="span"
-      color="gray.400"
+      color="fg.muted"
       cursor="help"
-      _hover={{ color: "blue.500" }}
+      _hover={{ color: "blue.fg" }}
       display="inline-flex"
       alignItems="center"
       justifyContent="center"
@@ -155,18 +155,20 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
   if (loading) {
     return (
       <Box
+        data-testid="service-card"
+        data-service-name={serviceName}
         p={4}
         borderWidth={1}
         borderRadius="lg"
-        borderColor="gray.200"
-        bg="white"
+        borderColor="border"
+        bg="bg.panel"
         shadow="sm"
         minH="200px"
       >
         <VStack gap={3} align="stretch">
           <HStack gap={2} align="center">
             <Text fontSize="lg">{icon || '🔧'}</Text>
-            <Text fontWeight="bold" color="gray.700">{serviceName}</Text>
+            <Text fontWeight="bold" color="fg">{serviceName}</Text>
           </HStack>
 
           <Skeleton height="20px" />
@@ -181,39 +183,41 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
   if (error && isEmpty) {
     return (
       <Box
+        data-testid="service-card"
+        data-service-name={serviceName}
         p={4}
         borderWidth={1}
         borderRadius="lg"
-        borderColor="red.200"
-        bg="red.50"
+        borderColor="border.error"
+        bg="bg.error"
         shadow="sm"
         minH="200px"
       >
         <VStack gap={3} align="stretch">
           <HStack gap={2} align="center">
             <Text fontSize="lg">❌</Text>
-            <Text fontWeight="bold" color="red.700">{serviceName}</Text>
+            <Text fontWeight="bold" color="fg.error">{serviceName}</Text>
             <Badge colorScheme="red" variant="subtle" fontSize="xs">
               Error
             </Badge>
           </HStack>
 
-          <Box p={3} bg="red.100" borderRadius="md" border="1px solid" borderColor="red.200">
-            <Text fontSize="sm" color="red.800" fontWeight="semibold">Service Error</Text>
-            <Text fontSize="xs" color="red.700" mt={1}>
+          <Box p={3} bg="red.subtle" borderRadius="md" border="1px solid" borderColor="border.error">
+            <Text fontSize="sm" color="fg.error" fontWeight="semibold">Service Error</Text>
+            <Text fontSize="xs" color="fg.error" mt={1}>
               {error.lastError}
             </Text>
-            <Text fontSize="xs" color="red.600" mt={2}>
+            <Text fontSize="xs" color="fg.error" mt={2}>
               Last attempt: {new Date(error.lastAttempt).toLocaleString()}
             </Text>
             {error.errorCount > 1 && (
-              <Text fontSize="xs" color="red.600">
+              <Text fontSize="xs" color="fg.error">
                 Failed {error.errorCount} times
               </Text>
             )}
           </Box>
 
-          <Text fontSize="xs" color="gray.500" textAlign="center">
+          <Text fontSize="xs" color="fg.muted" textAlign="center">
             Data will be retried automatically
           </Text>
         </VStack>
@@ -224,22 +228,24 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
   if (isEmpty) {
     return (
       <Box
+        data-testid="service-card"
+        data-service-name={serviceName}
         p={4}
         borderWidth={1}
         borderRadius="lg"
-        borderColor="gray.200"
-        bg="gray.50"
+        borderColor="border"
+        bg="bg.muted"
         shadow="sm"
         minH="200px"
       >
         <VStack gap={3} align="stretch">
           <HStack gap={2} align="center" width="100%">
             <Text fontSize="lg">{icon || '🔧'}</Text>
-            <Text fontWeight="bold" color="gray.400">{serviceName}</Text>
+            <Text fontWeight="bold" color="fg.muted">{serviceName}</Text>
             {lastUpdated && <InfoIcon />}
           </HStack>
 
-          <Text fontSize="sm" color="gray.500" textAlign="center">
+          <Text fontSize="sm" color="fg.muted" textAlign="center">
             {description || 'No data available'}
           </Text>
         </VStack>
@@ -249,32 +255,34 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
 
   return (
     <Box
+      data-testid="service-card"
+      data-service-name={serviceName}
       p={4}
       borderWidth={1}
       borderRadius="lg"
-      borderColor="gray.200"
-      bg="white"
+      borderColor="border"
+      bg="bg.panel"
       shadow="sm"
       minH="200px"
       transition="all 0.2s"
-      _hover={{ shadow: "md", borderColor: "blue.300" }}
+      _hover={{ shadow: "md", borderColor: "blue.emphasized" }}
       position="relative"
     >
       <VStack gap={3} align="stretch">
         <HStack gap={2} align="center" width="100%">
           <Text fontSize="lg">{icon || '🔧'}</Text>
-          <Text fontWeight="bold" color="gray.700">{serviceName}</Text>
+          <Text fontWeight="bold" color="fg">{serviceName}</Text>
           <InfoIcon />
         </HStack>
 
         {renderContent()}
 
         {/* Status footer - always shown */}
-        <Box borderTop="1px solid" borderColor="gray.100" pt={2} mt={2}>
+        <Box borderTop="1px solid" borderColor="border.muted" pt={2} mt={2}>
           <VStack gap={2}>
             {error && (
-              <Box p={2} bg="yellow.50" borderRadius="md" border="1px solid" borderColor="yellow.200" width="100%">
-                <Text fontSize="xs" color="yellow.800">
+              <Box p={2} bg="bg.warning" borderRadius="md" border="1px solid" borderColor="border.warning" width="100%">
+                <Text fontSize="xs" color="fg.warning">
                   ⚠️ Last error: {error.lastError}
                 </Text>
               </Box>
@@ -301,7 +309,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
           height="24px"
           minWidth="24px"
           borderRadius="md"
-          _hover={{ bg: "blue.50" }}
+          _hover={{ bg: "blue.subtle" }}
           title={loading ? 'Refreshing...' : 'Refresh'}
         >
           <Text fontSize="14px">{loading ? '⟳' : '↻'}</Text>
@@ -321,32 +329,32 @@ const ENSContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) => {
     <VStack gap={3} align="stretch">
       {primaryName && (
         <Box>
-          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Primary Name:</Text>
-          <Text fontSize="md" color="gray.800">{primaryName}</Text>
+          <Text fontSize="sm" fontWeight="semibold" color="fg.muted">Primary Name:</Text>
+          <Text fontSize="md" color="fg">{primaryName}</Text>
         </Box>
       )}
 
       {avatar && (
         <Box>
-          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Avatar:</Text>
+          <Text fontSize="sm" fontWeight="semibold" color="fg.muted">Avatar:</Text>
           <ChakraImage src={avatar} alt="ENS Avatar" maxH="80px" borderRadius="md" />
         </Box>
       )}
 
       {otherNames && otherNames.length > 0 && (
         <Box>
-          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Other Names:</Text>
+          <Text fontSize="sm" fontWeight="semibold" color="fg.muted">Other Names:</Text>
           {otherNames.slice(0, 3).map((name, index) => (
-            <Text key={index} fontSize="sm" color="gray.700">{name}</Text>
+            <Text key={index} fontSize="sm" color="fg">{name}</Text>
           ))}
           {otherNames.length > 3 && (
-            <Text fontSize="xs" color="gray.500">+{otherNames.length - 3} more</Text>
+            <Text fontSize="xs" color="fg.muted">+{otherNames.length - 3} more</Text>
           )}
         </Box>
       )}
 
       {profileUrl && (
-        <Link href={profileUrl} target="_blank" rel="noopener noreferrer" color="blue.500" fontSize="sm">
+        <Link href={profileUrl} target="_blank" rel="noopener noreferrer" color="blue.fg" fontSize="sm">
           View on ENS ↗
         </Link>
       )}
@@ -404,11 +412,11 @@ const FarcasterContent: React.FC<{ data: Record<string, unknown> }> = ({ data })
     <VStack gap={3} align="stretch">
       {handle && (
         <Box>
-          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Farname:</Text>
+          <Text fontSize="sm" fontWeight="semibold" color="fg.muted">Farname:</Text>
           <HStack justify="space-between" align="baseline">
-            <Text fontSize="md" color="gray.800">@{handle}</Text>
+            <Text fontSize="md" color="fg">@{handle}</Text>
             {fid !== undefined && (
-              <Text fontSize="xs" color="gray.500">FID {fid}</Text>
+              <Text fontSize="xs" color="fg.muted">FID {fid}</Text>
             )}
           </HStack>
         </Box>
@@ -416,35 +424,35 @@ const FarcasterContent: React.FC<{ data: Record<string, unknown> }> = ({ data })
 
       {displayName && (
         <Box>
-          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Display Name:</Text>
-          <Text fontSize="md" color="gray.800">{displayName}</Text>
+          <Text fontSize="sm" fontWeight="semibold" color="fg.muted">Display Name:</Text>
+          <Text fontSize="md" color="fg">{displayName}</Text>
         </Box>
       )}
 
       {(username && farname && farname !== username) && (
         <Box>
-          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Username (API):</Text>
-          <Text fontSize="sm" color="gray.700">@{username}</Text>
+          <Text fontSize="sm" fontWeight="semibold" color="fg.muted">Username (API):</Text>
+          <Text fontSize="sm" color="fg">@{username}</Text>
         </Box>
       )}
 
       {basename && (
         <Box>
-          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Basename:</Text>
-          <Text fontSize="sm" color="gray.700">{basename}</Text>
+          <Text fontSize="sm" fontWeight="semibold" color="fg.muted">Basename:</Text>
+          <Text fontSize="sm" color="fg">{basename}</Text>
         </Box>
       )}
 
       {(walletAddress || custodyAddress) && (
         <Box>
-          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Wallets:</Text>
+          <Text fontSize="sm" fontWeight="semibold" color="fg.muted">Wallets:</Text>
           {walletAddress && (
             <HStack gap={2}>
-              <Text fontSize="xs" color="gray.600">Lookup:</Text>
+              <Text fontSize="xs" color="fg.muted">Lookup:</Text>
               <Link
                 href={`/${walletAddress}`}
                 fontSize="xs"
-                color="blue.600"
+                color="blue.fg"
                 fontFamily="mono"
                 title={walletAddress}
               >
@@ -454,11 +462,11 @@ const FarcasterContent: React.FC<{ data: Record<string, unknown> }> = ({ data })
           )}
           {custodyAddress && custodyAddress !== walletAddress && (
             <HStack gap={2}>
-              <Text fontSize="xs" color="gray.600">Custody:</Text>
+              <Text fontSize="xs" color="fg.muted">Custody:</Text>
               <Link
                 href={`/${custodyAddress}`}
                 fontSize="xs"
-                color="blue.600"
+                color="blue.fg"
                 fontFamily="mono"
                 title={custodyAddress}
               >
@@ -471,18 +479,18 @@ const FarcasterContent: React.FC<{ data: Record<string, unknown> }> = ({ data })
 
       {(ethAddresses.length > 0 || solAddresses.length > 0 || ensDomains.length > 0 || (connectedAccounts && connectedAccounts.length > 0)) && (
         <Box>
-          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Connected Identities:</Text>
+          <Text fontSize="sm" fontWeight="semibold" color="fg.muted">Connected Identities:</Text>
 
           {ethAddresses.length > 0 && (
             <Box mt={1}>
-              <Text fontSize="xs" color="gray.600">Verified ETH wallets ({ethAddresses.length})</Text>
+              <Text fontSize="xs" color="fg.muted">Verified ETH wallets ({ethAddresses.length})</Text>
               <VStack gap={0} align="stretch">
                 {ethAddresses.slice(0, 3).map((address, index) => (
                   <Link
                     key={`${address}-${index}`}
                     href={`/${address}`}
                     fontSize="xs"
-                    color="blue.600"
+                    color="blue.fg"
                     fontFamily="mono"
                     title={address}
                     display="block"
@@ -491,7 +499,7 @@ const FarcasterContent: React.FC<{ data: Record<string, unknown> }> = ({ data })
                   </Link>
                 ))}
                 {ethAddresses.length > 3 && (
-                  <Text fontSize="xs" color="gray.500">+{ethAddresses.length - 3} more</Text>
+                  <Text fontSize="xs" color="fg.muted">+{ethAddresses.length - 3} more</Text>
                 )}
               </VStack>
             </Box>
@@ -499,15 +507,15 @@ const FarcasterContent: React.FC<{ data: Record<string, unknown> }> = ({ data })
 
           {solAddresses.length > 0 && (
             <Box mt={2}>
-              <Text fontSize="xs" color="gray.600">Verified Solana wallets ({solAddresses.length})</Text>
+              <Text fontSize="xs" color="fg.muted">Verified Solana wallets ({solAddresses.length})</Text>
               <VStack gap={0} align="stretch">
                 {solAddresses.slice(0, 3).map((address, index) => (
-                  <Text key={`${address}-${index}`} fontSize="xs" color="gray.700" fontFamily="mono" title={address}>
+                  <Text key={`${address}-${index}`} fontSize="xs" color="fg" fontFamily="mono" title={address}>
                     {address.length > 16 ? `${address.slice(0, 8)}…${address.slice(-4)}` : address}
                   </Text>
                 ))}
                 {solAddresses.length > 3 && (
-                  <Text fontSize="xs" color="gray.500">+{solAddresses.length - 3} more</Text>
+                  <Text fontSize="xs" color="fg.muted">+{solAddresses.length - 3} more</Text>
                 )}
               </VStack>
             </Box>
@@ -515,15 +523,15 @@ const FarcasterContent: React.FC<{ data: Record<string, unknown> }> = ({ data })
 
           {ensDomains.length > 0 && (
             <Box mt={2}>
-              <Text fontSize="xs" color="gray.600">Verified names ({ensDomains.length})</Text>
+              <Text fontSize="xs" color="fg.muted">Verified names ({ensDomains.length})</Text>
               <VStack gap={0} align="stretch">
                 {ensDomains.slice(0, 3).map((name, index) => (
-                  <Text key={`${name}-${index}`} fontSize="xs" color="gray.700" truncate title={name}>
+                  <Text key={`${name}-${index}`} fontSize="xs" color="fg" truncate title={name}>
                     {name}
                   </Text>
                 ))}
                 {ensDomains.length > 3 && (
-                  <Text fontSize="xs" color="gray.500">+{ensDomains.length - 3} more</Text>
+                  <Text fontSize="xs" color="fg.muted">+{ensDomains.length - 3} more</Text>
                 )}
               </VStack>
             </Box>
@@ -531,15 +539,15 @@ const FarcasterContent: React.FC<{ data: Record<string, unknown> }> = ({ data })
 
           {connectedAccounts && connectedAccounts.length > 0 && (
             <Box mt={2}>
-              <Text fontSize="xs" color="gray.600">Linked accounts ({connectedAccounts.length})</Text>
+              <Text fontSize="xs" color="fg.muted">Linked accounts ({connectedAccounts.length})</Text>
               <VStack gap={0} align="stretch">
                 {connectedAccounts.slice(0, 3).map((account, index) => (
-                  <Text key={`${account.platform}-${account.username}-${index}`} fontSize="xs" color="gray.700">
+                  <Text key={`${account.platform}-${account.username}-${index}`} fontSize="xs" color="fg">
                     {account.platform}: {account.username}
                   </Text>
                 ))}
                 {connectedAccounts.length > 3 && (
-                  <Text fontSize="xs" color="gray.500">+{connectedAccounts.length - 3} more</Text>
+                  <Text fontSize="xs" color="fg.muted">+{connectedAccounts.length - 3} more</Text>
                 )}
               </VStack>
             </Box>
@@ -551,20 +559,20 @@ const FarcasterContent: React.FC<{ data: Record<string, unknown> }> = ({ data })
         <HStack gap={4}>
           {followerCount !== undefined && (
             <Box>
-              <Text fontSize="xs" color="gray.600">Followers</Text>
-              <Text fontSize="lg" fontWeight="bold" color="purple.600">{followerCount.toLocaleString()}</Text>
+              <Text fontSize="xs" color="fg.muted">Followers</Text>
+              <Text fontSize="lg" fontWeight="bold" color="purple.fg">{followerCount.toLocaleString()}</Text>
             </Box>
           )}
           {followingCount !== undefined && (
             <Box>
-              <Text fontSize="xs" color="gray.600">Following</Text>
-              <Text fontSize="lg" fontWeight="bold" color="gray.700">{followingCount.toLocaleString()}</Text>
+              <Text fontSize="xs" color="fg.muted">Following</Text>
+              <Text fontSize="lg" fontWeight="bold" color="fg">{followingCount.toLocaleString()}</Text>
             </Box>
           )}
           {powerBadge !== undefined && (
             <Box>
-              <Text fontSize="xs" color="gray.600">Power Badge</Text>
-              <Text fontSize="lg" fontWeight="bold" color={powerBadge ? 'green.600' : 'gray.500'}>
+              <Text fontSize="xs" color="fg.muted">Power Badge</Text>
+              <Text fontSize="lg" fontWeight="bold" color={powerBadge ? 'green.fg' : 'fg.muted'}>
                 {powerBadge ? 'Yes' : 'No'}
               </Text>
             </Box>
@@ -574,19 +582,19 @@ const FarcasterContent: React.FC<{ data: Record<string, unknown> }> = ({ data })
 
       {bio && (
         <Box>
-          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Bio:</Text>
-          <Text fontSize="sm" color="gray.700" truncate>{bio}</Text>
+          <Text fontSize="sm" fontWeight="semibold" color="fg.muted">Bio:</Text>
+          <Text fontSize="sm" color="fg" truncate>{bio}</Text>
         </Box>
       )}
 
       {neynarScore !== undefined && (
         <Box>
-          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Neynar Score:</Text>
+          <Text fontSize="sm" fontWeight="semibold" color="fg.muted">Neynar Score:</Text>
           <HStack align="baseline">
             <Text fontSize="lg" fontWeight="bold" color={
-              neynarScore >= 0.7 ? "green.500" :
-                neynarScore >= 0.4 ? "yellow.500" :
-                  "red.500"
+              neynarScore >= 0.7 ? "green.fg" :
+                neynarScore >= 0.4 ? "yellow.fg" :
+                  "red.fg"
             }>
               {(neynarScore * 100).toFixed(0)}%
             </Text>
@@ -604,13 +612,13 @@ const FarcasterContent: React.FC<{ data: Record<string, unknown> }> = ({ data })
                     "Low"
               }
             </Badge>
-            <Text fontSize="xs" color="gray.500">({neynarScore.toFixed(3)})</Text>
+            <Text fontSize="xs" color="fg.muted">({neynarScore.toFixed(3)})</Text>
           </HStack>
         </Box>
       )}
 
       {profileUrl && (
-        <Link href={profileUrl} target="_blank" rel="noopener noreferrer" color="purple.500" fontSize="sm">
+        <Link href={profileUrl} target="_blank" rel="noopener noreferrer" color="purple.fg" fontSize="sm">
           View on Farcaster ↗
         </Link>
       )}
@@ -634,13 +642,13 @@ const AlchemyContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =
   if (error === 'NO_API_KEY') {
     return (
       <VStack gap={3} align="stretch">
-        <Box p={3} bg="blue.50" borderRadius="md" border="1px solid" borderColor="blue.200">
-          <Text fontSize="sm" color="blue.800" fontWeight="semibold">API Key Required</Text>
-          <Text fontSize="xs" color="blue.700">
+        <Box p={3} bg="bg.info" borderRadius="md" border="1px solid" borderColor="border.info">
+          <Text fontSize="sm" color="fg.info" fontWeight="semibold">API Key Required</Text>
+          <Text fontSize="xs" color="fg.info">
             Add ALCHEMY_API_KEY to your environment to see real NFT metadata and collection information.
           </Text>
         </Box>
-        <Link href="https://alchemy.com" target="_blank" rel="noopener noreferrer" color="blue.500" fontSize="sm">
+        <Link href="https://alchemy.com" target="_blank" rel="noopener noreferrer" color="blue.fg" fontSize="sm">
           Get Alchemy API Key ↗
         </Link>
       </VStack>
@@ -651,23 +659,23 @@ const AlchemyContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =
     <VStack gap={3} align="stretch">
       {totalCount !== undefined && totalCount > 0 && (
         <Box>
-          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Total NFTs:</Text>
-          <Text fontSize="lg" fontWeight="bold" color="blue.600">{totalCount}</Text>
+          <Text fontSize="sm" fontWeight="semibold" color="fg.muted">Total NFTs:</Text>
+          <Text fontSize="lg" fontWeight="bold" color="blue.fg">{totalCount}</Text>
         </Box>
       )}
 
       {collections && Object.keys(collections).length > 0 && (
         <Box>
-          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Collections ({Object.keys(collections).length}):</Text>
+          <Text fontSize="sm" fontWeight="semibold" color="fg.muted">Collections ({Object.keys(collections).length}):</Text>
           <VStack gap={1} align="stretch">
             {Object.values(collections).slice(0, 3).map((collection, index) => (
               <HStack key={index} justify="space-between">
-                <Text fontSize="sm" color="gray.700" truncate>{collection.name}</Text>
-                <Text fontSize="xs" color="gray.500">{collection.count}</Text>
+                <Text fontSize="sm" color="fg" truncate>{collection.name}</Text>
+                <Text fontSize="xs" color="fg.muted">{collection.count}</Text>
               </HStack>
             ))}
             {Object.keys(collections).length > 3 && (
-              <Text fontSize="xs" color="gray.500" textAlign="center">+{Object.keys(collections).length - 3} more collections</Text>
+              <Text fontSize="xs" color="fg.muted" textAlign="center">+{Object.keys(collections).length - 3} more collections</Text>
             )}
           </VStack>
         </Box>
@@ -675,25 +683,25 @@ const AlchemyContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =
 
       {nfts && nfts.length > 0 && (
         <Box>
-          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Recent NFTs:</Text>
+          <Text fontSize="sm" fontWeight="semibold" color="fg.muted">Recent NFTs:</Text>
           <VStack gap={2} align="stretch">
             {nfts.slice(0, 3).map((nft, index) => (
-              <Box key={index} p={2} bg="gray.50" borderRadius="md" border="1px solid" borderColor="gray.200">
+              <Box key={index} p={2} bg="bg.muted" borderRadius="md" border="1px solid" borderColor="border">
                 <HStack gap={2}>
                   {nft.image && (
-                    <Box width="30px" height="30px" bg="gray.200" borderRadius="md" overflow="hidden">
+                    <Box width="30px" height="30px" bg="bg.emphasized" borderRadius="md" overflow="hidden">
                       <Image src={nft.image} alt={nft.name} width={30} height={30} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </Box>
                   )}
                   <VStack align="start" gap={0} flex={1}>
-                    <Text fontSize="xs" fontWeight="semibold" color="gray.800" truncate>{nft.name}</Text>
-                    <Text fontSize="xs" color="gray.600" truncate>{nft.collection}</Text>
+                    <Text fontSize="xs" fontWeight="semibold" color="fg" truncate>{nft.name}</Text>
+                    <Text fontSize="xs" color="fg.muted" truncate>{nft.collection}</Text>
                   </VStack>
                 </HStack>
               </Box>
             ))}
             {nfts.length > 3 && (
-              <Text fontSize="xs" color="gray.500" textAlign="center">+{nfts.length - 3} more NFTs</Text>
+              <Text fontSize="xs" color="fg.muted" textAlign="center">+{nfts.length - 3} more NFTs</Text>
             )}
           </VStack>
         </Box>
@@ -701,7 +709,7 @@ const AlchemyContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =
 
       <HStack justify="space-between" align="center">
         {source && source !== 'none' && (
-          <Text fontSize="xs" color="gray.500">Source: {source}</Text>
+          <Text fontSize="xs" color="fg.muted">Source: {source}</Text>
         )}
       </HStack>
     </VStack>
@@ -742,17 +750,17 @@ const OpenSeaContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =
   if (error === 'OPENSEA_API_KEY_REQUIRED' || error === 'API_INTEGRATION_PENDING') {
     return (
       <VStack gap={3} align="stretch">
-        <Box p={3} bg="blue.50" borderRadius="md" border="1px solid" borderColor="blue.200">
-          <Text fontSize="sm" color="blue.800" fontWeight="semibold">
+        <Box p={3} bg="bg.info" borderRadius="md" border="1px solid" borderColor="border.info">
+          <Text fontSize="sm" color="fg.info" fontWeight="semibold">
             {error === 'API_INTEGRATION_PENDING' ? 'Integration in Progress' : 'API Key Required'}
           </Text>
-          <Text fontSize="xs" color="blue.700">
+          <Text fontSize="xs" color="fg.info">
             {error === 'API_INTEGRATION_PENDING'
               ? 'Real OpenSea data integration is being implemented.'
               : 'Add OPENSEA_API_KEY to your environment to see real market data.'}
           </Text>
         </Box>
-        <Link href={profileUrl || 'https://opensea.io'} target="_blank" rel="noopener noreferrer" color="blue.500" fontSize="sm">
+        <Link href={profileUrl || 'https://opensea.io'} target="_blank" rel="noopener noreferrer" color="blue.fg" fontSize="sm">
           Visit OpenSea ↗
         </Link>
       </VStack>
@@ -763,9 +771,9 @@ const OpenSeaContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =
     <VStack gap={3} align="stretch">
       {portfolioSummary?.totalValue !== undefined && portfolioSummary.totalValue > 0 && (
         <Box>
-          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Portfolio Value:</Text>
+          <Text fontSize="sm" fontWeight="semibold" color="fg.muted">Portfolio Value:</Text>
           <HStack>
-            <Text fontSize="lg" fontWeight="bold" color="green.600">
+            <Text fontSize="lg" fontWeight="bold" color="green.fg">
               {portfolioSummary.totalValue.toFixed(2)} {portfolioSummary.currency || 'ETH'}
             </Text>
           </HStack>
@@ -776,14 +784,14 @@ const OpenSeaContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =
         <HStack gap={4}>
           {marketStats.uniqueCollections !== undefined && (
             <Box>
-              <Text fontSize="xs" color="gray.600">Collections</Text>
-              <Text fontSize="lg" fontWeight="bold" color="blue.600">{marketStats.uniqueCollections}</Text>
+              <Text fontSize="xs" color="fg.muted">Collections</Text>
+              <Text fontSize="lg" fontWeight="bold" color="blue.fg">{marketStats.uniqueCollections}</Text>
             </Box>
           )}
           {marketStats.totalNFTs !== undefined && (
             <Box>
-              <Text fontSize="xs" color="gray.600">Total NFTs</Text>
-              <Text fontSize="lg" fontWeight="bold" color="purple.600">{marketStats.totalNFTs}</Text>
+              <Text fontSize="xs" color="fg.muted">Total NFTs</Text>
+              <Text fontSize="lg" fontWeight="bold" color="purple.fg">{marketStats.totalNFTs}</Text>
             </Box>
           )}
         </HStack>
@@ -791,21 +799,21 @@ const OpenSeaContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =
 
       {topValuedNFTs && topValuedNFTs.length > 0 && (
         <Box>
-          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Top Valued NFTs:</Text>
+          <Text fontSize="sm" fontWeight="semibold" color="fg.muted">Top Valued NFTs:</Text>
           <VStack gap={2} align="stretch">
             {topValuedNFTs.slice(0, 3).map((nft, index) => (
-              <Box key={index} p={2} bg="gray.50" borderRadius="md" border="1px solid" borderColor="gray.200">
+              <Box key={index} p={2} bg="bg.muted" borderRadius="md" border="1px solid" borderColor="border">
                 <HStack gap={2}>
                   {nft.image && (
-                    <Box width="30px" height="30px" bg="gray.200" borderRadius="md" overflow="hidden">
+                    <Box width="30px" height="30px" bg="bg.emphasized" borderRadius="md" overflow="hidden">
                       <Image src={nft.image} alt={nft.name} width={30} height={30} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </Box>
                   )}
                   <VStack align="start" gap={0} flex={1}>
-                    <Text fontSize="xs" fontWeight="semibold" color="gray.800" truncate>{nft.name}</Text>
-                    <Text fontSize="xs" color="gray.600" truncate>{nft.collection}</Text>
+                    <Text fontSize="xs" fontWeight="semibold" color="fg" truncate>{nft.name}</Text>
+                    <Text fontSize="xs" color="fg.muted" truncate>{nft.collection}</Text>
                     {nft.estimatedValue && (
-                      <Text fontSize="xs" color="green.600" fontWeight="semibold">
+                      <Text fontSize="xs" color="green.fg" fontWeight="semibold">
                         ~{nft.estimatedValue.toFixed(2)} {nft.currency || 'ETH'}
                       </Text>
                     )}
@@ -817,14 +825,14 @@ const OpenSeaContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =
                   )}
                 </HStack>
                 {nft.permalink && (
-                  <Link href={nft.permalink} target="_blank" rel="noopener noreferrer" fontSize="xs" color="blue.500" mt={1}>
+                  <Link href={nft.permalink} target="_blank" rel="noopener noreferrer" fontSize="xs" color="blue.fg" mt={1}>
                     View NFT ↗
                   </Link>
                 )}
               </Box>
             ))}
             {topValuedNFTs.length > 3 && (
-              <Text fontSize="xs" color="gray.500" textAlign="center">+{topValuedNFTs.length - 3} more NFTs</Text>
+              <Text fontSize="xs" color="fg.muted" textAlign="center">+{topValuedNFTs.length - 3} more NFTs</Text>
             )}
           </VStack>
         </Box>
@@ -832,15 +840,15 @@ const OpenSeaContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =
 
       {marketStats?.topCollectionsByValue && marketStats.topCollectionsByValue.length > 0 && (
         <Box>
-          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Top Collections by Value:</Text>
+          <Text fontSize="sm" fontWeight="semibold" color="fg.muted">Top Collections by Value:</Text>
           <VStack gap={1} align="stretch">
             {marketStats.topCollectionsByValue.slice(0, 3).map((collection, index) => (
               <HStack key={index} justify="space-between">
                 <VStack align="start" gap={0}>
-                  <Text fontSize="xs" fontWeight="semibold" color="gray.800" truncate>{collection.name}</Text>
-                  <Text fontSize="xs" color="gray.600">{collection.count} NFTs</Text>
+                  <Text fontSize="xs" fontWeight="semibold" color="fg" truncate>{collection.name}</Text>
+                  <Text fontSize="xs" color="fg.muted">{collection.count} NFTs</Text>
                 </VStack>
-                <Text fontSize="xs" color="green.600" fontWeight="semibold">
+                <Text fontSize="xs" color="green.fg" fontWeight="semibold">
                   {collection.totalValue.toFixed(1)} ETH
                 </Text>
               </HStack>
@@ -851,10 +859,10 @@ const OpenSeaContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =
 
       <HStack justify="space-between" align="center">
         {source && source !== 'none' && (
-          <Text fontSize="xs" color="gray.500">Source: {source}</Text>
+          <Text fontSize="xs" color="fg.muted">Source: {source}</Text>
         )}
         {profileUrl && (
-          <Link href={profileUrl} target="_blank" rel="noopener noreferrer" color="blue.500" fontSize="sm">
+          <Link href={profileUrl} target="_blank" rel="noopener noreferrer" color="blue.fg" fontSize="sm">
             View on OpenSea ↗
           </Link>
         )}
@@ -874,35 +882,35 @@ const IcebreakerContent: React.FC<{ data: Record<string, unknown> }> = ({ data }
     <VStack gap={3} align="stretch">
       {displayName && (
         <Box>
-          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Display Name:</Text>
-          <Text fontSize="md" color="gray.800">{displayName}</Text>
+          <Text fontSize="sm" fontWeight="semibold" color="fg.muted">Display Name:</Text>
+          <Text fontSize="md" color="fg">{displayName}</Text>
         </Box>
       )}
 
       {bio && (
         <Box>
-          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Bio:</Text>
-          <Text fontSize="sm" color="gray.700" truncate>{bio}</Text>
+          <Text fontSize="sm" fontWeight="semibold" color="fg.muted">Bio:</Text>
+          <Text fontSize="sm" color="fg" truncate>{bio}</Text>
         </Box>
       )}
 
       <HStack gap={4}>
         {verifiedChannelsCount !== undefined && (
           <Box>
-            <Text fontSize="xs" color="gray.600">Verified Channels</Text>
-            <Text fontSize="lg" fontWeight="bold" color="green.600">{verifiedChannelsCount}</Text>
+            <Text fontSize="xs" color="fg.muted">Verified Channels</Text>
+            <Text fontSize="lg" fontWeight="bold" color="green.fg">{verifiedChannelsCount}</Text>
           </Box>
         )}
         {credentialsCount !== undefined && (
           <Box>
-            <Text fontSize="xs" color="gray.600">Credentials</Text>
-            <Text fontSize="lg" fontWeight="bold" color="blue.600">{credentialsCount}</Text>
+            <Text fontSize="xs" color="fg.muted">Credentials</Text>
+            <Text fontSize="lg" fontWeight="bold" color="blue.fg">{credentialsCount}</Text>
           </Box>
         )}
       </HStack>
 
       {profileUrl && (
-        <Link href={profileUrl} target="_blank" rel="noopener noreferrer" color="green.500" fontSize="sm">
+        <Link href={profileUrl} target="_blank" rel="noopener noreferrer" color="green.fg" fontSize="sm">
           View on Icebreaker ↗
         </Link>
       )}
@@ -919,13 +927,13 @@ const HumanPassportContent: React.FC<{ data: Record<string, unknown> }> = ({ dat
   if (error === 'NO_API_ACCESS') {
     return (
       <VStack gap={3} align="stretch">
-        <Box p={3} bg="blue.50" borderRadius="md" border="1px solid" borderColor="blue.200">
-          <Text fontSize="sm" color="blue.800" fontWeight="semibold">Educational Mode</Text>
-          <Text fontSize="xs" color="blue.700">
+        <Box p={3} bg="bg.info" borderRadius="md" border="1px solid" borderColor="border.info">
+          <Text fontSize="sm" color="fg.info" fontWeight="semibold">Educational Mode</Text>
+          <Text fontSize="xs" color="fg.info">
             Human Passport (formerly Gitcoin Passport) helps verify your humanity and build reputation through various stamps and credentials.
           </Text>
         </Box>
-        <Link href="https://passport.xyz" target="_blank" rel="noopener noreferrer" color="blue.500" fontSize="sm">
+        <Link href="https://passport.xyz" target="_blank" rel="noopener noreferrer" color="blue.fg" fontSize="sm">
           Learn about Human Passport ↗
         </Link>
       </VStack>
@@ -936,9 +944,9 @@ const HumanPassportContent: React.FC<{ data: Record<string, unknown> }> = ({ dat
     <VStack gap={3} align="stretch">
       {score !== undefined && (
         <Box>
-          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Trust Score:</Text>
+          <Text fontSize="sm" fontWeight="semibold" color="fg.muted">Trust Score:</Text>
           <HStack>
-            <Text fontSize="lg" fontWeight="bold" color="blue.600">{score.toFixed(1)}</Text>
+            <Text fontSize="lg" fontWeight="bold" color="blue.fg">{score.toFixed(1)}</Text>
             {trustLevel && (
               <Badge colorScheme={trustLevel === 'High' ? 'green' : trustLevel === 'Medium' ? 'yellow' : 'red'}>
                 {trustLevel}
@@ -950,24 +958,24 @@ const HumanPassportContent: React.FC<{ data: Record<string, unknown> }> = ({ dat
 
       {stamps && stamps.length > 0 && (
         <Box>
-          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Stamps ({stamps.length}):</Text>
+          <Text fontSize="sm" fontWeight="semibold" color="fg.muted">Stamps ({stamps.length}):</Text>
           <VStack gap={1} align="stretch">
             {stamps.slice(0, 3).map((stamp, index) => (
               <HStack key={index} justify="space-between">
-                <Text fontSize="sm" color="gray.700" truncate>{stamp.provider}</Text>
+                <Text fontSize="sm" color="fg" truncate>{stamp.provider}</Text>
                 <Badge colorScheme={stamp.verified ? 'green' : 'gray'} variant="subtle" fontSize="xs">
                   {stamp.verified ? 'Verified' : 'Unverified'}
                 </Badge>
               </HStack>
             ))}
             {stamps.length > 3 && (
-              <Text fontSize="xs" color="gray.500">+{stamps.length - 3} more stamps</Text>
+              <Text fontSize="xs" color="fg.muted">+{stamps.length - 3} more stamps</Text>
             )}
           </VStack>
         </Box>
       )}
 
-      <Link href="https://passport.xyz" target="_blank" rel="noopener noreferrer" color="blue.500" fontSize="sm">
+      <Link href="https://passport.xyz" target="_blank" rel="noopener noreferrer" color="blue.fg" fontSize="sm">
         View on Human Passport ↗
       </Link>
     </VStack>
@@ -985,27 +993,27 @@ const DecentralandContent: React.FC<{ data: Record<string, unknown> }> = ({ data
       <HStack gap={4}>
         {landParcels !== undefined && (
           <Box>
-            <Text fontSize="xs" color="gray.600">LAND Parcels</Text>
-            <Text fontSize="lg" fontWeight="bold" color="green.600">{landParcels}</Text>
+            <Text fontSize="xs" color="fg.muted">LAND Parcels</Text>
+            <Text fontSize="lg" fontWeight="bold" color="green.fg">{landParcels}</Text>
           </Box>
         )}
         {wearables !== undefined && (
           <Box>
-            <Text fontSize="xs" color="gray.600">Wearables</Text>
-            <Text fontSize="lg" fontWeight="bold" color="purple.600">{wearables}</Text>
+            <Text fontSize="xs" color="fg.muted">Wearables</Text>
+            <Text fontSize="lg" fontWeight="bold" color="purple.fg">{wearables}</Text>
           </Box>
         )}
       </HStack>
 
       {lastActive && (
         <Box>
-          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Last Active:</Text>
-          <Text fontSize="sm" color="gray.700">{new Date(lastActive).toLocaleDateString()}</Text>
+          <Text fontSize="sm" fontWeight="semibold" color="fg.muted">Last Active:</Text>
+          <Text fontSize="sm" color="fg">{new Date(lastActive).toLocaleDateString()}</Text>
         </Box>
       )}
 
       {profileUrl && (
-        <Link href={profileUrl} target="_blank" rel="noopener noreferrer" color="green.500" fontSize="sm">
+        <Link href={profileUrl} target="_blank" rel="noopener noreferrer" color="green.fg" fontSize="sm">
           View in Decentraland ↗
         </Link>
       )}
@@ -1038,17 +1046,17 @@ const DeBankContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =>
   if (error === 'API_INTEGRATION_PENDING' || error === 'NO_API_KEY') {
     return (
       <VStack gap={3} align="stretch">
-        <Box p={3} bg="blue.50" borderRadius="md" border="1px solid" borderColor="blue.200">
-          <Text fontSize="sm" color="blue.800" fontWeight="semibold">
+        <Box p={3} bg="bg.info" borderRadius="md" border="1px solid" borderColor="border.info">
+          <Text fontSize="sm" color="fg.info" fontWeight="semibold">
             {error === 'API_INTEGRATION_PENDING' ? 'Pending Integration' : 'API Key Required'}
           </Text>
-          <Text fontSize="xs" color="blue.700">
+          <Text fontSize="xs" color="fg.info">
             {error === 'API_INTEGRATION_PENDING'
               ? 'Real DeBank portfolio data integration is coming soon.'
               : 'Add DEBANK_API_KEY to your environment to see real portfolio usage.'}
           </Text>
         </Box>
-        <Link href="https://debank.com" target="_blank" rel="noopener noreferrer" color="blue.500" fontSize="sm">
+        <Link href="https://debank.com" target="_blank" rel="noopener noreferrer" color="blue.fg" fontSize="sm">
           Visit DeBank ↗
         </Link>
       </VStack>
@@ -1059,8 +1067,8 @@ const DeBankContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =>
     <VStack gap={3} align="stretch">
       {totalUSD !== undefined && totalUSD > 0 && (
         <Box>
-          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Portfolio Value:</Text>
-          <Text fontSize="xl" fontWeight="bold" color="green.600">
+          <Text fontSize="sm" fontWeight="semibold" color="fg.muted">Portfolio Value:</Text>
+          <Text fontSize="xl" fontWeight="bold" color="green.fg">
             ${totalUSD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </Text>
         </Box>
@@ -1069,38 +1077,38 @@ const DeBankContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =>
       <HStack gap={4}>
         {totalTokens !== undefined && (
           <Box>
-            <Text fontSize="xs" color="gray.600">Tokens</Text>
-            <Text fontSize="lg" fontWeight="bold" color="blue.600">{totalTokens}</Text>
+            <Text fontSize="xs" color="fg.muted">Tokens</Text>
+            <Text fontSize="lg" fontWeight="bold" color="blue.fg">{totalTokens}</Text>
           </Box>
         )}
         {totalProtocols !== undefined && (
           <Box>
-            <Text fontSize="xs" color="gray.600">DeFi Protocols</Text>
-            <Text fontSize="lg" fontWeight="bold" color="purple.600">{totalProtocols}</Text>
+            <Text fontSize="xs" color="fg.muted">DeFi Protocols</Text>
+            <Text fontSize="lg" fontWeight="bold" color="purple.fg">{totalProtocols}</Text>
           </Box>
         )}
       </HStack>
 
       {topTokens && topTokens.length > 0 && (
         <Box>
-          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Top Holdings:</Text>
+          <Text fontSize="sm" fontWeight="semibold" color="fg.muted">Top Holdings:</Text>
           <VStack gap={2} align="stretch">
             {topTokens.slice(0, 3).map((token, index) => (
-              <Box key={index} p={2} bg="gray.50" borderRadius="md" border="1px solid" borderColor="gray.200">
+              <Box key={index} p={2} bg="bg.muted" borderRadius="md" border="1px solid" borderColor="border">
                 <HStack gap={2}>
                   {token.logoUrl && (
-                    <Box width="20px" height="20px" bg="gray.200" borderRadius="full" overflow="hidden">
+                    <Box width="20px" height="20px" bg="bg.emphasized" borderRadius="full" overflow="hidden">
                       <Image src={token.logoUrl} alt={token.symbol} width={20} height={20} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </Box>
                   )}
                   <VStack align="start" gap={0} flex={1}>
                     <HStack justify="space-between" width="100%">
-                      <Text fontSize="xs" fontWeight="semibold" color="gray.800">{token.symbol}</Text>
-                      <Text fontSize="xs" color="green.600" fontWeight="semibold">
+                      <Text fontSize="xs" fontWeight="semibold" color="fg">{token.symbol}</Text>
+                      <Text fontSize="xs" color="green.fg" fontWeight="semibold">
                         ${token.usdValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                       </Text>
                     </HStack>
-                    <Text fontSize="xs" color="gray.600">
+                    <Text fontSize="xs" color="fg.muted">
                       {token.amount.toLocaleString(undefined, { maximumFractionDigits: 6 })} @ ${token.price.toLocaleString()}
                     </Text>
                   </VStack>
@@ -1108,7 +1116,7 @@ const DeBankContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =>
               </Box>
             ))}
             {topTokens.length > 3 && (
-              <Text fontSize="xs" color="gray.500" textAlign="center">+{topTokens.length - 3} more tokens</Text>
+              <Text fontSize="xs" color="fg.muted" textAlign="center">+{topTokens.length - 3} more tokens</Text>
             )}
           </VStack>
         </Box>
@@ -1116,30 +1124,30 @@ const DeBankContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =>
 
       {protocolPositions && protocolPositions.length > 0 && (
         <Box>
-          <Text fontSize="sm" fontWeight="semibold" color="gray.600">DeFi Positions:</Text>
+          <Text fontSize="sm" fontWeight="semibold" color="fg.muted">DeFi Positions:</Text>
           <VStack gap={1} align="stretch">
             {protocolPositions.slice(0, 3).map((position, index) => (
               <HStack key={index} justify="space-between">
                 <HStack gap={2}>
                   {position.logoUrl && (
-                    <Box width="16px" height="16px" bg="gray.200" borderRadius="sm" overflow="hidden">
+                    <Box width="16px" height="16px" bg="bg.emphasized" borderRadius="sm" overflow="hidden">
                       <Image src={position.logoUrl} alt={position.name} width={16} height={16} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </Box>
                   )}
                   <VStack align="start" gap={0}>
-                    <Text fontSize="xs" fontWeight="semibold" color="gray.800">{position.name}</Text>
+                    <Text fontSize="xs" fontWeight="semibold" color="fg">{position.name}</Text>
                     <Badge size="xs" colorScheme={position.category === 'Lending' ? 'blue' : position.category === 'Staking' ? 'green' : 'purple'}>
                       {position.positionType}
                     </Badge>
                   </VStack>
                 </HStack>
-                <Text fontSize="xs" color="green.600" fontWeight="semibold">
+                <Text fontSize="xs" color="green.fg" fontWeight="semibold">
                   ${position.usdValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                 </Text>
               </HStack>
             ))}
             {protocolPositions.length > 3 && (
-              <Text fontSize="xs" color="gray.500" textAlign="center">+{protocolPositions.length - 3} more positions</Text>
+              <Text fontSize="xs" color="fg.muted" textAlign="center">+{protocolPositions.length - 3} more positions</Text>
             )}
           </VStack>
         </Box>
@@ -1147,10 +1155,10 @@ const DeBankContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =>
 
       <HStack justify="space-between" align="center">
         {source && source !== 'none' && (
-          <Text fontSize="xs" color="gray.500">Source: {source}</Text>
+          <Text fontSize="xs" color="fg.muted">Source: {source}</Text>
         )}
         {portfolioUrl && (
-          <Link href={portfolioUrl} target="_blank" rel="noopener noreferrer" color="blue.500" fontSize="sm">
+          <Link href={portfolioUrl} target="_blank" rel="noopener noreferrer" color="blue.fg" fontSize="sm">
             View on DeBank ↗
           </Link>
         )}
@@ -1169,13 +1177,13 @@ const ZerionContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =>
   if (error === 'NO_API_KEY') {
     return (
       <VStack gap={3} align="stretch">
-        <Box p={3} bg="blue.50" borderRadius="md" border="1px solid" borderColor="blue.200">
-          <Text fontSize="sm" color="blue.800" fontWeight="semibold">API Key Required</Text>
-          <Text fontSize="xs" color="blue.700">
+        <Box p={3} bg="bg.info" borderRadius="md" border="1px solid" borderColor="border.info">
+          <Text fontSize="sm" color="fg.info" fontWeight="semibold">API Key Required</Text>
+          <Text fontSize="xs" color="fg.info">
             Add ZERION_API_KEY to your environment to fetch portfolio value and positions.
           </Text>
         </Box>
-        <Link href="https://zerion.io/api" target="_blank" rel="noopener noreferrer" color="blue.500" fontSize="sm">
+        <Link href="https://zerion.io/api" target="_blank" rel="noopener noreferrer" color="blue.fg" fontSize="sm">
           Learn about Zerion API ↗
         </Link>
       </VStack>
@@ -1186,8 +1194,8 @@ const ZerionContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =>
     <VStack gap={3} align="stretch">
       {totalUSD !== undefined && (
         <Box>
-          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Portfolio Value:</Text>
-          <Text fontSize="lg" fontWeight="bold" color="green.600">
+          <Text fontSize="sm" fontWeight="semibold" color="fg.muted">Portfolio Value:</Text>
+          <Text fontSize="lg" fontWeight="bold" color="green.fg">
             ${Math.round(Number(totalUSD)).toLocaleString()} {currency || 'USD'}
           </Text>
         </Box>
@@ -1195,12 +1203,12 @@ const ZerionContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =>
 
       <HStack justify="space-between" align="center">
         {source && source !== 'none' && (
-          <Text fontSize="xs" color="gray.500">Source: {source}</Text>
+          <Text fontSize="xs" color="fg.muted">Source: {source}</Text>
         )}
       </HStack>
 
       {profileUrl && (
-        <Link href={profileUrl} target="_blank" rel="noopener noreferrer" color="green.500" fontSize="sm">
+        <Link href={profileUrl} target="_blank" rel="noopener noreferrer" color="green.fg" fontSize="sm">
           View on Zerion ↗
         </Link>
       )}
@@ -1218,8 +1226,8 @@ const XMTPContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) => {
   return (
     <VStack gap={3} align="stretch">
       <Box>
-        <Text fontSize="sm" fontWeight="semibold" color="gray.600">Inbox ID:</Text>
-        <Text fontSize="sm" color="gray.800" wordBreak="break-all">
+        <Text fontSize="sm" fontWeight="semibold" color="fg.muted">Inbox ID:</Text>
+        <Text fontSize="sm" color="fg" wordBreak="break-all">
           {inboxId || 'Not registered'}
         </Text>
       </Box>
@@ -1238,7 +1246,7 @@ const XMTPContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) => {
 
       {connectedIdentities && connectedIdentities.length > 0 ? (
         <Box>
-          <Text fontSize="sm" fontWeight="semibold" color="gray.600">Connected Identities:</Text>
+          <Text fontSize="sm" fontWeight="semibold" color="fg.muted">Connected Identities:</Text>
           <VStack gap={2} align="stretch" mt={2}>
             {connectedIdentities.slice(0, 4).map((identity, index) => (
               <HStack key={index} justify="space-between" align="start">
@@ -1249,26 +1257,26 @@ const XMTPContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) => {
                 >
                   {identity.kind}
                 </Badge>
-                <Text fontSize="xs" color="gray.700" wordBreak="break-all" textAlign="right">
+                <Text fontSize="xs" color="fg" wordBreak="break-all" textAlign="right">
                   {identity.identifier}
                 </Text>
               </HStack>
             ))}
             {connectedIdentities.length > 4 && (
-              <Text fontSize="xs" color="gray.500" textAlign="center">
+              <Text fontSize="xs" color="fg.muted" textAlign="center">
                 +{connectedIdentities.length - 4} more
               </Text>
             )}
           </VStack>
         </Box>
       ) : (
-        <Text fontSize="sm" color="gray.600">
+        <Text fontSize="sm" color="fg.muted">
           {inboxId ? 'No other identities linked.' : 'Not on XMTP.'}
         </Text>
       )}
 
       {identities && identities.length > 0 && (
-        <Text fontSize="xs" color="gray.500">
+        <Text fontSize="xs" color="fg.muted">
           Total identities: {identities.length}
         </Text>
       )}
