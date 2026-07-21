@@ -752,7 +752,7 @@ const OpenSeaContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =
               : 'Add OPENSEA_API_KEY to your environment to see real market data.'}
           </Text>
         </Box>
-        <Link href="https://opensea.io" target="_blank" rel="noopener noreferrer" color="blue.500" fontSize="sm">
+        <Link href={profileUrl || 'https://opensea.io'} target="_blank" rel="noopener noreferrer" color="blue.500" fontSize="sm">
           Visit OpenSea ↗
         </Link>
       </VStack>

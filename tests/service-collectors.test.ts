@@ -337,6 +337,7 @@ describe('OpenSea service collector', () => {
     const payload = res._getJSONData();
     assert.equal(payload.error, 'OPENSEA_API_KEY_REQUIRED');
     assert.equal(payload.source, 'none');
+    assert.equal(payload.profileUrl, `https://opensea.io/${demoAddress}`);
     assert.deepEqual(payload.topValuedNFTs, []);
   });
 
