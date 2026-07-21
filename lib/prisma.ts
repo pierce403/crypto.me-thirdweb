@@ -1,22 +1,53 @@
+import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 
-// Vercel Postgres exposes `POSTGRES_PRISMA_URL` / `POSTGRES_URL*` by default.
-// Prisma expects the schema datasource env var to exist at runtime, so we alias it.
-if (!process.env.DATABASE_URL) {
-  const fallback =
-    process.env.POSTGRES_PRISMA_URL ??
-    process.env.POSTGRES_URL ??
+function getLocalConnectionString(): string | undefined {
+  return (
+    process.env.DATABASE_URL ??
     process.env.POSTGRES_URL_NON_POOLING ??
-    process.env.POSTGRES_URL_NO_SSL;
-  if (fallback) process.env.DATABASE_URL = fallback;
+    process.env.POSTGRES_URL ??
+    process.env.POSTGRES_PRISMA_URL ??
+    process.env.POSTGRES_URL_NO_SSL
+  );
 }
 
-const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
+function getRuntimeConnectionString(): string {
+  try {
+    const connectionString = getCloudflareContext().env.HYPERDRIVE?.connectionString;
+    if (connectionString) return connectionString;
+  } catch {
+    // `next dev`, tests, and the Prisma CLI do not always have a Workers context.
+  }
 
-export const prisma =
-  globalForPrisma.prisma ??
-  new PrismaClient({
-    // optional: log: ['query', 'error', 'warn']
+  const localConnectionString = getLocalConnectionString();
+  if (!localConnectionString) {
+    throw new Error('No database connection is configured');
+  }
+
+  return localConnectionString;
+}
+
+export function createPrisma(connectionString: string): PrismaClient {
+  const adapter = new PrismaPg({
+    connectionString,
+    // Hyperdrive owns cross-request pooling. A connection must not be reused by
+    // a different Workers request context.
+    maxUses: 1,
   });
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+  return new PrismaClient({ adapter });
+}
+
+export function getPrisma(): PrismaClient {
+  return createPrisma(getRuntimeConnectionString());
+}
+
+export async function withPrisma<T>(work: (prisma: PrismaClient) => Promise<T>): Promise<T> {
+  const prisma = getPrisma();
+  try {
+    return await work(prisma);
+  } finally {
+    await prisma.$disconnect();
+  }
+}

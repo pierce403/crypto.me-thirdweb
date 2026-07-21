@@ -64,7 +64,7 @@ export function useFastProfile(
       console.log(`📡 Fetching profile data for ${address} (polling: ${isPolling})`);
 
       const response = await fetch(`/api/fast-profile?address=${address}`);
-      const result = await response.json();
+      const result = await response.json() as FastProfileData;
 
       if (!response.ok) {
         throw new Error(result.error || 'Failed to fetch profile');

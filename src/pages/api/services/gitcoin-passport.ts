@@ -52,7 +52,7 @@ export function createHandler(dependencies = defaultDependencies) {
       try {
         const response = await fetchFn(`https://api.ensideas.com/ens/resolve/${ensName}`);
         if (response.ok) {
-          const data = await response.json();
+          const data = await response.json() as { address?: string };
           return data.address || ensName;
         }
       } catch (error) {

@@ -11,6 +11,8 @@
 
 # next.js
 /.next/
+/.open-next/
+/.wrangler/
 /out/
 
 # production
@@ -33,6 +35,7 @@ prisma/*.db-journal
 # local env files
 .env*.local
 .env
+.dev.vars
 
 # vercel
 .vercel

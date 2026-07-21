@@ -9,6 +9,31 @@ const defaultDependencies = {
   fetchFn: fetch,
 };
 
+interface IcebreakerProfile {
+  profileID?: string;
+  walletAddress?: string;
+  displayName?: string;
+  bio?: string;
+  location?: string;
+  avatarUrl?: string;
+  channels?: Array<{
+    type: string;
+    value: string;
+    isVerified: boolean;
+    url?: string;
+  }>;
+  credentials?: Array<{
+    name: string;
+    chain?: string;
+    source?: string;
+    reference?: string;
+  }>;
+}
+
+interface IcebreakerResponse {
+  profiles?: IcebreakerProfile[];
+}
+
 export function createHandler(dependencies = defaultDependencies) {
   return async function handler(req: NextApiRequest, res: NextApiResponse) {
     const { fetchFn: fetch } = dependencies;
@@ -50,7 +75,7 @@ export function createHandler(dependencies = defaultDependencies) {
         throw new Error(`Icebreaker API error: ${response.status}`);
       }
 
-      const data = await response.json();
+      const data = await response.json() as IcebreakerResponse;
       console.log('Icebreaker raw response:', JSON.stringify(data, null, 2));
 
       // Check if we have profiles data
@@ -122,4 +147,4 @@ export function createHandler(dependencies = defaultDependencies) {
   };
 }
 
-export default createHandler(); 
+export default createHandler();

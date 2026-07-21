@@ -6,13 +6,16 @@
 - **Stability**: stable
 - **Description**: Aggregates profile data from multiple external services (ENS, Farcaster, Alchemy, etc.) into a single cached response.
 - **Properties**:
-  - Fetches data in the background to avoid blocking the UI.
+  - Sends stale services to a durable Cloudflare Queue instead of blocking the UI.
   - Caches results in a PostgreSQL database (`service_cache` table).
   - Returns cached data immediately if available ("stale-while-revalidate" pattern).
+  - Uses `sync_queue` leases to deduplicate polling and at-least-once delivery.
 - **Test Criteria**:
   - [x] `/api/fast-profile?address=...` returns JSON with `services` object.
   - [x] Cache status (`hit`, `miss`, `partial`) is correctly reported.
-  - [x] Background fetch is triggered on cache miss or stale data.
+  - [x] A stale service is leased and enqueued on cache miss.
+  - [x] The Queue consumer persists refreshed timestamps through Hyperdrive.
+  - [x] Repeated polls do not enqueue an active `(address, service)` lease twice.
 
 ### ENS Resolution & Validation
 - **Stability**: stable

@@ -1,12 +1,14 @@
-import { NextApiRequest, NextApiResponse } from 'next';
-import { prisma } from '../../../lib/prisma';
+import { getCloudflareContext } from '@opennextjs/cloudflare';
+import type { PrismaClient } from '@prisma/client';
+import type { NextApiRequest, NextApiResponse } from 'next';
+import { getPrisma, withPrisma } from '../../../lib/prisma';
 import { createEnsPublicClient } from '@ensdomains/ensjs';
 import { http } from 'viem';
 import { mainnet } from 'viem/chains';
 
 const ensClient = createEnsPublicClient({
   chain: mainnet,
-  transport: http('https://eth.llamarpc.com'),
+  transport: http('https://eth.llamarpc.com', { timeout: 8000, retryCount: 1 }),
 });
 
 const PROFILE_TTL_MS = 24 * 60 * 60 * 1000; // 24h
@@ -16,7 +18,7 @@ function isProfileStale(profile: { next_sync_due: Date | null; updated_at: Date 
   return Date.now() - profile.updated_at.getTime() > PROFILE_TTL_MS;
 }
 
-async function refreshEnsProfile(ens_name: string): Promise<void> {
+async function refreshEnsProfile(prisma: PrismaClient, ens_name: string): Promise<void> {
   const addressRecord = await ensClient.getAddressRecord({ name: ens_name });
   if (!addressRecord?.value || addressRecord.value === '0x0000000000000000000000000000000000000000') {
     await prisma.cached_profiles
@@ -70,7 +72,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ error: 'Invalid ENS name' });
   }
 
+  let prisma: ReturnType<typeof getPrisma> | undefined;
   try {
+    prisma = getPrisma();
     const profile = await prisma.cached_profiles.findUnique({
       where: { ens_name },
     });
@@ -88,13 +92,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // If stale but we have cached data, return immediately and refresh in background.
     if (profile && !refreshRequested && stale) {
-      const waitUntil = (res as unknown as { waitUntil?: (promise: Promise<unknown>) => void }).waitUntil;
-      const refreshPromise = refreshEnsProfile(ens_name);
-      if (typeof waitUntil === 'function') waitUntil(refreshPromise);
-      refreshPromise.catch((err) => {
-        const message = err instanceof Error ? err.message : String(err);
-        console.error(`[profile] Background refresh failed for ${ens_name}: ${message}`);
-      });
+      const refreshPromise = withPrisma((refreshPrisma) => refreshEnsProfile(refreshPrisma, ens_name));
+      try {
+        getCloudflareContext().ctx.waitUntil(refreshPromise);
+      } catch {
+        void refreshPromise.catch((error) => {
+          const message = error instanceof Error ? error.message : String(error);
+          console.error(JSON.stringify({ event: 'ens_profile_refresh_failed', ensName: ens_name, error: message }));
+        });
+      }
 
       const parsedProfileData = JSON.parse(profile.profile_data ?? '{}');
       return res.status(200).json({
@@ -105,7 +111,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // No cached data or explicit refresh requested -> do the refresh synchronously.
-    await refreshEnsProfile(ens_name);
+    await refreshEnsProfile(prisma, ens_name);
 
     const updatedProfile = await prisma.cached_profiles.findUnique({
       where: { ens_name },
@@ -122,9 +128,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   } catch (error) {
     console.error('Error fetching profile:', error);
-    await prisma.cached_profiles.delete({
-      where: { ens_name },
-    }).catch(() => { });
-    res.status(500).json({ error: 'Error fetching profile' });
+    return res.status(500).json({ error: 'Error fetching profile' });
+  } finally {
+    await prisma?.$disconnect();
   }
 }

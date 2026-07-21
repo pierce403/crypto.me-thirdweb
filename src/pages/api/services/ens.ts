@@ -20,6 +20,11 @@ type EnsDependencies = {
   fetchFn: typeof fetch;
 };
 
+interface EnsSubgraphResponse {
+  errors?: unknown;
+  data?: { domains?: Array<{ name: string }> };
+}
+
 const defaultDependencies: EnsDependencies = {
   ensClient,
   fetchFn: fetch,
@@ -57,7 +62,7 @@ async function fetchAllEnsNames(address: string, fetchFn: typeof fetch): Promise
       return [];
     }
 
-    const data = await response.json();
+    const data = await response.json() as EnsSubgraphResponse;
 
     if (data.errors) {
       console.error('ENS subgraph query errors:', data.errors);

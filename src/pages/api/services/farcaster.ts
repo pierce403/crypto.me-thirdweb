@@ -20,6 +20,25 @@ function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === 'object' && value !== null;
 }
 
+interface FarcasterUser extends UnknownRecord {
+  created_at?: string | number;
+  custody_address?: string;
+  display_name?: string;
+  experimental?: { neynar_user_score?: number };
+  fid?: number;
+  follower_count?: number;
+  following_count?: number;
+  pfp_url?: string;
+  power_badge?: boolean;
+  score?: number;
+  username?: string;
+  verified_addresses?: {
+    eth_addresses?: string[];
+    sol_addresses?: string[];
+    ens_domains?: string[];
+  };
+}
+
 type FarcasterDependencies = {
   ensClient: typeof ensClient;
   fetchFn: typeof fetch;
@@ -113,7 +132,7 @@ export function createHandler(dependencies: FarcasterDependencies = defaultDepen
         // Try to get more details about the error
         let errorMessage = `Neynar API error: ${userResponse.status}`;
         try {
-          const errorData = await userResponse.json();
+          const errorData = await userResponse.json() as { message?: string };
           if (errorData.message) {
             errorMessage += ` - ${errorData.message}`;
           }
@@ -124,7 +143,7 @@ export function createHandler(dependencies: FarcasterDependencies = defaultDepen
         throw new Error(errorMessage);
       }
 
-      const userData = await userResponse.json();
+      const userData = await userResponse.json() as Record<string, FarcasterUser[]>;
 
       // The new bulk-by-address endpoint returns an object with address keys (in lowercase)
       const usersByAddress = userData[resolvedAddress.toLowerCase()];
@@ -148,7 +167,7 @@ export function createHandler(dependencies: FarcasterDependencies = defaultDepen
         neynarScore += Math.min(followerCount / 1000, 0.4); // Up to 0.4 for followers
         neynarScore += Math.min(followingCount / 500, 0.2);  // Up to 0.2 for following
         neynarScore += powerBadge ? 0.3 : 0;                 // 0.3 for power badge
-        neynarScore += user.verified_addresses?.eth_addresses?.length > 0 ? 0.1 : 0; // 0.1 for verified addresses
+        neynarScore += (user.verified_addresses?.eth_addresses?.length ?? 0) > 0 ? 0.1 : 0; // 0.1 for verified addresses
         neynarScore = Math.min(neynarScore, 1.0); // Cap at 1.0
       }
 

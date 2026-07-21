@@ -1,97 +1,115 @@
 # Crypto.me Thirdweb
 
-Crypto.me Thirdweb is a central profile page for web3 identities. It allows users to view and manage their Ethereum Name Service (ENS) profiles, displaying the last error or the last successful sync time.
+Crypto.me is a cache-first Web3 identity aggregator. A profile combines ENS,
+Farcaster, NFT, DeFi, XMTP, and other service data while still returning useful
+cached results when an upstream provider is slow or unavailable.
 
-The app aggregates data through **service collectors** (under `src/pages/api/services/*`). Each collector fetches data from a specific provider (ENS, Farcaster, XMTP, etc.) and augments the cached profile that powers `/api/fast-profile` and the profile UI. Collectors can be exercised individually, which helps us debug slow upstreams without running the full app.
+Production runs on **Cloudflare Workers** through OpenNext. PostgreSQL remains
+the source of truth; Workers reach it through **Hyperdrive**, and stale profile
+services are refreshed by **Cloudflare Queues**.
 
-## Tech Stack
+## Stack
 
-- [Next.js](https://nextjs.org): A React framework for building web applications.
-- [Prisma](https://www.prisma.io): An open-source database toolkit for TypeScript and Node.js.
-- [PostgreSQL](https://www.postgresql.org): The primary database for production.
-- [SQLite](https://www.sqlite.org): Can be used for local development if configured.
+- Next.js 15 (Pages Router, with shared App Router assets under `src/app`)
+- OpenNext for Cloudflare Workers
+- PostgreSQL, Prisma, `@prisma/adapter-pg`, and Hyperdrive
+- Cloudflare Queues for durable background refreshes
+- Chakra UI, React, TypeScript, ENS.js, and Viem
 
-See [ARCHITECTURE.md](./ARCHITECTURE.md) for details on the `fast-profile` system, `service_cache`, and `sync_queue`.
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full request, cache, and Queue
+flow.
 
-## Getting Started
+## How profile loading works
 
-To set up a local version of the app, follow these steps:
+1. `src/pages/[ens].tsx` serves cached ENS profile data during SSR.
+2. The client calls `/api/fast-profile?address=0x...`.
+3. The API reads `service_cache` through Hyperdrive and returns cached or partial
+   data immediately.
+4. Stale services receive a short lease in `sync_queue` and are sent to
+   `crypto-me-profile-refresh`.
+5. The Queue consumer in `custom-worker.ts` calls the bounded service collector,
+   upserts `service_cache`, and releases the lease.
+6. Client polling observes the refreshed rows on a later request.
 
-1. Clone the repository:
-
-```bash
-git clone https://github.com/pierce403/crypto.me-thirdweb.git
-cd crypto.me-thirdweb
-```
-
-2. Install the dependencies:
+## Local development
 
 ```bash
 npm install
-# or
-yarn install
-```
-
-3. Set up the database:
-
-The project uses SQLite for local testing. The database file `data.db` is automatically created in the project root directory. No additional setup is required.
-
-4. Run the development server:
-
-```bash
 npm run dev
-# or
-yarn dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The app requires PostgreSQL. Set `DATABASE_URL` in an ignored `.env` or
+`.env.local` file. Provider credentials are optional for local development;
+collectors without credentials return explicit empty/error states.
 
-### Running tests locally
-
-- Run the full collector smoke suite (uses stubbed network calls):
+Useful commands:
 
 ```bash
-npm test
+npm test                    # deterministic collector smoke tests
+npm run build               # Prisma generation + Next.js production build
+npm run cf:build            # OpenNext build + credential-leak gate
+npm run preview             # local workerd preview with Hyperdrive emulation
+npm run cf:typegen          # regenerate Cloudflare binding/runtime types
+npm run db:dev              # prisma db push (development only)
+npm run db:migrate          # create a development migration
+npm run db:deploy           # explicitly apply production migrations
 ```
 
-- Run a single collector test or test case by name:
+## Cloudflare deployment
+
+Cloudflare configuration lives in `wrangler.jsonc`. Production uses:
+
+- Worker: `crypto-me`
+- Custom domain: `crypto.me`
+- Hyperdrive binding: `HYPERDRIVE`
+- Queue binding: `PROFILE_REFRESH_QUEUE`
+- Dead-letter queue: `crypto-me-profile-refresh-dlq`
+- Self service binding: `WORKER_SELF_REFERENCE`
+- Static assets and Cloudflare Images bindings
+
+Deploy with the package script so the OpenNext artifact is sanitized before it
+can be uploaded:
 
 ```bash
-npm test -- tests/service-collectors.test.ts --test-name-pattern "ENS"
+npm run deploy
 ```
 
-These tests keep service collectors fast and deterministic by injecting stubbed dependencies instead of calling live third-party APIs.
+Do not replace that with a bare `opennextjs-cloudflare deploy`: OpenNext copies
+values from Next `.env*` files into its generated output by default.
+`scripts/sanitize-opennext-env.js` removes generated env files and refuses to
+continue if any local credential value is still present.
 
-## Database Setup and Maintenance
+Database migrations are intentionally separate from application deployment:
 
-The project uses SQLite as the default database for local testing. The database file `data.db` is automatically created in the project root directory. To manage the database schema, Prisma is used. Here are some useful commands:
+```bash
+npm run db:deploy
+npm run deploy
+```
 
-- To apply database migrations:
-  ```bash
-  npx prisma migrate dev
-  ```
+Set provider credentials as Worker secrets, never as committed `vars` and never
+as raw production database URLs. Hyperdrive is the only production database
+binding.
 
-- To generate Prisma client:
-  ```bash
-  npx prisma generate
-  ```
+```bash
+npx wrangler secret put NEYNAR_API_KEY
+npx wrangler secret put ALCHEMY_API_KEY
+npx wrangler secret put OPENSEA_API_KEY
+npx wrangler tail crypto-me
+```
 
-- To open the Prisma Studio for database management:
-  ```bash
-  npx prisma studio
-  ```
+Only add a credential after validating it with its provider. Missing DeBank,
+Zerion, Passport, or other credentials deliberately produce degraded collector
+data instead of taking down the profile page.
 
-## Learn More
+XMTP's Node SDK uses native modules that cannot execute in `workerd`. Production
+XMTP refreshes therefore require a Node-compatible collector configured through
+`XMTP_SERVICE_URL` and, optionally, `XMTP_SERVICE_TOKEN`.
 
-To learn more about Next.js, take a look at the following resources:
+## Primary endpoints
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `GET /api/health` — verifies the Worker can query PostgreSQL
+- `GET /api/profile?ens_name=vitalik.eth` — ENS profile cache
+- `GET /api/fast-profile?address=0x...` — aggregated service cache
+- `GET /api/services/{service}?address=0x...` — one bounded collector
+- `GET /api/recent-profiles` — recently accessed ENS profiles
+- `GET /api/queue` — describes the durable Queue configuration

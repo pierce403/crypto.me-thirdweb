@@ -29,9 +29,6 @@ export interface FastProfileData {
   error?: string; // Optional error field
 }
 
-export const globalFetchLock = new Map<string, Promise<void>>();
-
-// For the queue endpoint - recent updates log
 export interface RecentUpdateEvent {
   address: string;
   timestamp: number;
@@ -41,16 +38,9 @@ export interface RecentUpdateEvent {
   errorName?: string; // Added field for error name (e.g., TypeError, HTTPError500)
 }
 
-export const recentUpdatesLog: RecentUpdateEvent[] = [];
-const MAX_LOG_SIZE = 20; // Keep a bit more than 10 for buffer
-
 export function addRecentUpdateEvent(eventData: Omit<RecentUpdateEvent, 'timestamp'>): void {
   const event = { ...eventData, timestamp: Date.now() };
-  recentUpdatesLog.unshift(event);
-  if (recentUpdatesLog.length > MAX_LOG_SIZE) {
-    recentUpdatesLog.length = MAX_LOG_SIZE;
-  }
-  console.log(`[CacheStoreEvent] ${event.status} for ${event.address}` + (event.serviceName ? ` (service: ${event.serviceName})` : '') + (event.message ? ` Msg: ${event.message}` : ''));
+  console.log(JSON.stringify({ event: 'profile_cache_event', ...event }));
 }
 
 export const SERVICES_CONFIG = [

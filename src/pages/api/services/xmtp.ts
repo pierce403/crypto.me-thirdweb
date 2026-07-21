@@ -2,7 +2,6 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { createEnsPublicClient } from '@ensdomains/ensjs';
 import { http } from 'viem';
 import { mainnet } from 'viem/chains';
-import { Client, getInboxIdForIdentifier } from '@xmtp/node-sdk';
 
 const alchemyRpcUrl =
   process.env.ALCHEMY_RPC_URL ||
@@ -47,18 +46,41 @@ function identifierKindToString(identifierKind: number): 'ethereum' | 'passkey' 
   return 'unknown';
 }
 
-const defaultDependencies = {
-  ensClient,
-  xmtp: {
-    getInboxIdForIdentifier,
-    Client,
-  }
-};
+interface XmtpIdentifier {
+  identifier: string;
+  identifierKind: number;
+}
+
+interface XmtpRuntime {
+  getInboxIdForIdentifier: (
+    identifier: XmtpIdentifier,
+    env: XmtpEnv,
+    gatewayHost?: string,
+  ) => Promise<string | null>;
+  Client: {
+    inboxStateFromInboxIds: (
+      inboxIds: string[],
+      env: XmtpEnv,
+      gatewayHost?: string,
+    ) => Promise<Array<{ inboxId?: string; identifiers?: XmtpIdentifier[] }>>;
+  };
+}
+
+interface EnsResolver {
+  getAddressRecord: (args: { name: string }) => Promise<{ value?: string | null } | null>;
+}
+
+interface XmtpDependencies {
+  ensClient: EnsResolver;
+  xmtp?: XmtpRuntime;
+  fetchFn?: typeof fetch;
+}
+
+const defaultDependencies: XmtpDependencies = { ensClient, fetchFn: fetch };
 
 export function createHandler(dependencies = defaultDependencies) {
   return async function handler(req: NextApiRequest, res: NextApiResponse) {
     const { ensClient, xmtp } = dependencies;
-    const { getInboxIdForIdentifier, Client } = xmtp;
 
     if (req.method !== 'GET') {
       res.setHeader('Allow', ['GET']);
@@ -69,6 +91,38 @@ export function createHandler(dependencies = defaultDependencies) {
     if (!address || typeof address !== 'string') {
       return res.status(400).json({ error: 'Address or ENS name is required' });
     }
+
+    if (!xmtp) {
+      const proxyUrl = process.env.XMTP_SERVICE_URL;
+      if (!proxyUrl) {
+        return res.status(503).json({
+          error: 'XMTP refresh requires a Node-compatible collector service',
+          code: 'XMTP_COLLECTOR_UNAVAILABLE',
+        });
+      }
+
+      try {
+        const url = new URL(proxyUrl);
+        url.searchParams.set('address', address);
+        const headers = new Headers();
+        if (process.env.XMTP_SERVICE_TOKEN) {
+          headers.set('Authorization', `Bearer ${process.env.XMTP_SERVICE_TOKEN}`);
+        }
+        const response = await (dependencies.fetchFn ?? fetch)(url, {
+          headers,
+          signal: AbortSignal.timeout(8000),
+        });
+        const payload: unknown = await response.json();
+        return res.status(response.status).json(payload);
+      } catch (error) {
+        return res.status(502).json({
+          error: error instanceof Error ? error.message : 'XMTP collector request failed',
+          code: 'XMTP_COLLECTOR_FAILED',
+        });
+      }
+    }
+
+    const { getInboxIdForIdentifier, Client } = xmtp;
 
     const env = getXmtpEnv();
     const gatewayHost = process.env.XMTP_GATEWAY_HOST || undefined;

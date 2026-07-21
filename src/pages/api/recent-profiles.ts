@@ -1,10 +1,10 @@
-import { NextApiRequest, NextApiResponse } from 'next';
-import { prisma } from '../../../lib/prisma';
+import type { NextApiRequest, NextApiResponse } from 'next';
+import { withPrisma } from '../../../lib/prisma';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
     try {
-      const recentProfiles = await prisma.cached_profiles.findMany({
+      const recentProfiles = await withPrisma((prisma) => prisma.cached_profiles.findMany({
         where: {
           last_sync_status: {
             contains: 'Successfully updated',
@@ -17,7 +17,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         select: {
           ens_name: true,
         },
-      });
+      }));
 
       const profileNames = recentProfiles.map(profile => profile.ens_name);
 

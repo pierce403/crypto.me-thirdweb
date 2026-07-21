@@ -5,7 +5,7 @@ import Head from 'next/head';
 import { Box, Container, Heading, Text, VStack, Separator, Button, SimpleGrid, HStack, Badge, Spinner } from '@chakra-ui/react';
 import Image from 'next/image';
 import { useFastProfile } from '../hooks/useFastProfile';
-import { prisma } from '../../lib/prisma';
+import { withPrisma } from '../../lib/prisma';
 import {
   FastENSCard,
   FastXMTPCard,
@@ -36,6 +36,12 @@ interface ProfilePageProps {
   avatar: string | null;
 }
 
+interface ProfileApiResponse {
+  error?: string;
+  address?: string;
+  profile_data?: { ens_avatar?: string | null };
+}
+
 function isEthereumAddress(input: string): boolean {
   return /^0x[a-fA-F0-9]{40}$/.test(input);
 }
@@ -57,10 +63,10 @@ export const getServerSideProps: GetServerSideProps<ProfilePageProps> = async (c
 
   try {
     // Fast path: return cached ENS data instantly if we have it.
-    const cached = await prisma.cached_profiles.findUnique({
+    const cached = await withPrisma((prisma) => prisma.cached_profiles.findUnique({
       where: { ens_name: ensName },
       select: { profile_data: true },
-    });
+    }));
 
     if (!cached?.profile_data) return { props: { ensName, address: null, avatar: null } };
 
@@ -107,7 +113,7 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
 
       try {
         const response = await fetch(`/api/profile?ens_name=${encodeURIComponent(ensName)}`);
-        const result = await response.json();
+        const result = await response.json() as ProfileApiResponse;
         if (cancelled) return;
 
         if (!response.ok) {

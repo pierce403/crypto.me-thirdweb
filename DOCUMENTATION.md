@@ -1,53 +1,59 @@
-# Crypto.me Thirdweb Documentation
+# Crypto.me developer documentation
 
-## Project Structure Overview
-- **Backend**: Implemented using Next.js API routes.
-- **Frontend**: Built with Next.js, TypeScript, React, and Tailwind CSS.
-- **Database**: PostgreSQL for storing profile data.
+Crypto.me is a Next.js application hosted on Cloudflare Workers. PostgreSQL is
+accessed through Hyperdrive, Prisma clients are request-scoped, and Cloudflare
+Queues refresh stale profile services.
 
-## Setup Instructions
-1. Clone the repository: `git clone https://github.com/pierce403/crypto.me-thirdweb.git`
-2. Navigate to the project directory: `cd crypto.me-thirdweb`
-3. Install dependencies: `npm install`
-4. Set up environment variables in `.env.local`
-5. Start the development server: `npm run dev`
+## Setup
 
-## Accessing the Application
-- Open your web browser and go to `http://localhost:3000` to access the application.
+```bash
+git clone https://github.com/pierce403/crypto.me-thirdweb.git
+cd crypto.me-thirdweb
+npm install
+npm run dev
+```
 
-## API Endpoint Descriptions
-- **/api/health**: Returns the health status of the application.
-- **/api/fast-profile**: Main endpoint for fetching aggregated profile data. Accepts `?address=...`.
-- **/api/services/***: Individual service endpoints (ens, farcaster, alchemy, etc.).
-- **/api/queue**: Debug endpoint for viewing recent background fetch events.
+Set a PostgreSQL `DATABASE_URL` in `.env` or `.env.local`. Optional provider
+credentials enable their matching collectors.
 
-## Testing API Routes
-- To test the `/api/health` endpoint, use the following curl command:
-  ```
-  curl http://localhost:3000/api/health
-  ```
-- To test the `/api/profile` endpoint, use the following curl command, replacing `ens_name` with the desired ENS name:
-  ```
-  curl http://localhost:3000/api/profile?ens_name=test.eth
-  ```
+## Verification
 
-## Verifying Frontend Functionality
-- Ensure the health status is displayed as "healthy" on the frontend.
-- Enter an ENS name (e.g., "test.eth") in the input field and click the "Fetch Profile" button.
-- Verify that the profile information is displayed correctly, including name, bio, avatar, and social media links.
+```bash
+npm test
+npx tsc --noEmit
+npm run build
+npm run cf:build
+npm run preview
+```
 
-## Frontend Component Descriptions
-- **Health Status**: Displays the current health status of the backend.
-- **Fetch Profile**: Allows users to enter an ENS name and fetch corresponding profile data.
+`npm run preview` uses a local Hyperdrive connection string derived from the
+ignored local database environment. The production build gate sanitizes and
+scans `.open-next` before any deployment.
 
-## Database Schema and Interaction Details
-- **cached_profiles**: Table storing ENS names and associated profile data.
-- Interaction via Prisma ORM in Next.js API routes.
+## APIs
 
-## Prisma Setup and Usage
-- **Prisma Client**: Used for database operations, replacing direct PostgreSQL queries.
-- **Schema Definition**: Located in `prisma/schema.prisma`, reflecting the current database structure.
-- **Running Migrations**: Use `npx prisma migrate dev` to apply schema changes to the database.
-- **Generating Prisma Client**: Run `npx prisma generate` after making changes to the schema.
+- `/api/health` performs a real database query and returns 503 on failure.
+- `/api/profile?ens_name=...` resolves and caches ENS profile data.
+- `/api/fast-profile?address=0x...` returns the aggregated service cache and
+  enqueues stale services.
+- `/api/services/*` exposes independently testable service collectors.
+- `/api/recent-profiles` lists recent ENS cache entries.
+- `/api/queue` describes the durable Cloudflare Queue setup; it is not an
+  in-memory event feed.
 
-Ensure all sections are detailed and clear for users and developers.
+## Database workflow
+
+The schema is in `prisma/schema.prisma` and contains `cached_profiles`,
+`service_cache`, and the Queue deduplication table `sync_queue`.
+
+```bash
+npm run db:dev
+npm run db:migrate
+npm run db:deploy
+```
+
+Production migrations are explicit and are not run automatically by Worker
+deployment.
+
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for runtime details and [README.md](./README.md)
+for Cloudflare operations.

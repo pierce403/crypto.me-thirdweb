@@ -50,7 +50,7 @@ const Home: React.FC = () => {
     try {
       const response = await fetch('/api/recent-profiles');
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json() as { profiles: string[] };
         // Filter to only show valid ENS names
         const validProfiles = data.profiles.filter(isValidENSName);
         setRecentProfiles(validProfiles);
@@ -84,7 +84,18 @@ const Home: React.FC = () => {
       <Box bg="white" borderBottom="1px" borderColor="gray.200" pb={20} pt={16}>
         <Container maxW="container.lg">
           <VStack gap={8} align="center" textAlign="center">
-            <Heading as="h1" size="4xl" bgGradient="linear(to-r, blue.500, purple.600)" bgClip="text" fontWeight="extrabold" letterSpacing="tight">
+            <Heading
+              as="h1"
+              size="4xl"
+              fontWeight="extrabold"
+              letterSpacing="tight"
+              style={{
+                backgroundImage: 'linear-gradient(to right, #3182ce, #805ad5)',
+                backgroundClip: 'text',
+                WebkitBackgroundClip: 'text',
+                color: 'transparent',
+              }}
+            >
               crypto.me
             </Heading>
             <Text fontSize="xl" color="gray.600" maxW="2xl" lineHeight="tall">

@@ -29,6 +29,25 @@ interface DecentralandNFTResponse {
   total?: number;
 }
 
+interface PeerProfileResponse {
+  avatars?: Array<{
+    name?: string;
+    avatar?: { snapshots?: { face256?: string; body?: string } };
+  }>;
+}
+
+interface GraphNFTResponse {
+  data?: { nfts?: Array<{ category: string }> };
+}
+
+interface OpenSeaAssetResponse {
+  assets?: unknown[];
+}
+
+interface AlchemyNFTResponse {
+  ownedNfts?: unknown[];
+}
+
 interface DebugInfo {
   peerAPI: {
     status: string;
@@ -116,7 +135,7 @@ export function createHandler(dependencies = defaultDependencies) {
         const peerResponse = await fetch(`https://peer.decentraland.org/lambdas/profiles/${address.toLowerCase()}`);
 
         if (peerResponse.ok) {
-          const peerData = await peerResponse.json();
+          const peerData = await peerResponse.json() as PeerProfileResponse;
           // Lambdas endpoint returns { avatars: [...] }
           debugInfo.peerAPI = { status: 'success', count: peerData?.avatars?.length || 0 };
 
@@ -240,7 +259,7 @@ export function createHandler(dependencies = defaultDependencies) {
           });
 
           if (graphResponse.ok) {
-            const graphData = await graphResponse.json();
+            const graphData = await graphResponse.json() as GraphNFTResponse;
             if (graphData.data && graphData.data.nfts) {
               const graphNfts = graphData.data.nfts;
               const graphLandCount = graphNfts.filter((nft: { category: string }) =>
@@ -283,18 +302,16 @@ export function createHandler(dependencies = defaultDependencies) {
           );
 
           if (openSeaResponse.ok) {
-            const openSeaData = await openSeaResponse.json();
+            const openSeaData = await openSeaResponse.json() as OpenSeaAssetResponse;
             debugInfo.openSea = { status: 'success', assetsCount: openSeaData.assets?.length || 0 };
             if (openSeaData.assets) {
               landParcels += openSeaData.assets.length;
             }
           } else {
-            const responseText = await openSeaResponse.text();
-            const isBlocked = responseText.includes('Cloudflare') || responseText.includes('blocked');
             debugInfo.openSea = {
               status: 'failed',
               statusCode: openSeaResponse.status,
-              blocked: isBlocked
+              blocked: openSeaResponse.status === 403 || openSeaResponse.status === 429,
             };
           }
         } catch (error) {
@@ -312,7 +329,7 @@ export function createHandler(dependencies = defaultDependencies) {
           );
 
           if (alchemyResponse.ok) {
-            const alchemyData = await alchemyResponse.json();
+            const alchemyData = await alchemyResponse.json() as AlchemyNFTResponse;
             const alchemyLandCount = alchemyData.ownedNfts?.length || 0;
             debugInfo.alchemy = { status: 'success', count: alchemyLandCount };
             if (alchemyLandCount > landParcels) {
@@ -348,4 +365,4 @@ export function createHandler(dependencies = defaultDependencies) {
   };
 }
 
-export default createHandler(); 
+export default createHandler();
