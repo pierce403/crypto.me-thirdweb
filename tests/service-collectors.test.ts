@@ -379,19 +379,33 @@ describe('OpenSea service collector', () => {
 });
 
 describe('XMTP service collector', () => {
-  it('returns inbox ID', async () => {
+  it('returns every inbox identity and safe inbox properties', async () => {
+    const connectedAddress = '0x2222222222222222222222222222222222222222';
     const xmtpMock = {
-      getInboxIdForIdentifier: async () => 'inbox-123',
-      Client: {
-        inboxStateFromInboxIds: async () => [{ inboxId: 'inbox-123', identifiers: [] }]
-      }
+      lookupInboxId: async () => 'inbox-123',
+      fetchInboxStates: async () => [
+        {
+          inboxId: 'inbox-123',
+          recoveryIdentifier: { identifier: connectedAddress, identifierKind: 0 },
+          identifiers: [
+            { identifier: demoAddress.toUpperCase().replace('0X', '0x'), identifierKind: 0 },
+            { identifier: connectedAddress, identifierKind: 0 },
+            { identifier: 'passkey-public-key', identifierKind: 1 },
+            { identifier: 'future-identifier', identifierKind: 99 },
+          ],
+          installations: [
+            { id: 'installation-1', clientTimestampNs: 1n },
+            { id: 'installation-2', clientTimestampNs: 2n },
+          ],
+        },
+      ],
     };
 
     const handler = createXmtpHandler({
       ensClient: {
         getAddressRecord: async () => ({ value: demoAddress, id: 60 }),
       } as const,
-      xmtp: xmtpMock as any
+      xmtp: xmtpMock,
     });
 
     const { req, res } = createMocks({ method: 'GET', query: { address: demoAddress } });
@@ -399,6 +413,119 @@ describe('XMTP service collector', () => {
 
     assert.equal(res._getStatusCode(), 200);
     const payload = res._getJSONData();
+    assert.equal(payload.schemaVersion, 2);
+    assert.equal(payload.registered, true);
     assert.equal(payload.inboxId, 'inbox-123');
+    assert.equal(payload.identities.length, 4);
+    assert.equal(payload.identities[0].isViewedProfile, true);
+    assert.equal(payload.identities[1].isRecovery, true);
+    assert.equal(payload.identities[2].kind, 'passkey');
+    assert.equal(payload.identities[3].kind, 'unknown');
+    assert.equal(payload.connectedIdentities.length, 3);
+    assert.deepEqual(payload.recoveryIdentifier, {
+      identifier: connectedAddress,
+      kind: 'ethereum',
+    });
+    assert.equal(payload.installationCount, 2);
+    assert.equal('installations' in payload, false);
+  });
+
+  it('fails without replacing cached data when an inbox state is missing', async () => {
+    const handler = createXmtpHandler({
+      ensClient: {
+        getAddressRecord: async () => ({ value: demoAddress, id: 60 }),
+      } as const,
+      xmtp: {
+        lookupInboxId: async () => 'inbox-123',
+        fetchInboxStates: async () => [],
+      },
+    });
+
+    const { req, res } = createMocks({ method: 'GET', query: { address: demoAddress } });
+    await handler(req as unknown as NextApiRequest, res as unknown as NextApiResponse);
+
+    assert.equal(res._getStatusCode(), 500);
+    const payload = res._getJSONData();
+    assert.match(payload.error, /returned no state/);
+    assert.equal(payload.installationCount, null);
+  });
+
+  it('forwards production requests to the configured Node collector', async () => {
+    const originalUrl = process.env.XMTP_SERVICE_URL;
+    const originalToken = process.env.XMTP_SERVICE_TOKEN;
+    process.env.XMTP_SERVICE_URL = 'https://collector.example/xmtp';
+    process.env.XMTP_SERVICE_TOKEN = 'test-token';
+
+    let forwardedUrl = '';
+    let forwardedAuthorization: string | null = null;
+    const expectedPayload = {
+      schemaVersion: 2,
+      registered: true,
+      inboxId: 'inbox-123',
+      queriedIdentifier: { identifier: demoAddress, kind: 'ethereum' },
+      recoveryIdentifier: null,
+      identities: [{ identifier: demoAddress, kind: 'ethereum', isViewedProfile: true, isRecovery: false }],
+      connectedIdentities: [],
+      installationCount: null,
+      source: 'xmtp',
+      env: 'production',
+    };
+
+    try {
+      const handler = createXmtpHandler({
+        ensClient: {
+          getAddressRecord: async () => ({ value: demoAddress, id: 60 }),
+        } as const,
+        fetchFn: async (input, init) => {
+          forwardedUrl = String(input);
+          forwardedAuthorization = new Headers(init?.headers).get('Authorization');
+          return mockResponse(expectedPayload);
+        },
+      });
+
+      const { req, res } = createMocks({ method: 'GET', query: { address: demoAddress } });
+      await handler(req as unknown as NextApiRequest, res as unknown as NextApiResponse);
+
+      assert.equal(res._getStatusCode(), 200);
+      assert.equal(new URL(forwardedUrl).searchParams.get('address'), demoAddress);
+      assert.equal(forwardedAuthorization, 'Bearer test-token');
+      assert.deepEqual(res._getJSONData(), expectedPayload);
+    } finally {
+      if (originalUrl === undefined) delete process.env.XMTP_SERVICE_URL;
+      else process.env.XMTP_SERVICE_URL = originalUrl;
+
+      if (originalToken === undefined) delete process.env.XMTP_SERVICE_TOKEN;
+      else process.env.XMTP_SERVICE_TOKEN = originalToken;
+    }
+  });
+
+  it('rejects an incomplete successful collector response to preserve cached data', async () => {
+    const originalUrl = process.env.XMTP_SERVICE_URL;
+    process.env.XMTP_SERVICE_URL = 'https://collector.example/xmtp';
+
+    try {
+      const handler = createXmtpHandler({
+        ensClient: {
+          getAddressRecord: async () => ({ value: demoAddress, id: 60 }),
+        } as const,
+        fetchFn: async () => mockResponse({
+          schemaVersion: 2,
+          registered: true,
+          inboxId: 'inbox-123',
+          identities: [],
+          source: 'xmtp',
+          env: 'production',
+        }),
+      });
+
+      const { req, res } = createMocks({ method: 'GET', query: { address: demoAddress } });
+      await handler(req as unknown as NextApiRequest, res as unknown as NextApiResponse);
+
+      assert.equal(res._getStatusCode(), 502);
+      assert.equal(res._getJSONData().code, 'XMTP_COLLECTOR_INVALID_RESPONSE');
+    } finally {
+      if (originalUrl === undefined) delete process.env.XMTP_SERVICE_URL;
+      else process.env.XMTP_SERVICE_URL = originalUrl;
+    }
   });
 });

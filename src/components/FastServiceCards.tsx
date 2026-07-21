@@ -11,6 +11,7 @@ import {
   Button
 } from '@chakra-ui/react';
 import Image from 'next/image';
+import { getXmtpIdentities, getXmtpMessageUrl } from '../lib/xmtpProfile';
 
 interface ServiceCardProps {
   data: Record<string, unknown> | null;
@@ -1217,67 +1218,130 @@ const ZerionContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =>
 };
 
 const XMTPContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) => {
-  const inboxId = (data.inboxId as string | null) || null;
-  const connectedIdentities = data.connectedIdentities as Array<{ identifier: string; kind: string }> | undefined;
-  const identities = data.identities as Array<{ identifier: string; kind: string }> | undefined;
-  const convergeUser = data.convergeUser as string | undefined;
-  const convergeUrl = convergeUser ? `https://converge.cv/u/${encodeURIComponent(convergeUser)}` : null;
+  const inboxId = typeof data.inboxId === 'string' && data.inboxId.trim() ? data.inboxId : null;
+  const profileAddress = typeof data.profileAddress === 'string' ? data.profileAddress : null;
+  const identities = getXmtpIdentities(data, profileAddress);
+  const environment = typeof data.env === 'string' ? data.env : null;
+  const messageUrl = getXmtpMessageUrl(profileAddress, environment);
+  const installationCount =
+    typeof data.installationCount === 'number' && Number.isFinite(data.installationCount)
+      ? Math.max(0, Math.trunc(data.installationCount))
+      : null;
 
   return (
     <VStack gap={3} align="stretch">
       <Box>
         <Text fontSize="sm" fontWeight="semibold" color="fg.muted">Inbox ID:</Text>
-        <Text fontSize="sm" color="fg" wordBreak="break-all">
+        <Text fontSize="xs" color="fg" fontFamily="mono" wordBreak="break-all">
           {inboxId || 'Not registered'}
         </Text>
       </Box>
 
-      {inboxId && convergeUser && (
-        <Button
-          colorScheme="blue"
-          size="sm"
-          onClick={() => {
-            if (convergeUrl) window.open(convergeUrl, '_blank', 'noopener,noreferrer');
-          }}
-        >
-          Message on Converge
-        </Button>
+      {inboxId && (environment || installationCount !== null) && (
+        <HStack gap={2} flexWrap="wrap">
+          {environment && (
+            <Badge size="sm" colorScheme="blue" textTransform="capitalize">
+              XMTP {environment}
+            </Badge>
+          )}
+          {installationCount !== null && (
+            <Badge size="sm" colorScheme="gray">
+              {installationCount} {installationCount === 1 ? 'installation' : 'installations'}
+            </Badge>
+          )}
+        </HStack>
       )}
 
-      {connectedIdentities && connectedIdentities.length > 0 ? (
+      {inboxId && messageUrl && (
+        <Link
+          data-testid="xmtp-message-link"
+          href={messageUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          display="inline-flex"
+          alignItems="center"
+          justifyContent="center"
+          minH="44px"
+          px={4}
+          borderRadius="md"
+          bg="blue.600"
+          color="white"
+          fontSize="sm"
+          fontWeight="semibold"
+          _hover={{ bg: 'blue.700', textDecoration: 'none' }}
+        >
+          Message on xmtp.im ↗
+        </Link>
+      )}
+
+      {identities.length > 0 ? (
         <Box>
-          <Text fontSize="sm" fontWeight="semibold" color="fg.muted">Connected Identities:</Text>
+          <Text fontSize="sm" fontWeight="semibold" color="fg.muted">
+            Inbox identities ({identities.length})
+          </Text>
           <VStack gap={2} align="stretch" mt={2}>
-            {connectedIdentities.slice(0, 4).map((identity, index) => (
-              <HStack key={index} justify="space-between" align="start">
-                <Badge
-                  size="sm"
-                  colorScheme={identity.kind === 'ethereum' ? 'blue' : identity.kind === 'passkey' ? 'purple' : 'gray'}
-                  textTransform="lowercase"
-                >
-                  {identity.kind}
-                </Badge>
-                <Text fontSize="xs" color="fg" wordBreak="break-all" textAlign="right">
+            {identities.map((identity) => (
+              <Box
+                key={`${identity.kind}:${identity.identifier.toLowerCase()}`}
+                data-testid="xmtp-identity"
+                data-identity-kind={identity.kind}
+                p={3}
+                bg="bg.muted"
+                border="1px solid"
+                borderColor="border"
+                borderRadius="md"
+              >
+                <HStack gap={1.5} flexWrap="wrap" mb={2}>
+                  <Badge
+                    size="sm"
+                    colorScheme={identity.kind === 'ethereum' ? 'blue' : identity.kind === 'passkey' ? 'purple' : 'gray'}
+                    textTransform="capitalize"
+                  >
+                    {identity.kind}
+                  </Badge>
+                  {identity.isViewedProfile && (
+                    <Badge size="sm" colorScheme="green">Viewed profile</Badge>
+                  )}
+                  {identity.isRecovery && (
+                    <Badge size="sm" colorScheme="purple">Recovery</Badge>
+                  )}
+                  {!identity.isViewedProfile && !identity.isRecovery && (
+                    <Badge size="sm" colorScheme="gray">Linked identity</Badge>
+                  )}
+                </HStack>
+                <Text fontSize="xs" color="fg.muted" mb={1}>
+                  {identity.kind === 'ethereum'
+                    ? 'Ethereum address'
+                    : identity.kind === 'passkey'
+                      ? 'Passkey identifier'
+                      : 'Unknown identifier type'}
+                </Text>
+                <Text fontSize="xs" color="fg" fontFamily="mono" wordBreak="break-all">
                   {identity.identifier}
                 </Text>
-              </HStack>
+                {identity.explorerUrl && (
+                  <Link
+                    href={identity.explorerUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`View ${identity.identifier} on Etherscan`}
+                    color="blue.fg"
+                    fontSize="xs"
+                    display="inline-flex"
+                    alignItems="center"
+                    minH="44px"
+                    mt={2}
+                  >
+                    View on Etherscan ↗
+                  </Link>
+                )}
+              </Box>
             ))}
-            {connectedIdentities.length > 4 && (
-              <Text fontSize="xs" color="fg.muted" textAlign="center">
-                +{connectedIdentities.length - 4} more
-              </Text>
-            )}
           </VStack>
         </Box>
       ) : (
         <Text fontSize="sm" color="fg.muted">
-          {inboxId ? 'No other identities linked.' : 'Not on XMTP.'}
-        </Text>
-      )}
-
-      {identities && identities.length > 0 && (
-        <Text fontSize="xs" color="fg.muted">
-          Total identities: {identities.length}
+          {inboxId ? 'No inbox identities returned.' : 'Not on XMTP.'}
         </Text>
       )}
     </VStack>
@@ -1307,7 +1371,7 @@ export const FastXMTPCard: React.FC<{
     loading={loading}
     serviceName="XMTP"
     icon="✉️"
-    description="Inbox ID and connected identities"
+    description="Inbox identities and messaging"
     lastUpdated={lastUpdated}
     error={error}
     onRefresh={onRefresh}

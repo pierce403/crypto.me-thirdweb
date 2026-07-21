@@ -277,20 +277,6 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
 
     return names.size;
   })();
-  const convergeUser = (() => {
-    if (isEnsName(ensName)) return ensName;
-
-    const primaryName = (ens as any)?.primaryName;
-    if (typeof primaryName === 'string' && isEnsName(primaryName)) return primaryName;
-
-    const otherNames = (ens as any)?.otherNames;
-    if (Array.isArray(otherNames)) {
-      const name = otherNames.find((value) => typeof value === 'string' && isEnsName(value));
-      if (name) return name;
-    }
-
-    return null;
-  })();
   const netWorthUsd = (() => {
     const zerionData = (data?.services?.zerion as any) ?? null;
     if (zerionData && zerionData.source === 'zerion' && typeof zerionData.totalUSD === 'number') return zerionData.totalUSD;
@@ -300,7 +286,7 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
 
     return null;
   })();
-  const xmtpCardData = xmtp && convergeUser ? { ...xmtp, convergeUser } : xmtp;
+  const xmtpCardData = xmtp ? { ...xmtp, profileAddress: resolvedAddress } : xmtp;
 
   // Only show loading when we have no data at all (not even cached data)
   const isInitialLoading = loading && !data;

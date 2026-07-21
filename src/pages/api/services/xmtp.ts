@@ -46,24 +46,86 @@ function identifierKindToString(identifierKind: number): 'ethereum' | 'passkey' 
   return 'unknown';
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isCollectorIdentity(value: unknown, requireProperties: boolean): boolean {
+  if (!isRecord(value)) return false;
+  if (typeof value.identifier !== 'string' || !value.identifier.trim()) return false;
+  if (value.kind !== 'ethereum' && value.kind !== 'passkey' && value.kind !== 'unknown') return false;
+  if (value.kind === 'ethereum' && !isEthereumAddress(value.identifier)) return false;
+  if (!requireProperties) return true;
+  return typeof value.isViewedProfile === 'boolean' && typeof value.isRecovery === 'boolean';
+}
+
+function isCollectorPayload(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  if (value.schemaVersion !== 2 || value.source !== 'xmtp' || typeof value.registered !== 'boolean') return false;
+  if (value.env !== 'local' && value.env !== 'dev' && value.env !== 'production') return false;
+  if (!isCollectorIdentity(value.queriedIdentifier, false)) return false;
+  if (!isRecord(value.queriedIdentifier) || value.queriedIdentifier.kind !== 'ethereum') return false;
+  if (value.recoveryIdentifier !== null && !isCollectorIdentity(value.recoveryIdentifier, false)) return false;
+  if (!Array.isArray(value.identities) || !value.identities.every((identity) => isCollectorIdentity(identity, true))) {
+    return false;
+  }
+  if (
+    !Array.isArray(value.connectedIdentities)
+    || !value.connectedIdentities.every((identity) => isCollectorIdentity(identity, true))
+  ) {
+    return false;
+  }
+  if (
+    value.installationCount !== null
+    && (!Number.isInteger(value.installationCount) || (value.installationCount as number) < 0)
+  ) {
+    return false;
+  }
+
+  if (value.registered) {
+    return typeof value.inboxId === 'string' && Boolean(value.inboxId.trim()) && value.identities.length > 0;
+  }
+
+  return value.inboxId === null
+    && value.recoveryIdentifier === null
+    && value.identities.length === 0
+    && value.connectedIdentities.length === 0;
+}
+
 interface XmtpIdentifier {
   identifier: string;
   identifierKind: number;
 }
 
+function identifiersMatch(left: XmtpIdentifier, right: XmtpIdentifier | undefined): boolean {
+  if (!right || left.identifierKind !== right.identifierKind) return false;
+  if (left.identifierKind === 0) {
+    return left.identifier.toLowerCase() === right.identifier.toLowerCase();
+  }
+  return left.identifier === right.identifier;
+}
+
+interface XmtpInboxState {
+  inboxId?: string;
+  identifiers?: XmtpIdentifier[];
+  recoveryIdentifier?: XmtpIdentifier;
+  installations?: Array<{
+    id?: string;
+    clientTimestampNs?: bigint | string | number;
+  }>;
+}
+
 interface XmtpRuntime {
-  getInboxIdForIdentifier: (
+  lookupInboxId: (
     identifier: XmtpIdentifier,
     env: XmtpEnv,
     gatewayHost?: string,
   ) => Promise<string | null>;
-  Client: {
-    inboxStateFromInboxIds: (
-      inboxIds: string[],
-      env: XmtpEnv,
-      gatewayHost?: string,
-    ) => Promise<Array<{ inboxId?: string; identifiers?: XmtpIdentifier[] }>>;
-  };
+  fetchInboxStates: (
+    inboxIds: string[],
+    env: XmtpEnv,
+    gatewayHost?: string,
+  ) => Promise<XmtpInboxState[]>;
 }
 
 interface EnsResolver {
@@ -113,6 +175,12 @@ export function createHandler(dependencies = defaultDependencies) {
           signal: AbortSignal.timeout(8000),
         });
         const payload: unknown = await response.json();
+        if (response.ok && !isCollectorPayload(payload)) {
+          return res.status(502).json({
+            error: 'XMTP collector returned an invalid or incomplete v2 payload',
+            code: 'XMTP_COLLECTOR_INVALID_RESPONSE',
+          });
+        }
         return res.status(response.status).json(payload);
       } catch (error) {
         return res.status(502).json({
@@ -122,7 +190,7 @@ export function createHandler(dependencies = defaultDependencies) {
       }
     }
 
-    const { getInboxIdForIdentifier, Client } = xmtp;
+    const { lookupInboxId, fetchInboxStates } = xmtp;
 
     const env = getXmtpEnv();
     const gatewayHost = process.env.XMTP_GATEWAY_HOST || undefined;
@@ -150,47 +218,66 @@ export function createHandler(dependencies = defaultDependencies) {
       };
 
       const inboxId = await withTimeout(
-        getInboxIdForIdentifier(identifier, env, gatewayHost),
+        lookupInboxId(identifier, env, gatewayHost),
         8000,
         'XMTP inbox ID lookup timed out',
       );
 
       if (!inboxId) {
         return res.status(200).json({
+          schemaVersion: 2,
+          registered: false,
           inboxId: null,
+          queriedIdentifier: { identifier: resolvedAddress, kind: 'ethereum' },
+          recoveryIdentifier: null,
           identities: [],
           connectedIdentities: [],
+          installationCount: 0,
           source: 'xmtp',
           env,
         });
       }
 
       const inboxStates = await withTimeout(
-        Client.inboxStateFromInboxIds([inboxId], env, gatewayHost),
+        fetchInboxStates([inboxId], env, gatewayHost),
         8000,
         'XMTP inbox state lookup timed out',
       );
 
       const inboxState = inboxStates?.[0];
-      const identifiers = inboxState?.identifiers || [];
+      if (!inboxState) {
+        throw new Error('XMTP inbox state lookup returned no state');
+      }
+      if (inboxState.inboxId && inboxState.inboxId !== inboxId) {
+        throw new Error('XMTP inbox state lookup returned a mismatched inbox');
+      }
+      const identifiers = inboxState.identifiers || [];
+      const recoveryIdentifier = inboxState.recoveryIdentifier;
       const normalizedInput = resolvedAddress.toLowerCase();
 
       const identities = identifiers.map((id) => ({
         identifier: id.identifier,
         kind: identifierKindToString(id.identifierKind),
+        isViewedProfile: id.identifierKind === 0 && id.identifier.toLowerCase() === normalizedInput,
+        isRecovery: identifiersMatch(id, recoveryIdentifier),
       }));
 
-      const connectedIdentities = identifiers
-        .filter((id) => !(id.identifierKind === 0 && id.identifier.toLowerCase() === normalizedInput))
-        .map((id) => ({
-          identifier: id.identifier,
-          kind: identifierKindToString(id.identifierKind),
-        }));
+      const connectedIdentities = identities.filter((identity) => !identity.isViewedProfile);
 
       return res.status(200).json({
-        inboxId: inboxState?.inboxId || inboxId,
+        schemaVersion: 2,
+        registered: true,
+        inboxId: inboxState.inboxId || inboxId,
+        queriedIdentifier: { identifier: resolvedAddress, kind: 'ethereum' },
+        recoveryIdentifier: recoveryIdentifier
+          ? {
+              identifier: recoveryIdentifier.identifier,
+              kind: identifierKindToString(recoveryIdentifier.identifierKind),
+            }
+          : null,
         identities,
         connectedIdentities,
+        installationCount: Array.isArray(inboxState.installations) ? inboxState.installations.length : null,
         source: 'xmtp',
         env,
       });
@@ -198,9 +285,14 @@ export function createHandler(dependencies = defaultDependencies) {
       const message = error instanceof Error ? error.message : String(error);
       console.error('[xmtp] Failed to fetch XMTP data:', message, error);
       return res.status(500).json({
+        schemaVersion: 2,
+        registered: false,
         inboxId: null,
+        queriedIdentifier: { identifier: resolvedAddress, kind: 'ethereum' },
+        recoveryIdentifier: null,
         identities: [],
         connectedIdentities: [],
+        installationCount: null,
         source: 'xmtp',
         env,
         error: message,
