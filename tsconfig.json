@@ -38,6 +38,7 @@
   ],
   "exclude": [
     "node_modules",
+    "services/xmtp-collector",
     "src/__tests__",
     "src/components/legacy",
     "tests"
