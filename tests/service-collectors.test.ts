@@ -307,9 +307,12 @@ describe('Icebreaker service collector', () => {
 
 describe('OpenSea service collector', () => {
   let originalKey: string | undefined;
+  let originalAlchemyKey: string | undefined;
 
   beforeEach(() => {
     originalKey = process.env.OPENSEA_API_KEY;
+    originalAlchemyKey = process.env.ALCHEMY_API_KEY;
+    delete process.env.ALCHEMY_API_KEY;
   });
 
   afterEach(() => {
@@ -317,6 +320,11 @@ describe('OpenSea service collector', () => {
       delete process.env.OPENSEA_API_KEY;
     } else {
       process.env.OPENSEA_API_KEY = originalKey;
+    }
+    if (originalAlchemyKey === undefined) {
+      delete process.env.ALCHEMY_API_KEY;
+    } else {
+      process.env.ALCHEMY_API_KEY = originalAlchemyKey;
     }
   });
 
@@ -372,9 +380,11 @@ describe('OpenSea service collector', () => {
     assert.equal(payload.source, 'opensea');
     assert.equal(payload.marketStats.uniqueCollections, 1);
     assert.equal(payload.marketStats.totalNFTs, 1);
-    assert.equal(payload.topValuedNFTs.length, 1);
-    assert.equal(payload.topValuedNFTs[0].name, 'Example NFT');
-    assert.equal(payload.topValuedNFTs[0].collection, 'Example Collection');
+    assert.equal(payload.topValuedNFTs.length, 0);
+    assert.equal(payload.nftPreview.length, 1);
+    assert.equal(payload.nftPreview[0].name, 'Example NFT');
+    assert.equal(payload.nftPreview[0].collection, 'Example Collection');
+    assert.equal(payload.valuationStatus, 'unavailable');
   });
 });
 

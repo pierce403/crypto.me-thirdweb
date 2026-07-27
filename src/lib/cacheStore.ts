@@ -83,10 +83,13 @@ export const SERVICES_CONFIG = [
     name: 'opensea',
     key: 'opensea',
     defaultData: {
+      schemaVersion: 2,
       profileUrl: '',
       topValuedNFTs: [],
+      nftPreview: [],
+      valuationStatus: 'unavailable',
       marketStats: { totalEstimatedValue: 0, totalFloorValue: 0, uniqueCollections: 0, totalNFTs: 0, topCollectionsByValue: [] },
-      portfolioSummary: { totalValue: 0, currency: 'ETH', lastUpdated: '' },
+      portfolioSummary: { totalValue: 0, currency: 'USD', valueSource: 'unavailable', isPartial: true, lastUpdated: '' },
       source: 'none'
     },
     timeoutMs: 25000,
@@ -139,3 +142,9 @@ export const SERVICES_CONFIG = [
 ] as const;
 
 export type ServiceName = (typeof SERVICES_CONFIG)[number]['name'];
+
+export function hasOutdatedServicePayload(service: ServiceName, payload: unknown): boolean {
+  if (service !== 'opensea') return false;
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) return true;
+  return (payload as Record<string, unknown>).schemaVersion !== 2;
+}

@@ -4,6 +4,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { getPrisma, withPrisma } from '../../../lib/prisma';
 import {
   type FastProfileData,
+  hasOutdatedServicePayload,
   SERVICES_CONFIG,
   type ServiceName,
 } from '../../lib/cacheStore';
@@ -178,6 +179,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       const cachedEntry = cachedServices.find(cs => cs.service === serviceConfig.name);
       if (cachedEntry) {
         let parsedData: unknown = serviceConfig.defaultData;
+        let parsedSuccessfully = true;
         try {
           parsedData = JSON.parse(cachedEntry.data as string);
           if (parsedData !== null && !isRecord(parsedData)) {
@@ -187,6 +189,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
         } catch (e) {
           console.error(`[fast-profile:error] Failed to parse JSON for ${serviceConfig.name} for address ${normalizedAddress}:`, e);
           servicesData[serviceConfig.name as keyof typeof servicesData] = serviceConfig.defaultData;
+          parsedSuccessfully = false;
           // Potentially mark this specific service as stale or log an error to be surfaced
         }
 
@@ -208,11 +211,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
         if (cachedEntry.last_updated && (!lastContentUpdate || cachedEntry.last_updated > lastContentUpdate)) {
           lastContentUpdate = cachedEntry.last_updated;
         }
-        if (
-          hasUntrackedPayloadError(parsedData, cachedEntry.error_count ?? 0) ||
+        const isExpired =
           !cachedEntry.expires_at ||
-          new Date(cachedEntry.expires_at) < nowForFreshness
-        ) {
+          new Date(cachedEntry.expires_at) < nowForFreshness;
+        const failureBackoffActive = (cachedEntry.error_count ?? 0) > 0 && !isExpired;
+        const payloadRequiresRefresh =
+          !parsedSuccessfully ||
+          hasUntrackedPayloadError(parsedData, cachedEntry.error_count ?? 0) ||
+          hasOutdatedServicePayload(serviceConfig.name, parsedData);
+        if (isExpired || (payloadRequiresRefresh && !failureBackoffActive)) {
           allServicesFresh = false;
           servicesNeedingRefresh.push(serviceConfig.name);
         }

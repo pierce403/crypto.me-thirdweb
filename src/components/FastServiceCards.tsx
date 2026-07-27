@@ -818,7 +818,7 @@ const AlchemyContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =
 };
 
 const OpenSeaContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) => {
-  const topValuedNFTs = data.topValuedNFTs as Array<{
+  type OpenSeaNFT = {
     name: string;
     collection: string;
     image?: string;
@@ -826,17 +826,23 @@ const OpenSeaContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =
     estimatedValue?: number;
     estimatedValueUsd?: number;
     estimatedValueSource?: string;
+    valuationSource?: string;
     estimateSource?: string;
     valueLabel?: string;
     currency?: string;
     permalink?: string;
     rarity?: string;
-  }> | undefined;
+  };
+
+  const rawTopValuedNFTs = data.topValuedNFTs as OpenSeaNFT[] | undefined;
+  const rawNftPreview = data.nftPreview as OpenSeaNFT[] | undefined;
   const marketStats = data.marketStats as {
     totalEstimatedValue?: number;
     totalFloorValue?: number;
     uniqueCollections?: number;
     totalNFTs?: number;
+    valuedNFTs?: number;
+    scanComplete?: boolean;
     topCollectionsByValue?: Array<{
       name: string;
       count: number;
@@ -853,6 +859,52 @@ const OpenSeaContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =
   const profileUrl = data.profileUrl as string | undefined;
   const source = data.source as string | undefined;
   const error = data.error as string | undefined;
+  const valuationStatus = data.valuationStatus as 'available' | 'partial' | 'unavailable' | undefined;
+
+  const getEstimatedValueUsd = (nft: OpenSeaNFT): number | undefined => {
+    const candidate =
+      typeof nft.estimatedValueUsd === 'number'
+        ? nft.estimatedValueUsd
+        : nft.currency === 'USD' && typeof nft.estimatedValue === 'number'
+          ? nft.estimatedValue
+          : undefined;
+    return typeof candidate === 'number' && Number.isFinite(candidate) && candidate > 0
+      ? candidate
+      : undefined;
+  };
+
+  // Old cached payloads mixed unvalued discovery-order items into the ranked
+  // list. Filter them client-side while schema v2 refreshes in the background.
+  const topValuedNFTs = (rawTopValuedNFTs || [])
+    .filter((nft) => getEstimatedValueUsd(nft) !== undefined)
+    .slice(0, 8);
+  const nftPreview = (
+    rawNftPreview?.length
+      ? rawNftPreview
+      : (rawTopValuedNFTs || []).filter((nft) => getEstimatedValueUsd(nft) === undefined)
+  ).slice(0, 8);
+  const topCollectionsByValue = (marketStats?.topCollectionsByValue || [])
+    .filter((collection) => Number.isFinite(collection.totalValue) && collection.totalValue > 0);
+  const usesFloorProxy = topValuedNFTs.some(
+    (nft) => (nft.valuationSource || nft.estimatedValueSource) === 'alchemy_opensea_collection_floor',
+  );
+  const usesDirectEstimate = topValuedNFTs.some(
+    (nft) => (nft.valuationSource || nft.estimatedValueSource) === 'opensea_estimated_value_usd',
+  );
+  const aggregateUsesFloor =
+    portfolioSummary?.valueSource === 'alchemy_opensea_collection_floor' ||
+    portfolioSummary?.valueSource === 'mixed_direct_and_collection_floor';
+  const valuationHeading = usesFloorProxy && !usesDirectEstimate
+    ? 'Top NFTs by collection-floor proxy'
+    : usesDirectEstimate && !usesFloorProxy
+      ? 'Top NFTs by OpenSea estimate'
+      : 'Top NFTs by available valuation';
+  const portfolioHeading =
+    portfolioSummary?.valueSource === 'alchemy_opensea_collection_floor'
+      ? 'Scanned NFT collection-floor proxy:'
+      : portfolioSummary?.valueSource === 'mixed_direct_and_collection_floor'
+        ? 'Scanned NFT valuation proxy:'
+        : 'Estimated scanned NFT value:';
 
   if (error === 'OPENSEA_API_KEY_REQUIRED' || error === 'API_INTEGRATION_PENDING') {
     return (
@@ -878,16 +930,24 @@ const OpenSeaContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =
     <VStack gap={3} align="stretch">
       {portfolioSummary?.totalValue !== undefined && portfolioSummary.totalValue > 0 && (
         <Box>
-          <Text fontSize="sm" fontWeight="semibold" color="fg.muted">Estimated NFT portfolio:</Text>
+          <Text fontSize="sm" fontWeight="semibold" color="fg.muted">{portfolioHeading}</Text>
           <HStack align="baseline" flexWrap="wrap">
             <Text fontSize="lg" fontWeight="bold" color="green.fg">
               {portfolioSummary.currency === 'USD'
                 ? formatUsd(portfolioSummary.totalValue)
                 : `${portfolioSummary.totalValue.toFixed(2)} ${portfolioSummary.currency || 'ETH'}`}
             </Text>
-            {portfolioSummary.isPartial && <Badge size="sm" variant="subtle">Partial scan</Badge>}
+            {portfolioSummary.isPartial && (
+              <Badge size="sm" variant="subtle">
+                {marketStats?.scanComplete === false ? 'Partial scan' : 'Partial valuation'}
+              </Badge>
+            )}
           </HStack>
-          <Text fontSize="xs" color="fg.muted">OpenSea estimated values</Text>
+          <Text fontSize="xs" color="fg.muted">
+            {aggregateUsesFloor
+              ? 'Based on collection floors from Alchemy/OpenSea metadata'
+              : 'Based on available item estimates'}
+          </Text>
         </Box>
       )}
 
@@ -908,25 +968,21 @@ const OpenSeaContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =
         </HStack>
       )}
 
-      {topValuedNFTs && topValuedNFTs.length > 0 && (
+      {topValuedNFTs.length > 0 && (
         <Box>
           <HStack justify="space-between" align="baseline" mb={2}>
-            <Text fontSize="sm" fontWeight="semibold" color="fg">Top NFTs by estimated value</Text>
+            <Text fontSize="sm" fontWeight="semibold" color="fg">{valuationHeading}</Text>
             <Text fontSize="xs" color="fg.muted">Up to 8</Text>
           </HStack>
           <VStack gap={2} align="stretch">
-            {topValuedNFTs.slice(0, 8).map((nft, index) => {
-              const estimatedValueUsd =
-                typeof nft.estimatedValueUsd === 'number'
-                  ? nft.estimatedValueUsd
-                  : nft.currency === 'USD' && typeof nft.estimatedValue === 'number'
-                    ? nft.estimatedValue
-                    : undefined;
-              const hasEstimate =
-                typeof estimatedValueUsd === 'number' && Number.isFinite(estimatedValueUsd);
-              const estimateLabel = hasEstimate
-                ? nft.valueLabel || 'OpenSea estimated value'
-                : 'Estimate unavailable';
+            {topValuedNFTs.map((nft, index) => {
+              const estimatedValueUsd = getEstimatedValueUsd(nft) as number;
+              const valuationSource = nft.valuationSource || nft.estimatedValueSource;
+              const estimateLabel = nft.valueLabel || (
+                valuationSource === 'alchemy_opensea_collection_floor'
+                  ? 'Collection floor proxy'
+                  : 'OpenSea item estimate'
+              );
 
               return (
               <Box
@@ -951,11 +1007,11 @@ const OpenSeaContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =
                       <Text fontSize="sm" fontWeight="semibold" color="fg" truncate>{nft.name}</Text>
                       <Text
                         fontSize="sm"
-                        color={hasEstimate ? 'green.fg' : 'fg.muted'}
-                        fontWeight={hasEstimate ? 'bold' : 'medium'}
+                        color="green.fg"
+                        fontWeight="bold"
                         whiteSpace="nowrap"
                       >
-                        {hasEstimate ? formatUsd(estimatedValueUsd) : 'Not available'}
+                        {formatUsd(estimatedValueUsd)}
                       </Text>
                     </HStack>
                     <Text fontSize="xs" color="fg.muted" truncate>{nft.collection}</Text>
@@ -985,16 +1041,67 @@ const OpenSeaContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =
             })}
           </VStack>
           <Text fontSize="xs" color="fg.muted" mt={2}>
-            Values are estimates, not guaranteed sale prices.
+            {usesFloorProxy
+              ? 'Collection floors are market proxies, not appraisals or guaranteed sale prices.'
+              : 'Item values are estimates, not guaranteed sale prices.'}
+          </Text>
+          {(valuationStatus === 'partial' ||
+            (marketStats?.valuedNFTs !== undefined &&
+              marketStats?.totalNFTs !== undefined &&
+              marketStats.valuedNFTs < marketStats.totalNFTs)) && (
+            <Text fontSize="xs" color="fg.muted">
+              Ranking includes only NFTs with usable valuation data.
+            </Text>
+          )}
+        </Box>
+      )}
+
+      {topValuedNFTs.length === 0 && nftPreview.length > 0 && (
+        <Box>
+          <HStack justify="space-between" align="baseline" mb={2}>
+            <Text fontSize="sm" fontWeight="semibold" color="fg">NFT holdings</Text>
+            <Badge size="sm" variant="subtle">Valuation unavailable</Badge>
+          </HStack>
+          <VStack gap={2} align="stretch">
+            {nftPreview.map((nft, index) => (
+              <Box
+                key={`${nft.permalink || `${nft.collection}:${nft.name}`}:${index}`}
+                p={2.5}
+                bg="bg.muted"
+                borderRadius="md"
+                border="1px solid"
+                borderColor="border"
+              >
+                <HStack gap={2.5} align="center">
+                  {nft.image && (
+                    <Box width="44px" height="44px" flexShrink={0} bg="bg.emphasized" borderRadius="md" overflow="hidden">
+                      <Image src={nft.image} alt={nft.name} width={44} height={44} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    </Box>
+                  )}
+                  <VStack align="stretch" gap={0} flex={1} minW={0}>
+                    <Text fontSize="sm" fontWeight="semibold" color="fg" truncate>{nft.name}</Text>
+                    <Text fontSize="xs" color="fg.muted" truncate>{nft.collection}</Text>
+                  </VStack>
+                  {nft.permalink && (
+                    <Link href={nft.permalink} target="_blank" rel="noopener noreferrer" fontSize="xs" color="blue.fg">
+                      View ↗
+                    </Link>
+                  )}
+                </HStack>
+              </Box>
+            ))}
+          </VStack>
+          <Text fontSize="xs" color="fg.muted" mt={2}>
+            These are holdings previews, not a value ranking.
           </Text>
         </Box>
       )}
 
-      {marketStats?.topCollectionsByValue && marketStats.topCollectionsByValue.length > 0 && (
+      {topCollectionsByValue.length > 0 && (
         <Box>
-          <Text fontSize="sm" fontWeight="semibold" color="fg.muted">Top Collections by Estimated Value:</Text>
+          <Text fontSize="sm" fontWeight="semibold" color="fg.muted">Top Collections by Available Proxy:</Text>
           <VStack gap={1} align="stretch">
-            {marketStats.topCollectionsByValue.slice(0, 3).map((collection, index) => (
+            {topCollectionsByValue.slice(0, 3).map((collection, index) => (
               <HStack key={index} justify="space-between">
                 <VStack align="start" gap={0}>
                   <Text fontSize="xs" fontWeight="semibold" color="fg" truncate>{collection.name}</Text>
@@ -1011,7 +1118,9 @@ const OpenSeaContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =
 
       <HStack justify="space-between" align="center">
         {source && source !== 'none' && (
-          <Text fontSize="xs" color="fg.muted">Source: {source}</Text>
+          <Text fontSize="xs" color="fg.muted">
+            Source: {aggregateUsesFloor || source === 'opensea+alchemy' ? 'OpenSea + Alchemy' : source}
+          </Text>
         )}
         {profileUrl && (
           <Link href={profileUrl} target="_blank" rel="noopener noreferrer" color="blue.fg" fontSize="sm">
