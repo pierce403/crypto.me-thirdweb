@@ -1,6 +1,14 @@
 import type { PrismaClient } from '@prisma/client';
 import { SERVICES_CONFIG, type ServiceName } from './cacheStore';
 
+type ServiceCacheUpsertArgs = Parameters<PrismaClient['service_cache']['upsert']>[0];
+
+export interface ProfileRefreshStore {
+  service_cache: {
+    upsert(args: ServiceCacheUpsertArgs): Promise<unknown>;
+  };
+}
+
 export interface ProfileRefreshMessage {
   address: string;
   originalInput?: string;
@@ -14,14 +22,14 @@ function errorFromPayload(payload: unknown): string | undefined {
   if (!payload || typeof payload !== 'object') return undefined;
 
   const candidate = payload as { error?: unknown; message?: unknown };
-  if (typeof candidate.error === 'string') return candidate.error;
-  if (candidate.error !== undefined) return JSON.stringify(candidate.error);
-  if (typeof candidate.message === 'string') return candidate.message;
+  if (typeof candidate.error === 'string' && candidate.error.trim()) return candidate.error;
+  if (candidate.error !== undefined && candidate.error !== null) return JSON.stringify(candidate.error);
+  if (typeof candidate.message === 'string' && candidate.message.trim()) return candidate.message;
   return undefined;
 }
 
 export async function refreshProfileService(
-  prisma: PrismaClient,
+  prisma: ProfileRefreshStore,
   message: ProfileRefreshMessage,
   fetchService: typeof fetch,
   baseUrl: string,
@@ -41,8 +49,15 @@ export async function refreshProfileService(
     });
 
     const now = new Date();
-    if (response.ok) {
-      const data: unknown = await response.json();
+    let data: unknown;
+    try {
+      data = await response.json();
+    } catch {
+      data = undefined;
+    }
+    const payloadError = errorFromPayload(data);
+
+    if (response.ok && !payloadError && data !== undefined) {
       const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
       await prisma.service_cache.upsert({
         where: { address_service: { address: normalizedAddress, service: service.name } },
@@ -70,17 +85,11 @@ export async function refreshProfileService(
       return 'updated';
     }
 
-    let upstreamError = `Service returned ${response.status}`;
+    const upstreamError = payloadError ?? `Service returned ${response.status}`;
     let upstreamCode: string | undefined;
-    try {
-      const payload: unknown = await response.json();
-      upstreamError = errorFromPayload(payload) ?? upstreamError;
-      if (payload && typeof payload === 'object') {
-        const code = (payload as { code?: unknown }).code;
-        if (typeof code === 'string') upstreamCode = code;
-      }
-    } catch {
-      // A non-JSON upstream error still records the HTTP status.
+    if (data && typeof data === 'object') {
+      const code = (data as { code?: unknown }).code;
+      if (typeof code === 'string') upstreamCode = code;
     }
 
     const retryAt = new Date(now.getTime() + 60 * 60 * 1000);

@@ -9,6 +9,16 @@ import {
 } from '../../lib/cacheStore';
 import { refreshProfileService, type ProfileRefreshMessage } from '../../lib/profileRefresh';
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function hasUntrackedPayloadError(payload: unknown, errorCount: number | null): boolean {
+  if ((errorCount ?? 0) > 0 || !isRecord(payload)) return false;
+  const error = payload.error;
+  return typeof error === 'string' && error.trim().length > 0;
+}
+
 async function scheduleRefreshes(
   req: NextApiRequest,
   prisma: PrismaClient,
@@ -167,8 +177,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     for (const serviceConfig of SERVICES_CONFIG) {
       const cachedEntry = cachedServices.find(cs => cs.service === serviceConfig.name);
       if (cachedEntry) {
+        let parsedData: unknown = serviceConfig.defaultData;
         try {
-          servicesData[serviceConfig.name as keyof typeof servicesData] = JSON.parse(cachedEntry.data as string);
+          parsedData = JSON.parse(cachedEntry.data as string);
+          if (parsedData !== null && !isRecord(parsedData)) {
+            throw new Error('Cached service data must be a JSON object or null');
+          }
+          servicesData[serviceConfig.name as keyof typeof servicesData] = parsedData;
         } catch (e) {
           console.error(`[fast-profile:error] Failed to parse JSON for ${serviceConfig.name} for address ${normalizedAddress}:`, e);
           servicesData[serviceConfig.name as keyof typeof servicesData] = serviceConfig.defaultData;
@@ -193,7 +208,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
         if (cachedEntry.last_updated && (!lastContentUpdate || cachedEntry.last_updated > lastContentUpdate)) {
           lastContentUpdate = cachedEntry.last_updated;
         }
-        if (!cachedEntry.expires_at || new Date(cachedEntry.expires_at) < nowForFreshness) {
+        if (
+          hasUntrackedPayloadError(parsedData, cachedEntry.error_count ?? 0) ||
+          !cachedEntry.expires_at ||
+          new Date(cachedEntry.expires_at) < nowForFreshness
+        ) {
           allServicesFresh = false;
           servicesNeedingRefresh.push(serviceConfig.name);
         }

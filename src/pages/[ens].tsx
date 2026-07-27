@@ -284,6 +284,11 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
     const debankData = (data?.services?.debank as any) ?? null;
     if (debankData && debankData.source === 'debank' && typeof debankData.totalUSD === 'number') return debankData.totalUSD;
 
+    const alchemyData = (data?.services?.alchemy as any) ?? null;
+    if (alchemyData && alchemyData.source === 'alchemy' && typeof alchemyData.totalValueUsd === 'number') {
+      return alchemyData.totalValueUsd;
+    }
+
     return null;
   })();
   const xmtpCardData = xmtp ? { ...xmtp, profileAddress: resolvedAddress } : xmtp;

@@ -135,6 +135,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
       case 'Farcaster':
         return <FarcasterContent data={data} />;
       case 'Alchemy':
+      case 'Top Crypto Holdings':
         return <AlchemyContent data={data} />;
       case 'OpenSea':
         return <OpenSeaContent data={data} />;
@@ -627,16 +628,47 @@ const FarcasterContent: React.FC<{ data: Record<string, unknown> }> = ({ data })
   );
 };
 
+const formatUsd = (value: number): string => {
+  if (value === 0) return '$0.00';
+  if (value > 0 && value < 0.01) return '<$0.01';
+
+  return value.toLocaleString(undefined, {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: value >= 1 ? 2 : 4,
+    maximumFractionDigits: value >= 1 ? 2 : 4,
+  });
+};
+
+const formatAssetAmount = (value: number | string): string => {
+  const amount = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(amount)) return String(value);
+
+  return amount.toLocaleString(undefined, {
+    maximumFractionDigits: amount >= 1 ? 4 : 8,
+  });
+};
+
+const formatNetworkName = (network: string): string =>
+  network
+    .replace(/[-_]/g, ' ')
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+
 const AlchemyContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) => {
-  const totalCount = data.totalCount as number | undefined;
-  const nfts = data.nfts as Array<{
+  const totalValueUsd = data.totalValueUsd as number | undefined;
+  const totalHoldings = data.totalHoldings as number | undefined;
+  const topHoldings = data.topHoldings as Array<{
     name: string;
-    collection: string;
-    image?: string;
-    tokenId?: string;
-    contractAddress?: string;
+    symbol: string;
+    balance: number | string;
+    usdPrice: number;
+    usdValue: number;
+    logoUrl?: string;
+    network: string;
+    tokenAddress?: string | null;
+    isNative?: boolean;
   }> | undefined;
-  const collections = data.collections as Record<string, { name: string; count: number }> | undefined;
+  const networks = data.networks as string[] | undefined;
   const source = data.source as string | undefined;
   const error = data.error as string | undefined;
 
@@ -646,7 +678,7 @@ const AlchemyContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =
         <Box p={3} bg="bg.info" borderRadius="md" border="1px solid" borderColor="border.info">
           <Text fontSize="sm" color="fg.info" fontWeight="semibold">API Key Required</Text>
           <Text fontSize="xs" color="fg.info">
-            Add ALCHEMY_API_KEY to your environment to see real NFT metadata and collection information.
+            Add ALCHEMY_API_KEY to see this wallet&apos;s most valuable crypto holdings.
           </Text>
         </Box>
         <Link href="https://alchemy.com" target="_blank" rel="noopener noreferrer" color="blue.fg" fontSize="sm">
@@ -658,59 +690,127 @@ const AlchemyContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =
 
   return (
     <VStack gap={3} align="stretch">
-      {totalCount !== undefined && totalCount > 0 && (
-        <Box>
-          <Text fontSize="sm" fontWeight="semibold" color="fg.muted">Total NFTs:</Text>
-          <Text fontSize="lg" fontWeight="bold" color="blue.fg">{totalCount}</Text>
-        </Box>
-      )}
-
-      {collections && Object.keys(collections).length > 0 && (
-        <Box>
-          <Text fontSize="sm" fontWeight="semibold" color="fg.muted">Collections ({Object.keys(collections).length}):</Text>
-          <VStack gap={1} align="stretch">
-            {Object.values(collections).slice(0, 3).map((collection, index) => (
-              <HStack key={index} justify="space-between">
-                <Text fontSize="sm" color="fg" truncate>{collection.name}</Text>
-                <Text fontSize="xs" color="fg.muted">{collection.count}</Text>
-              </HStack>
-            ))}
-            {Object.keys(collections).length > 3 && (
-              <Text fontSize="xs" color="fg.muted" textAlign="center">+{Object.keys(collections).length - 3} more collections</Text>
+      {source === 'alchemy' && typeof totalValueUsd === 'number' && Number.isFinite(totalValueUsd) && (
+        <Box p={3} bg="blue.subtle" borderRadius="lg" border="1px solid" borderColor="blue.muted">
+          <Text fontSize="xs" color="fg.muted" fontWeight="semibold">Crypto portfolio value</Text>
+          <Text fontSize="2xl" lineHeight="shorter" fontWeight="bold" color="blue.fg">
+            {formatUsd(totalValueUsd)}
+          </Text>
+          <HStack gap={2} mt={1} flexWrap="wrap">
+            {typeof totalHoldings === 'number' && (
+              <Text fontSize="xs" color="fg.muted">
+                {totalHoldings.toLocaleString()} priced {totalHoldings === 1 ? 'asset' : 'assets'}
+              </Text>
             )}
-          </VStack>
+            {networks && networks.length > 0 && (
+              <>
+                <Text fontSize="xs" color="fg.muted" aria-hidden="true">•</Text>
+                <Text fontSize="xs" color="fg.muted">
+                  {networks.length} {networks.length === 1 ? 'network' : 'networks'}
+                </Text>
+              </>
+            )}
+          </HStack>
         </Box>
       )}
 
-      {nfts && nfts.length > 0 && (
+      {topHoldings && topHoldings.length > 0 ? (
         <Box>
-          <Text fontSize="sm" fontWeight="semibold" color="fg.muted">Recent NFTs:</Text>
+          <HStack justify="space-between" align="baseline" mb={2}>
+            <Text fontSize="sm" fontWeight="semibold" color="fg">Top crypto holdings</Text>
+            <Text fontSize="xs" color="fg.muted">By USD value</Text>
+          </HStack>
           <VStack gap={2} align="stretch">
-            {nfts.slice(0, 3).map((nft, index) => (
-              <Box key={index} p={2} bg="bg.muted" borderRadius="md" border="1px solid" borderColor="border">
-                <HStack gap={2}>
-                  {nft.image && (
-                    <Box width="30px" height="30px" bg="bg.emphasized" borderRadius="md" overflow="hidden">
-                      <Image src={nft.image} alt={nft.name} width={30} height={30} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    </Box>
-                  )}
-                  <VStack align="start" gap={0} flex={1}>
-                    <Text fontSize="xs" fontWeight="semibold" color="fg" truncate>{nft.name}</Text>
-                    <Text fontSize="xs" color="fg.muted" truncate>{nft.collection}</Text>
+            {topHoldings.slice(0, 8).map((holding, index) => (
+              <Box
+                key={`${holding.network}:${holding.tokenAddress || holding.symbol}:${index}`}
+                p={2.5}
+                bg="bg.muted"
+                borderRadius="md"
+                border="1px solid"
+                borderColor="border"
+              >
+                <HStack gap={2.5} align="center">
+                  <Text width="18px" flexShrink={0} fontSize="xs" color="fg.muted" textAlign="center">
+                    {index + 1}
+                  </Text>
+                  <Box
+                    width="32px"
+                    height="32px"
+                    flexShrink={0}
+                    bg="bg.emphasized"
+                    borderRadius="full"
+                    overflow="hidden"
+                    display="flex"
+                    alignItems="center"
+                    justifyContent="center"
+                  >
+                    {holding.logoUrl ? (
+                      <ChakraImage
+                        src={holding.logoUrl}
+                        alt=""
+                        width="32px"
+                        height="32px"
+                        objectFit="cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <Text fontSize="xs" fontWeight="bold" color="fg.muted">
+                        {(holding.symbol || holding.name).slice(0, 2).toUpperCase()}
+                      </Text>
+                    )}
+                  </Box>
+                  <VStack align="stretch" gap={0} flex={1} minW={0}>
+                    <HStack justify="space-between" gap={2} align="baseline">
+                      <Text fontSize="sm" fontWeight="semibold" color="fg" truncate>
+                        {holding.symbol || holding.name}
+                      </Text>
+                      <Text fontSize="sm" color="green.fg" fontWeight="bold" whiteSpace="nowrap">
+                        {formatUsd(holding.usdValue)}
+                      </Text>
+                    </HStack>
+                    <HStack justify="space-between" gap={2} align="baseline">
+                      <HStack gap={1} minW={0}>
+                        <Text fontSize="xs" color="fg.muted" truncate>{holding.name}</Text>
+                        {holding.network && (
+                          <Badge size="xs" variant="subtle" colorScheme="blue" flexShrink={0}>
+                            {formatNetworkName(holding.network)}
+                          </Badge>
+                        )}
+                      </HStack>
+                      <Text fontSize="xs" color="fg.muted" whiteSpace="nowrap">
+                        {formatAssetAmount(holding.balance)}
+                      </Text>
+                    </HStack>
+                    {typeof holding.usdPrice === 'number' && Number.isFinite(holding.usdPrice) && (
+                      <Text fontSize="xs" color="fg.muted" textAlign="right">
+                        {formatUsd(holding.usdPrice)} each
+                      </Text>
+                    )}
                   </VStack>
                 </HStack>
               </Box>
             ))}
-            {nfts.length > 3 && (
-              <Text fontSize="xs" color="fg.muted" textAlign="center">+{nfts.length - 3} more NFTs</Text>
-            )}
           </VStack>
         </Box>
+      ) : (
+        !error && source === 'alchemy' && (
+          <Box p={3} bg="bg.muted" borderRadius="md" border="1px solid" borderColor="border">
+            <Text fontSize="sm" color="fg.muted" textAlign="center">
+              No priced crypto holdings found.
+            </Text>
+          </Box>
+        )
       )}
 
-      <HStack justify="space-between" align="center">
+      <HStack justify="space-between" align="center" flexWrap="wrap">
         {source && source !== 'none' && (
-          <Text fontSize="xs" color="fg.muted">Source: {source}</Text>
+          <Text fontSize="xs" color="fg.muted">Source: Alchemy</Text>
+        )}
+        {networks && networks.length > 0 && (
+          <Text fontSize="xs" color="fg.muted" truncate>
+            {networks.map(formatNetworkName).join(' · ')}
+          </Text>
         )}
       </HStack>
     </VStack>
@@ -724,6 +824,10 @@ const OpenSeaContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =
     image?: string;
     floorPrice?: number;
     estimatedValue?: number;
+    estimatedValueUsd?: number;
+    estimatedValueSource?: string;
+    estimateSource?: string;
+    valueLabel?: string;
     currency?: string;
     permalink?: string;
     rarity?: string;
@@ -743,6 +847,8 @@ const OpenSeaContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =
   const portfolioSummary = data.portfolioSummary as {
     totalValue?: number;
     currency?: string;
+    valueSource?: string;
+    isPartial?: boolean;
   } | undefined;
   const profileUrl = data.profileUrl as string | undefined;
   const source = data.source as string | undefined;
@@ -772,12 +878,16 @@ const OpenSeaContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =
     <VStack gap={3} align="stretch">
       {portfolioSummary?.totalValue !== undefined && portfolioSummary.totalValue > 0 && (
         <Box>
-          <Text fontSize="sm" fontWeight="semibold" color="fg.muted">Portfolio Value:</Text>
-          <HStack>
+          <Text fontSize="sm" fontWeight="semibold" color="fg.muted">Estimated NFT portfolio:</Text>
+          <HStack align="baseline" flexWrap="wrap">
             <Text fontSize="lg" fontWeight="bold" color="green.fg">
-              {portfolioSummary.totalValue.toFixed(2)} {portfolioSummary.currency || 'ETH'}
+              {portfolioSummary.currency === 'USD'
+                ? formatUsd(portfolioSummary.totalValue)
+                : `${portfolioSummary.totalValue.toFixed(2)} ${portfolioSummary.currency || 'ETH'}`}
             </Text>
+            {portfolioSummary.isPartial && <Badge size="sm" variant="subtle">Partial scan</Badge>}
           </HStack>
+          <Text fontSize="xs" color="fg.muted">OpenSea estimated values</Text>
         </Box>
       )}
 
@@ -791,7 +901,7 @@ const OpenSeaContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =
           )}
           {marketStats.totalNFTs !== undefined && (
             <Box>
-              <Text fontSize="xs" color="fg.muted">Total NFTs</Text>
+              <Text fontSize="xs" color="fg.muted">Scanned NFTs</Text>
               <Text fontSize="lg" fontWeight="bold" color="purple.fg">{marketStats.totalNFTs}</Text>
             </Box>
           )}
@@ -800,48 +910,89 @@ const OpenSeaContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =
 
       {topValuedNFTs && topValuedNFTs.length > 0 && (
         <Box>
-          <Text fontSize="sm" fontWeight="semibold" color="fg.muted">Top Valued NFTs:</Text>
+          <HStack justify="space-between" align="baseline" mb={2}>
+            <Text fontSize="sm" fontWeight="semibold" color="fg">Top NFTs by estimated value</Text>
+            <Text fontSize="xs" color="fg.muted">Up to 8</Text>
+          </HStack>
           <VStack gap={2} align="stretch">
-            {topValuedNFTs.slice(0, 3).map((nft, index) => (
-              <Box key={index} p={2} bg="bg.muted" borderRadius="md" border="1px solid" borderColor="border">
-                <HStack gap={2}>
+            {topValuedNFTs.slice(0, 8).map((nft, index) => {
+              const estimatedValueUsd =
+                typeof nft.estimatedValueUsd === 'number'
+                  ? nft.estimatedValueUsd
+                  : nft.currency === 'USD' && typeof nft.estimatedValue === 'number'
+                    ? nft.estimatedValue
+                    : undefined;
+              const hasEstimate =
+                typeof estimatedValueUsd === 'number' && Number.isFinite(estimatedValueUsd);
+              const estimateLabel = hasEstimate
+                ? nft.valueLabel || 'OpenSea estimated value'
+                : 'Estimate unavailable';
+
+              return (
+              <Box
+                key={`${nft.permalink || `${nft.collection}:${nft.name}`}:${index}`}
+                p={2.5}
+                bg="bg.muted"
+                borderRadius="md"
+                border="1px solid"
+                borderColor="border"
+              >
+                <HStack gap={2.5} align="center">
+                  <Text width="18px" flexShrink={0} fontSize="xs" color="fg.muted" textAlign="center">
+                    {index + 1}
+                  </Text>
                   {nft.image && (
-                    <Box width="30px" height="30px" bg="bg.emphasized" borderRadius="md" overflow="hidden">
-                      <Image src={nft.image} alt={nft.name} width={30} height={30} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <Box width="44px" height="44px" flexShrink={0} bg="bg.emphasized" borderRadius="md" overflow="hidden">
+                      <Image src={nft.image} alt={nft.name} width={44} height={44} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </Box>
                   )}
-                  <VStack align="start" gap={0} flex={1}>
-                    <Text fontSize="xs" fontWeight="semibold" color="fg" truncate>{nft.name}</Text>
-                    <Text fontSize="xs" color="fg.muted" truncate>{nft.collection}</Text>
-                    {nft.estimatedValue && (
-                      <Text fontSize="xs" color="green.fg" fontWeight="semibold">
-                        ~{nft.estimatedValue.toFixed(2)} {nft.currency || 'ETH'}
+                  <VStack align="stretch" gap={0} flex={1} minW={0}>
+                    <HStack justify="space-between" gap={2} align="baseline">
+                      <Text fontSize="sm" fontWeight="semibold" color="fg" truncate>{nft.name}</Text>
+                      <Text
+                        fontSize="sm"
+                        color={hasEstimate ? 'green.fg' : 'fg.muted'}
+                        fontWeight={hasEstimate ? 'bold' : 'medium'}
+                        whiteSpace="nowrap"
+                      >
+                        {hasEstimate ? formatUsd(estimatedValueUsd) : 'Not available'}
                       </Text>
-                    )}
+                    </HStack>
+                    <Text fontSize="xs" color="fg.muted" truncate>{nft.collection}</Text>
+                    <HStack justify="space-between" gap={2} align="center" mt={0.5}>
+                      <Text fontSize="xs" color="fg.muted" fontStyle="italic">
+                        {estimateLabel}
+                      </Text>
+                      {nft.permalink && (
+                        <Link href={nft.permalink} target="_blank" rel="noopener noreferrer" fontSize="xs" color="blue.fg">
+                          View ↗
+                        </Link>
+                      )}
+                    </HStack>
                   </VStack>
                   {nft.rarity && (
-                    <Badge size="sm" colorScheme={nft.rarity === 'Ultra Rare' ? 'purple' : nft.rarity === 'Rare' ? 'blue' : 'gray'}>
+                    <Badge
+                      size="sm"
+                      colorScheme={nft.rarity === 'Ultra Rare' ? 'purple' : nft.rarity === 'Rare' ? 'blue' : 'gray'}
+                      display={{ base: 'none', sm: 'inline-flex' }}
+                    >
                       {nft.rarity}
                     </Badge>
                   )}
                 </HStack>
-                {nft.permalink && (
-                  <Link href={nft.permalink} target="_blank" rel="noopener noreferrer" fontSize="xs" color="blue.fg" mt={1}>
-                    View NFT ↗
-                  </Link>
-                )}
               </Box>
-            ))}
-            {topValuedNFTs.length > 3 && (
-              <Text fontSize="xs" color="fg.muted" textAlign="center">+{topValuedNFTs.length - 3} more NFTs</Text>
-            )}
+              );
+            })}
           </VStack>
+          <Text fontSize="xs" color="fg.muted" mt={2}>
+            Values are estimates, not guaranteed sale prices.
+          </Text>
         </Box>
       )}
 
       {marketStats?.topCollectionsByValue && marketStats.topCollectionsByValue.length > 0 && (
         <Box>
-          <Text fontSize="sm" fontWeight="semibold" color="fg.muted">Top Collections by Value:</Text>
+          <Text fontSize="sm" fontWeight="semibold" color="fg.muted">Top Collections by Estimated Value:</Text>
           <VStack gap={1} align="stretch">
             {marketStats.topCollectionsByValue.slice(0, 3).map((collection, index) => (
               <HStack key={index} justify="space-between">
@@ -850,7 +1001,7 @@ const OpenSeaContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =
                   <Text fontSize="xs" color="fg.muted">{collection.count} NFTs</Text>
                 </VStack>
                 <Text fontSize="xs" color="green.fg" fontWeight="semibold">
-                  {collection.totalValue.toFixed(1)} ETH
+                  {formatUsd(collection.totalValue)}
                 </Text>
               </HStack>
             ))}
@@ -1395,7 +1546,16 @@ export const FastAlchemyCard: React.FC<{
   error?: { lastError: string; errorCount: number; lastAttempt: string } | null;
   onRefresh?: () => void;
 }> = ({ data, loading, lastUpdated, error, onRefresh }) => (
-  <ServiceCard data={data} loading={loading} serviceName="Alchemy" icon="⚗️" lastUpdated={lastUpdated} error={error} onRefresh={onRefresh} />
+  <ServiceCard
+    data={data}
+    loading={loading}
+    serviceName="Top Crypto Holdings"
+    icon="🪙"
+    description="Top fungible assets by USD value"
+    lastUpdated={lastUpdated}
+    error={error}
+    onRefresh={onRefresh}
+  />
 );
 
 export const FastOpenSeaCard: React.FC<{

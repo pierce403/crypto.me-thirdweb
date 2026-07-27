@@ -69,7 +69,13 @@ export const SERVICES_CONFIG = [
   {
     name: 'alchemy',
     key: 'alchemy',
-    defaultData: { totalCount: 0, nfts: [], collections: {}, source: 'none' },
+    defaultData: {
+      totalValueUsd: 0,
+      totalHoldings: 0,
+      topHoldings: [],
+      networks: [],
+      source: 'none'
+    },
     timeoutMs: 20000,
     url: (address: string) => `/api/services/alchemy?address=${address}`
   },
