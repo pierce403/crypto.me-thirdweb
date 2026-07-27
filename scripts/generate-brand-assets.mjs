@@ -11,7 +11,7 @@ const versionedOgImagePaths = [
   path.join(
     projectRoot,
     'public',
-    'og-image-ethereum-v-base-tesseract.png',
+    'og-image-ethereum-open-tesseract.png',
   ),
 ];
 const sourceSvg = await readFile(sourcePath);

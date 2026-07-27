@@ -245,17 +245,17 @@ const Home: React.FC = () => {
         <meta property="og:description" content="A fast, resilient view of your onchain identity." />
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://crypto.me/" />
-        <meta property="og:image" content="https://crypto.me/og-image-ethereum-v-base-tesseract.png" />
+        <meta property="og:image" content="https://crypto.me/og-image-ethereum-open-tesseract.png" />
         <meta property="og:image:width" content="1200" />
         <meta property="og:image:height" content="630" />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="crypto.me — Every signal. One identity." />
         <meta name="twitter:description" content="A fast, resilient view of your onchain identity." />
-        <meta name="twitter:image" content="https://crypto.me/og-image-ethereum-v-base-tesseract.png" />
+        <meta name="twitter:image" content="https://crypto.me/og-image-ethereum-open-tesseract.png" />
         <meta key="theme-light" name="theme-color" content="#f7f5fb" media="(prefers-color-scheme: light)" />
         <meta key="theme-dark" name="theme-color" content="#070610" media="(prefers-color-scheme: dark)" />
         <link rel="canonical" href="https://crypto.me/" />
-        <link rel="icon" href="/favicon-ethereum-tesseract.svg?v=ethereum-v-3" type="image/svg+xml" />
+        <link rel="icon" href="/favicon-ethereum-tesseract.svg?v=ethereum-open-4" type="image/svg+xml" />
       </Head>
 
       <Box

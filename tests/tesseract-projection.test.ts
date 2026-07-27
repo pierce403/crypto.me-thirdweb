@@ -5,7 +5,6 @@ import {
   COMPACT_TESSERACT_EDGE_KEYS,
   COMPACT_TESSERACT_FACE_KEY,
   createTesseractFrame,
-  ETHEREUM_UPPER_KITE,
   ETHEREUM_V_BASE,
   projectTesseractVertex,
   rotateTesseractPoint,
@@ -42,20 +41,13 @@ describe('tesseract projection', () => {
       for (const vertex of frame.vertices) {
         assert.equal(Number.isFinite(vertex.x), true);
         assert.equal(Number.isFinite(vertex.y), true);
-        assert.ok(vertex.x >= 68 && vertex.x <= 186);
-        assert.ok(vertex.y >= 47 && vertex.y <= 155);
+        assert.ok(vertex.x >= 58 && vertex.x <= 198);
+        assert.ok(vertex.y >= 46 && vertex.y <= 173);
       }
     }
   });
 
-  it('keeps the rotating tesseract inside the upper Ethereum body', () => {
-    const centerX = ETHEREUM_UPPER_KITE.top[0];
-    const topY = ETHEREUM_UPPER_KITE.top[1];
-    const shoulderY = ETHEREUM_UPPER_KITE.left[1];
-    const bottomY = ETHEREUM_UPPER_KITE.bottom[1];
-    const halfShoulderWidth =
-      ETHEREUM_UPPER_KITE.right[0] - centerX;
-    const clipInset = 4;
+  it('keeps the enlarged tesseract close to the stable V base', () => {
     const aspectRatios = Array.from({ length: 201 }, (_, sample) => {
       const vertices = createTesseractFrame(sample / 200).vertices;
       const width =
@@ -70,27 +62,6 @@ describe('tesseract projection', () => {
     assert.ok(aspectRatios[0] >= 0.8);
     assert.ok(aspectRatios[aspectRatios.length - 1] <= 1.4);
 
-    for (let sample = 0; sample <= 400; sample += 1) {
-      const vertices = createTesseractFrame(sample / 400).vertices;
-
-      for (const vertex of vertices) {
-        assert.ok(vertex.y >= topY && vertex.y <= bottomY);
-        const halfWidth =
-          vertex.y <= shoulderY
-            ? ((vertex.y - topY) * halfShoulderWidth) /
-              (shoulderY - topY)
-            : ((bottomY - vertex.y) * halfShoulderWidth) /
-              (bottomY - shoulderY);
-
-        assert.ok(
-          Math.abs(vertex.x - centerX) <= halfWidth - clipInset,
-          `vertex ${vertex.index} leaves the inset upper kite at phase ${
-            sample / 400
-          }`,
-        );
-      }
-    }
-
     const highestLowerVertex = Math.max(
       ...Array.from({ length: 201 }, (_, sample) =>
         Math.max(
@@ -101,7 +72,10 @@ describe('tesseract projection', () => {
       ),
     );
     assert.ok(
-      ETHEREUM_V_BASE.leftShoulder[1] - highestLowerVertex >= 16,
+      ETHEREUM_V_BASE.leftShoulder[1] - highestLowerVertex >= 7,
+    );
+    assert.ok(
+      ETHEREUM_V_BASE.leftShoulder[1] - highestLowerVertex <= 9,
     );
 
     const staticVertices = createTesseractFrame().vertices;
@@ -111,8 +85,8 @@ describe('tesseract projection', () => {
     const bottom = staticVertices.reduce((first, second) =>
       first.y > second.y ? first : second,
     );
-    assert.ok(Math.abs(top.x - 128) <= 1);
-    assert.ok(Math.abs(bottom.x - 128) <= 1);
+    assert.ok(Math.abs(top.x - 128) <= 3);
+    assert.ok(Math.abs(bottom.x - 128) <= 3);
   });
 
   it('defines a centered, stable two-facet Ethereum V base', () => {
@@ -130,21 +104,6 @@ describe('tesseract projection', () => {
     assert.ok(notch[1] > leftShoulder[1]);
     assert.ok(bottom[1] > notch[1]);
     assert.ok(bottom[1] <= 240);
-    assert.equal(ETHEREUM_UPPER_KITE.top[0], 128);
-    assert.equal(ETHEREUM_UPPER_KITE.bottom[0], 128);
-    assert.equal(
-      ETHEREUM_UPPER_KITE.left[0] +
-        ETHEREUM_UPPER_KITE.right[0],
-      256,
-    );
-    assert.equal(
-      ETHEREUM_UPPER_KITE.left[1],
-      ETHEREUM_UPPER_KITE.right[1],
-    );
-    assert.ok(
-      leftShoulder[1] - ETHEREUM_UPPER_KITE.bottom[1] >= 10,
-    );
-
     const edgeKeys = new Set(TESSERACT_EDGES.map(
       (edge) => `${edge.from}-${edge.to}`,
     ));

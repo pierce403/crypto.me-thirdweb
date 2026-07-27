@@ -5,7 +5,6 @@ import {
   COMPACT_TESSERACT_EDGE_KEYS,
   COMPACT_TESSERACT_FACE_KEY,
   createTesseractFrame,
-  ETHEREUM_UPPER_KITE,
   ETHEREUM_V_BASE,
 } from '../src/lib/tesseract';
 
@@ -47,49 +46,10 @@ const baseRidgePath = [
   `M${ETHEREUM_V_BASE.notch.join(' ')}`,
   `L${ETHEREUM_V_BASE.bottom.join(' ')}`,
 ].join(' ');
-const upperKitePoints = points([
-  ETHEREUM_UPPER_KITE.top,
-  ETHEREUM_UPPER_KITE.right,
-  ETHEREUM_UPPER_KITE.bottom,
-  ETHEREUM_UPPER_KITE.left,
-]);
-const upperLeftTopPoints = points([
-  ETHEREUM_UPPER_KITE.top,
-  ETHEREUM_UPPER_KITE.left,
-  ETHEREUM_UPPER_KITE.center,
-]);
-const upperRightTopPoints = points([
-  ETHEREUM_UPPER_KITE.top,
-  ETHEREUM_UPPER_KITE.right,
-  ETHEREUM_UPPER_KITE.center,
-]);
-const upperLeftBottomPoints = points([
-  ETHEREUM_UPPER_KITE.left,
-  ETHEREUM_UPPER_KITE.bottom,
-  ETHEREUM_UPPER_KITE.center,
-]);
-const upperRightBottomPoints = points([
-  ETHEREUM_UPPER_KITE.right,
-  ETHEREUM_UPPER_KITE.bottom,
-  ETHEREUM_UPPER_KITE.center,
-]);
-const upperKiteOutlinePath = [
-  `M${ETHEREUM_UPPER_KITE.top.join(' ')}`,
-  `L${ETHEREUM_UPPER_KITE.right.join(' ')}`,
-  `L${ETHEREUM_UPPER_KITE.bottom.join(' ')}`,
-  `L${ETHEREUM_UPPER_KITE.left.join(' ')}`,
-  'Z',
-].join(' ');
-const upperKiteRidgePath = [
-  `M${ETHEREUM_UPPER_KITE.top.join(' ')}`,
-  `L${ETHEREUM_UPPER_KITE.center.join(' ')}`,
-  `L${ETHEREUM_UPPER_KITE.bottom.join(' ')}`,
-].join(' ');
-
 const faces = displayedFaces
   .map((face) => {
     const gradient = face.centroidX <= 128 ? 'face-light' : 'face-dark';
-    const opacity = 0.28;
+    const opacity = 0.32;
     const points = face.vertices
       .map((vertex) => {
         const point = frame.vertices[vertex];
@@ -153,14 +113,11 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" data-
       <stop offset=".55" stop-color="#6d28d9"/>
       <stop offset="1" stop-color="#4c1d95"/>
     </linearGradient>
-    <clipPath id="upper-clip">
-      <polygon points="${upperKitePoints}"/>
-    </clipPath>
     <filter id="glow" x="-35%" y="-35%" width="170%" height="170%" color-interpolation-filters="sRGB">
       <feGaussianBlur stdDeviation="3.5"/>
     </filter>
   </defs>
-  <ellipse cx="128" cy="108" rx="82" ry="102" fill="url(#aura)" opacity=".045" filter="url(#glow)"/>
+  <ellipse cx="128" cy="118" rx="86" ry="106" fill="url(#aura)" opacity=".045" filter="url(#glow)"/>
   <g data-brand-part="ethereum-v-base" data-ethereum-v-base="stable">
     <g filter="url(#glow)" opacity=".14">
       <polygon points="${baseLeftPoints}" fill="url(#base-left)"/>
@@ -171,26 +128,16 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" data-
     <path d="${baseOutlinePath}" fill="none" stroke="url(#edge)" stroke-linecap="round" stroke-linejoin="round" stroke-width="4.6" opacity=".9"/>
     <path d="${baseRidgePath}" fill="none" stroke="#c4b5fd" stroke-linecap="round" stroke-width="3.4" opacity=".68"/>
   </g>
-  <g data-brand-part="upper-tesseract">
-    <g opacity=".19">
-      <polygon points="${upperLeftTopPoints}" fill="url(#face-light)"/>
-      <polygon points="${upperRightTopPoints}" fill="url(#face-dark)"/>
-      <polygon points="${upperLeftBottomPoints}" fill="url(#face-light)"/>
-      <polygon points="${upperRightBottomPoints}" fill="url(#face-dark)"/>
-    </g>
-    <g clip-path="url(#upper-clip)">
-      <g>
+  <g data-brand-part="upper-tesseract" data-upper-frame="none">
+    <g>
 ${faces}
-      </g>
-      <g fill="none" stroke="url(#edge)" stroke-linecap="round" opacity=".24" filter="url(#glow)">
-${glowEdges}
-      </g>
-      <g fill="none" stroke-linecap="round">
-${crispEdges}
-      </g>
     </g>
-    <path d="${upperKiteOutlinePath}" fill="none" stroke="url(#edge)" stroke-linecap="round" stroke-linejoin="round" stroke-width="3.4" opacity=".72"/>
-    <path d="${upperKiteRidgePath}" fill="none" stroke="#a5b4fc" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" opacity=".5"/>
+    <g fill="none" stroke="url(#edge)" stroke-linecap="round" opacity=".24" filter="url(#glow)">
+${glowEdges}
+    </g>
+    <g fill="none" stroke-linecap="round">
+${crispEdges}
+    </g>
   </g>
 </svg>
 `;

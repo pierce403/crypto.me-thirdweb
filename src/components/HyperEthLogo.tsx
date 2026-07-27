@@ -10,7 +10,6 @@ import {
   COMPACT_TESSERACT_EDGE_KEYS,
   COMPACT_TESSERACT_FACE_KEY,
   createTesseractFrame,
-  ETHEREUM_UPPER_KITE,
   ETHEREUM_V_BASE,
   STATIC_TESSERACT_PHASE,
   type TesseractFrame,
@@ -50,44 +49,6 @@ const V_BASE_OUTLINE_PATH = [
 const V_BASE_RIDGE_PATH = [
   `M${ETHEREUM_V_BASE.notch.join(' ')}`,
   `L${ETHEREUM_V_BASE.bottom.join(' ')}`,
-].join(' ');
-const UPPER_KITE_POINTS = [
-  ETHEREUM_UPPER_KITE.top,
-  ETHEREUM_UPPER_KITE.right,
-  ETHEREUM_UPPER_KITE.bottom,
-  ETHEREUM_UPPER_KITE.left,
-].join(' ');
-const UPPER_LEFT_TOP_POINTS = [
-  ETHEREUM_UPPER_KITE.top,
-  ETHEREUM_UPPER_KITE.left,
-  ETHEREUM_UPPER_KITE.center,
-].join(' ');
-const UPPER_RIGHT_TOP_POINTS = [
-  ETHEREUM_UPPER_KITE.top,
-  ETHEREUM_UPPER_KITE.right,
-  ETHEREUM_UPPER_KITE.center,
-].join(' ');
-const UPPER_LEFT_BOTTOM_POINTS = [
-  ETHEREUM_UPPER_KITE.left,
-  ETHEREUM_UPPER_KITE.bottom,
-  ETHEREUM_UPPER_KITE.center,
-].join(' ');
-const UPPER_RIGHT_BOTTOM_POINTS = [
-  ETHEREUM_UPPER_KITE.right,
-  ETHEREUM_UPPER_KITE.bottom,
-  ETHEREUM_UPPER_KITE.center,
-].join(' ');
-const UPPER_KITE_OUTLINE_PATH = [
-  `M${ETHEREUM_UPPER_KITE.top.join(' ')}`,
-  `L${ETHEREUM_UPPER_KITE.right.join(' ')}`,
-  `L${ETHEREUM_UPPER_KITE.bottom.join(' ')}`,
-  `L${ETHEREUM_UPPER_KITE.left.join(' ')}`,
-  'Z',
-].join(' ');
-const UPPER_KITE_RIDGE_PATH = [
-  `M${ETHEREUM_UPPER_KITE.top.join(' ')}`,
-  `L${ETHEREUM_UPPER_KITE.center.join(' ')}`,
-  `L${ETHEREUM_UPPER_KITE.bottom.join(' ')}`,
 ].join(' ');
 
 function vertexColor(w: number) {
@@ -254,7 +215,6 @@ export function HyperEthLogo({
   const darkFaceGradientId = `hyper-eth-face-dark-${idSuffix}`;
   const baseLeftGradientId = `hyper-eth-base-left-${idSuffix}`;
   const baseRightGradientId = `hyper-eth-base-right-${idSuffix}`;
-  const upperClipId = `hyper-eth-upper-clip-${idSuffix}`;
   const glowFilterId = `hyper-eth-glow-${idSuffix}`;
   const svgRef = useRef<SVGSVGElement | null>(null);
   const frame = useTesseractFrame(animated, svgRef);
@@ -354,9 +314,6 @@ export function HyperEthLogo({
           <stop offset="0.55" stopColor="#6D28D9" />
           <stop offset="1" stopColor="#4C1D95" />
         </linearGradient>
-        <clipPath id={upperClipId}>
-          <polygon points={UPPER_KITE_POINTS} />
-        </clipPath>
         <filter
           id={glowFilterId}
           x="-35%"
@@ -365,15 +322,15 @@ export function HyperEthLogo({
           height="170%"
           colorInterpolationFilters="sRGB"
         >
-          <feGaussianBlur stdDeviation={animated ? 5.5 : 3.5} />
+          <feGaussianBlur stdDeviation={animated ? 4 : 3.5} />
         </filter>
       </defs>
 
       <ellipse
         cx="128"
-        cy="108"
-        rx="82"
-        ry="102"
+        cy="118"
+        rx="86"
+        ry="106"
         fill={`url(#${auraGradientId})`}
         opacity={animated ? 0.055 : 0.045}
         filter={`url(#${glowFilterId})`}
@@ -425,28 +382,10 @@ export function HyperEthLogo({
 
       <g
         data-brand-part="upper-tesseract"
+        data-upper-frame="none"
         aria-hidden="true"
       >
-        <g opacity={animated ? 0.065 : 0.19}>
-          <polygon
-            points={UPPER_LEFT_TOP_POINTS}
-            fill={`url(#${lightFaceGradientId})`}
-          />
-          <polygon
-            points={UPPER_RIGHT_TOP_POINTS}
-            fill={`url(#${darkFaceGradientId})`}
-          />
-          <polygon
-            points={UPPER_LEFT_BOTTOM_POINTS}
-            fill={`url(#${lightFaceGradientId})`}
-          />
-          <polygon
-            points={UPPER_RIGHT_BOTTOM_POINTS}
-            fill={`url(#${darkFaceGradientId})`}
-          />
-        </g>
-
-        <g clipPath={`url(#${upperClipId})`}>
+        <g>
           <g>
             {displayedFaces.map((face) => (
               <polygon
@@ -461,8 +400,8 @@ export function HyperEthLogo({
                   animated
                     ? (face.includesW ? 0.018 : 0.01) +
                       (face.centroidY < 90 ? 0.014 : 0) +
-                      face.depth ** 2 * 0.11
-                    : 0.28
+                      face.depth ** 2 * 0.13
+                    : 0.32
                 }
               />
             ))}
@@ -473,7 +412,7 @@ export function HyperEthLogo({
             stroke={`url(#${edgeGradientId})`}
             strokeLinecap="round"
             filter={`url(#${glowFilterId})`}
-            opacity={animated ? 0.4 : 0.24}
+            opacity={animated ? 0.34 : 0.24}
           >
             {displayedEdges.map((edge) => {
               const from = frame.vertices[edge.from];
@@ -545,24 +484,6 @@ export function HyperEthLogo({
           )}
         </g>
 
-        <path
-          d={UPPER_KITE_OUTLINE_PATH}
-          fill="none"
-          stroke={`url(#${edgeGradientId})`}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={animated ? 1.05 : 3.4}
-          opacity={animated ? 0.34 : 0.72}
-        />
-        <path
-          d={UPPER_KITE_RIDGE_PATH}
-          fill="none"
-          stroke="#A5B4FC"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={animated ? 0.8 : 2.4}
-          opacity={animated ? 0.2 : 0.5}
-        />
       </g>
     </svg>
   );

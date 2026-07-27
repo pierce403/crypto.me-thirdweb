@@ -59,9 +59,10 @@ const ETHEREUM_X_SCALE = 0.74;
 const ETHEREUM_Y_SCALE = 1.08;
 const ETHEREUM_X_SHEAR = -0.18;
 const ETHEREUM_TIP_PINCH = 0.34;
-const ETHEREUM_UPPER_X_SCALE = 0.748;
-const ETHEREUM_UPPER_Y_SCALE = 0.4624;
-const ETHEREUM_UPPER_Y_OFFSET = 42.8;
+const ETHEREUM_UPPER_X_SCALE = 0.9724;
+const ETHEREUM_UPPER_X_OFFSET = 1.951;
+const ETHEREUM_UPPER_Y_SCALE = 0.60112;
+const ETHEREUM_UPPER_Y_OFFSET = 32.994;
 const TAU = Math.PI * 2;
 
 export const ETHEREUM_V_BASE: {
@@ -74,20 +75,6 @@ export const ETHEREUM_V_BASE: {
   notch: [128, 211],
   rightShoulder: [200, 180],
   bottom: [128, 240],
-};
-
-export const ETHEREUM_UPPER_KITE: {
-  top: MarkPoint;
-  left: MarkPoint;
-  center: MarkPoint;
-  right: MarkPoint;
-  bottom: MarkPoint;
-} = {
-  top: [128, 16],
-  left: [52, 112],
-  center: [128, 98],
-  right: [204, 112],
-  bottom: [128, 168],
 };
 
 export const COMPACT_TESSERACT_EDGE_KEYS: ReadonlySet<string> = new Set([
@@ -263,11 +250,12 @@ export function projectTesseractVertex(
   return {
     index,
     // Preserve the real 4D/3D projection, then give its presentation the
-    // upper-kite stance associated with Ethereum. A separate stable V base
+    // upper-body stance associated with Ethereum. A separate stable V base
     // completes the mark without participating in the rotation.
     x:
       VIEWBOX_CENTER +
-      brandedX * ETHEREUM_UPPER_X_SCALE,
+      brandedX * ETHEREUM_UPPER_X_SCALE +
+      ETHEREUM_UPPER_X_OFFSET,
     y:
       ETHEREUM_UPPER_Y_OFFSET +
       brandedY * ETHEREUM_UPPER_Y_SCALE,
