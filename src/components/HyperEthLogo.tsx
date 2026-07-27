@@ -25,7 +25,7 @@ export interface HyperEthLogoProps
 const LOOP_DURATION_MS = 20_000;
 const FRAME_INTERVAL_MS = 1_000 / 45;
 const STATIC_FRAME = createTesseractFrame(STATIC_TESSERACT_PHASE);
-const EDGE_COLORS = ['#67E8F9', '#60A5FA', '#818CF8', '#D946EF'] as const;
+const EDGE_COLORS = ['#A5F3FC', '#93C5FD', '#A5B4FC', '#D946EF'] as const;
 
 function vertexColor(w: number) {
   const mix = Math.max(0, Math.min(1, (w + 2) / 4));
@@ -186,10 +186,30 @@ export function HyperEthLogo({
 }: HyperEthLogoProps) {
   const idSuffix = useId().replace(/[^a-zA-Z0-9_-]/g, '');
   const edgeGradientId = `hyper-eth-edge-${idSuffix}`;
-  const faceGradientId = `hyper-eth-face-${idSuffix}`;
+  const auraGradientId = `hyper-eth-aura-${idSuffix}`;
+  const lightFaceGradientId = `hyper-eth-face-light-${idSuffix}`;
+  const darkFaceGradientId = `hyper-eth-face-dark-${idSuffix}`;
   const glowFilterId = `hyper-eth-glow-${idSuffix}`;
   const svgRef = useRef<SVGSVGElement | null>(null);
   const frame = useTesseractFrame(animated, svgRef);
+  const displayedFaces = animated ? frame.faces : frame.faces.slice(-8);
+  const topVertex = frame.vertices.reduce((first, second) =>
+    first.y < second.y ? first : second,
+  );
+  const bottomVertex = frame.vertices.reduce((first, second) =>
+    first.y > second.y ? first : second,
+  );
+  const displayedEdges = animated
+    ? frame.edges
+    : frame.edges.filter(
+        (edge) =>
+          edge.depth >= 0.45 ||
+          edge.axis === 3 ||
+          edge.from === topVertex.index ||
+          edge.to === topVertex.index ||
+          edge.from === bottomVertex.index ||
+          edge.to === bottomVertex.index,
+      );
 
   return (
     <svg
@@ -199,6 +219,7 @@ export function HyperEthLogo({
       data-tesseract-vertices="16"
       data-tesseract-edges="32"
       data-tesseract-projection="4d-perspective-to-3d-perspective"
+      data-brand-silhouette="ethereum-crystal"
       viewBox="0 0 256 256"
       width={size}
       height={size}
@@ -222,11 +243,35 @@ export function HyperEthLogo({
           <stop offset="0.5" stopColor="#6366F1" />
           <stop offset="1" stopColor="#D946EF" />
         </linearGradient>
-        <radialGradient id={faceGradientId}>
-          <stop offset="0" stopColor="#A5F3FC" />
-          <stop offset="0.56" stopColor="#818CF8" />
-          <stop offset="1" stopColor="#C026D3" />
+        <radialGradient id={auraGradientId}>
+          <stop offset="0" stopColor="#818CF8" />
+          <stop offset="0.58" stopColor="#7C3AED" />
+          <stop offset="1" stopColor="#C026D3" stopOpacity="0" />
         </radialGradient>
+        <linearGradient
+          id={lightFaceGradientId}
+          x1="54"
+          y1="36"
+          x2="174"
+          y2="212"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop offset="0" stopColor="#E0F2FE" />
+          <stop offset="0.5" stopColor="#A5B4FC" />
+          <stop offset="1" stopColor="#6366F1" />
+        </linearGradient>
+        <linearGradient
+          id={darkFaceGradientId}
+          x1="92"
+          y1="38"
+          x2="204"
+          y2="224"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop offset="0" stopColor="#818CF8" />
+          <stop offset="0.54" stopColor="#4F46E5" />
+          <stop offset="1" stopColor="#86198F" />
+        </linearGradient>
         <filter
           id={glowFilterId}
           x="-35%"
@@ -239,24 +284,30 @@ export function HyperEthLogo({
         </filter>
       </defs>
 
-      <circle
+      <ellipse
         cx="128"
         cy="128"
-        r="93"
-        fill={`url(#${faceGradientId})`}
-        opacity={animated ? 0.045 : 0.065}
+        rx="73"
+        ry="105"
+        fill={`url(#${auraGradientId})`}
+        opacity={animated ? 0.055 : 0.045}
         filter={`url(#${glowFilterId})`}
       />
 
       <g aria-hidden="true">
-        {frame.faces.map((face) => (
+        {displayedFaces.map((face) => (
           <polygon
             key={face.key}
             points={face.points}
-            fill={`url(#${faceGradientId})`}
+            fill={`url(#${
+              face.centroidX <= 128
+                ? lightFaceGradientId
+                : darkFaceGradientId
+            })`}
             opacity={
-              (face.includesW ? 0.018 : 0.012) +
-              face.depth * (animated ? 0.048 : 0.065)
+              (face.includesW ? 0.018 : 0.01) +
+              (face.centroidY < 128 ? 0.014 : 0) +
+              face.depth ** 2 * (animated ? 0.082 : 0.12)
             }
           />
         ))}
@@ -270,7 +321,7 @@ export function HyperEthLogo({
         filter={`url(#${glowFilterId})`}
         opacity={animated ? 0.42 : 0.34}
       >
-        {frame.edges.map((edge) => {
+        {displayedEdges.map((edge) => {
           const from = frame.vertices[edge.from];
           const to = frame.vertices[edge.to];
 
@@ -290,10 +341,10 @@ export function HyperEthLogo({
       </g>
 
       <g aria-hidden="true" fill="none" strokeLinecap="round">
-        {frame.edges.map((edge) => {
+        {displayedEdges.map((edge) => {
           const from = frame.vertices[edge.from];
           const to = frame.vertices[edge.to];
-          const depthOpacity = 0.34 + edge.depth * 0.64;
+          const depthOpacity = 0.14 + edge.depth ** 1.35 * 0.82;
 
           return (
             <line
@@ -308,7 +359,11 @@ export function HyperEthLogo({
                   : EDGE_COLORS[edge.axis]
               }
               strokeWidth={
-                animated ? 1.55 + edge.depth * 2.3 : 4.8 + edge.depth * 2
+                animated
+                  ? 1.15 +
+                    edge.depth * 2.15 +
+                    (edge.axis === 3 ? 0.3 : 0)
+                  : 5.1 + edge.depth * 2
               }
               opacity={depthOpacity}
             />
@@ -316,24 +371,22 @@ export function HyperEthLogo({
         })}
       </g>
 
-      <g aria-hidden="true">
-        {[...frame.vertices]
-          .sort((first, second) => first.depth - second.depth)
-          .map((vertex) => (
-            <circle
-              key={vertex.index}
-              cx={vertex.x}
-              cy={vertex.y}
-              r={
-                animated
-                  ? 1.45 + vertex.depth * 1.9
-                  : 3.1 + vertex.depth * 1.4
-              }
-              fill={vertexColor(vertex.w)}
-              opacity={0.54 + vertex.depth * 0.46}
-            />
-          ))}
-      </g>
+      {animated && (
+        <g aria-hidden="true">
+          {[...frame.vertices]
+            .sort((first, second) => first.depth - second.depth)
+            .map((vertex) => (
+              <circle
+                key={vertex.index}
+                cx={vertex.x}
+                cy={vertex.y}
+                r={0.65 + vertex.depth * 1.15}
+                fill={vertexColor(vertex.w)}
+                opacity={0.08 + vertex.depth ** 2 * 0.66}
+              />
+            ))}
+        </g>
+      )}
     </svg>
   );
 }

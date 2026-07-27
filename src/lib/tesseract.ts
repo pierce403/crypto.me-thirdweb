@@ -35,6 +35,8 @@ export interface ProjectedTesseractEdge extends TesseractEdge {
 export interface ProjectedTesseractFace extends TesseractFace {
   depth: number;
   points: string;
+  centroidX: number;
+  centroidY: number;
 }
 
 export interface TesseractFrame {
@@ -52,13 +54,17 @@ const FOUR_DIMENSIONAL_CAMERA_DISTANCE = 4.75;
 const THREE_DIMENSIONAL_CAMERA_DISTANCE = 8;
 const CAMERA_YAW = 0.58;
 const CAMERA_PITCH = -0.46;
+const ETHEREUM_X_SCALE = 0.74;
+const ETHEREUM_Y_SCALE = 1.08;
+const ETHEREUM_X_SHEAR = -0.18;
+const ETHEREUM_TIP_PINCH = 0.34;
 const TAU = Math.PI * 2;
 
 /**
  * A fixed, dimensional frame used for SSR, small logo treatments, and the
  * reduced-motion experience.
  */
-export const STATIC_TESSERACT_PHASE = 0.11;
+export const STATIC_TESSERACT_PHASE = 0.345;
 
 export const TESSERACT_VERTICES: readonly TesseractPoint4[] = Array.from(
   { length: 16 },
@@ -192,11 +198,25 @@ export function projectTesseractVertex(
   const perspective3 =
     THREE_DIMENSIONAL_CAMERA_DISTANCE /
     (THREE_DIMENSIONAL_CAMERA_DISTANCE - cameraZ);
+  const projectedX = cameraX * perspective3 * DRAW_SCALE;
+  const projectedY = -cameraY * perspective3 * DRAW_SCALE;
+  const verticalPosition = Math.min(
+    1,
+    Math.abs(projectedY) / (DRAW_SCALE * 2.25),
+  );
+  const tipPinch =
+    1 - ETHEREUM_TIP_PINCH * verticalPosition ** 1.4;
+  const brandedX =
+    (projectedX * ETHEREUM_X_SCALE +
+      projectedY * ETHEREUM_X_SHEAR) *
+    tipPinch;
 
   return {
     index,
-    x: VIEWBOX_CENTER + cameraX * perspective3 * DRAW_SCALE,
-    y: VIEWBOX_CENTER - cameraY * perspective3 * DRAW_SCALE,
+    // Preserve the real 4D/3D projection, then give its presentation the
+    // taller, subtly sheared crystal stance associated with Ethereum.
+    x: VIEWBOX_CENTER + brandedX,
+    y: VIEWBOX_CENTER + projectedY * ETHEREUM_Y_SCALE,
     z: cameraZ,
     w,
     depth: Math.max(0, Math.min(1, (cameraZ + 2.5) / 5)),
@@ -218,17 +238,27 @@ export function createTesseractFrame(
     depth: (vertices[edge.from].depth + vertices[edge.to].depth) / 2,
   })).sort((first, second) => first.depth - second.depth);
 
-  const faces = TESSERACT_FACES.map((face) => ({
-    ...face,
-    depth:
-      face.vertices.reduce(
-        (total, vertex) => total + vertices[vertex].depth,
-        0,
-      ) / face.vertices.length,
-    points: face.vertices
-      .map((vertex) => `${vertices[vertex].x},${vertices[vertex].y}`)
-      .join(' '),
-  })).sort((first, second) => first.depth - second.depth);
+  const faces = TESSERACT_FACES.map((face) => {
+    const faceVertices = face.vertices.map((vertex) => vertices[vertex]);
+
+    return {
+      ...face,
+      depth:
+        faceVertices.reduce(
+          (total, vertex) => total + vertex.depth,
+          0,
+        ) / faceVertices.length,
+      centroidX:
+        faceVertices.reduce((total, vertex) => total + vertex.x, 0) /
+        faceVertices.length,
+      centroidY:
+        faceVertices.reduce((total, vertex) => total + vertex.y, 0) /
+        faceVertices.length,
+      points: faceVertices
+        .map((vertex) => `${vertex.x},${vertex.y}`)
+        .join(' '),
+    };
+  }).sort((first, second) => first.depth - second.depth);
 
   return {
     vertices,

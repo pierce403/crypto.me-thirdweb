@@ -16,7 +16,7 @@
     "lint": "next lint",
     "test": "TS_NODE_TRANSPILE_ONLY=1 node --require ./scripts/register-ts.js scripts/run-tests.js",
     "test:e2e": "TS_NODE_TRANSPILE_ONLY=1 node --require ./scripts/register-ts.js tests/e2e-no-demo-data.test.ts",
-    "brand:assets": "node scripts/generate-brand-assets.mjs"
+    "brand:assets": "TS_NODE_TRANSPILE_ONLY=1 node --require ./scripts/register-ts.js scripts/generate-tesseract-svg.ts && node scripts/generate-brand-assets.mjs"
   },
   "dependencies": {
     "@adraffy/ens-normalize": "^1.11.1",

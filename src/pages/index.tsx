@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import type { GetServerSideProps } from 'next';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { keyframes } from '@emotion/react';
@@ -244,17 +245,17 @@ const Home: React.FC = () => {
         <meta property="og:description" content="A fast, resilient view of your onchain identity." />
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://crypto.me/" />
-        <meta property="og:image" content="https://crypto.me/og-image.png" />
+        <meta property="og:image" content="https://crypto.me/og-image-ethereum-tesseract.png" />
         <meta property="og:image:width" content="1200" />
         <meta property="og:image:height" content="630" />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="crypto.me — Every signal. One identity." />
         <meta name="twitter:description" content="A fast, resilient view of your onchain identity." />
-        <meta name="twitter:image" content="https://crypto.me/og-image.png" />
+        <meta name="twitter:image" content="https://crypto.me/og-image-ethereum-tesseract.png" />
         <meta key="theme-light" name="theme-color" content="#f7f5fb" media="(prefers-color-scheme: light)" />
         <meta key="theme-dark" name="theme-color" content="#070610" media="(prefers-color-scheme: dark)" />
         <link rel="canonical" href="https://crypto.me/" />
-        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+        <link rel="icon" href="/favicon-ethereum-tesseract.svg?v=ethereum-crystal-1" type="image/svg+xml" />
       </Head>
 
       <Box
@@ -489,16 +490,16 @@ const Home: React.FC = () => {
             >
               <Box
                 position="absolute"
-                width={{ base: '310px', md: '430px' }}
-                height={{ base: '310px', md: '430px' }}
+                width={{ base: '255px', md: '350px' }}
+                height={{ base: '340px', md: '470px' }}
                 borderRadius="full"
                 bg="radial-gradient(circle, rgba(124, 58, 237, 0.19), rgba(37, 99, 235, 0.07) 48%, transparent 70%)"
                 filter="blur(4px)"
               />
               <Box
                 position="absolute"
-                width={{ base: '280px', md: '400px' }}
-                height={{ base: '280px', md: '400px' }}
+                width={{ base: '245px', md: '340px' }}
+                height={{ base: '320px', md: '450px' }}
                 border="1px solid"
                 borderColor="rgba(124, 58, 237, 0.24)"
                 borderRadius="full"
@@ -758,6 +759,14 @@ const Home: React.FC = () => {
       </Box>
     </Box>
   );
+};
+
+export const getServerSideProps: GetServerSideProps = async ({ res }) => {
+  // Keep design deploys from being pinned behind Next's year-long static-page
+  // cache. The landing page is lightweight and should reflect each Worker
+  // version immediately.
+  res.setHeader('Cache-Control', 'private, no-store, max-age=0');
+  return { props: {} };
 };
 
 export default Home;

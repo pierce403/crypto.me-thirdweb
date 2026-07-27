@@ -6,6 +6,11 @@ const projectRoot = process.cwd();
 const sourcePath = path.join(projectRoot, 'public', 'favicon.svg');
 const icoPath = path.join(projectRoot, 'src', 'app', 'favicon.ico');
 const ogImagePath = path.join(projectRoot, 'public', 'og-image.png');
+const versionedOgImagePath = path.join(
+  projectRoot,
+  'public',
+  'og-image-ethereum-tesseract.png',
+);
 const sourceSvg = await readFile(sourcePath);
 
 const iconSizes = [16, 32, 48, 64];
@@ -72,8 +77,14 @@ const ogSvg = `
   </svg>
 `;
 
-await sharp(Buffer.from(ogSvg))
+const ogImage = await sharp(Buffer.from(ogSvg))
   .png({ compressionLevel: 9 })
-  .toFile(ogImagePath);
+  .toBuffer();
+await Promise.all([
+  writeFile(ogImagePath, ogImage),
+  writeFile(versionedOgImagePath, ogImage),
+]);
 
-console.log('Generated src/app/favicon.ico and public/og-image.png from public/favicon.svg');
+console.log(
+  'Generated src/app/favicon.ico and public OG image variants from public/favicon.svg',
+);

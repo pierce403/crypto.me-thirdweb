@@ -44,6 +44,32 @@ describe('tesseract projection', () => {
     }
   });
 
+  it('keeps an Ethereum-like tall crystal silhouette through the motion', () => {
+    const aspectRatios = Array.from({ length: 201 }, (_, sample) => {
+      const vertices = createTesseractFrame(sample / 200).vertices;
+      const width =
+        Math.max(...vertices.map((vertex) => vertex.x)) -
+        Math.min(...vertices.map((vertex) => vertex.x));
+      const height =
+        Math.max(...vertices.map((vertex) => vertex.y)) -
+        Math.min(...vertices.map((vertex) => vertex.y));
+      return width / height;
+    }).sort((first, second) => first - second);
+
+    assert.ok(aspectRatios[Math.floor(aspectRatios.length / 2)] <= 0.7);
+    assert.ok(aspectRatios[aspectRatios.length - 1] < 0.9);
+
+    const staticVertices = createTesseractFrame().vertices;
+    const top = staticVertices.reduce((first, second) =>
+      first.y < second.y ? first : second,
+    );
+    const bottom = staticVertices.reduce((first, second) =>
+      first.y > second.y ? first : second,
+    );
+    assert.ok(Math.abs(top.x - 128) <= 3);
+    assert.ok(Math.abs(bottom.x - 128) <= 3);
+  });
+
   it('loops exactly and changes W-plane geometry during the cycle', () => {
     const start = createTesseractFrame(0);
     const quarterTurn = createTesseractFrame(0.25);
