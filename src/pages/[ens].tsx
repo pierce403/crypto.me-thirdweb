@@ -19,6 +19,7 @@ import {
   FastDecentralandCard
 } from '../components/FastServiceCards';
 import { ColorModeToggle } from '../components/ColorMode';
+import { HyperEthLogo } from '../components/HyperEthLogo';
 
 // Add this function
 function convertToGatewayUrl(ipfsUrl: string | null): string | null {
@@ -77,9 +78,7 @@ function ProfileHeader() {
         <HStack justify="space-between">
           <Link href="/" _hover={{ textDecoration: 'none' }}>
             <HStack gap={2}>
-              <Flex width="34px" height="34px" borderRadius="md" bg="blue.600" color="white" align="center" justify="center" fontWeight="bold">
-                c
-              </Flex>
+              <HyperEthLogo size={36} label="" />
               <Text fontSize="lg" fontWeight="bold" color="fg">crypto.me</Text>
             </HStack>
           </Link>
@@ -225,6 +224,7 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
       <Box minH="100vh" bg="bg.subtle" color="fg" _dark={{ bg: 'bg' }}>
         <Head>
           <title>{`${ensName} | Crypto.me Profile`}</title>
+          <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         </Head>
         <ProfileHeader />
         <Container maxW="container.md" centerContent>
@@ -300,6 +300,7 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
     <Box data-testid="profile-shell" minH="100vh" bg="bg.subtle" color="fg" _dark={{ bg: 'bg' }}>
       <Head>
         <title>{`${ensName} | Crypto.me Profile`}</title>
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
       </Head>
 
       <ProfileHeader />

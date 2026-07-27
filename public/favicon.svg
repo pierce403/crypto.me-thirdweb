@@ -1,27 +1,32 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
   <defs>
-    <style>
-      .triangle { fill: #2563eb; stroke: #1d4ed8; stroke-width: 1; }
-      .eye-bg { fill: #ffffff; }
-      .pupil { fill: #1f2937; }
-      .iris { fill: #3b82f6; }
-      .highlight { fill: #ffffff; }
-    </style>
+    <linearGradient id="edge" x1="26" y1="22" x2="226" y2="238" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#67e8f9"/>
+      <stop offset=".46" stop-color="#6366f1"/>
+      <stop offset="1" stop-color="#c026d3"/>
+    </linearGradient>
+    <linearGradient id="light" x1="72" y1="66" x2="190" y2="174" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#cffafe"/>
+      <stop offset=".48" stop-color="#818cf8"/>
+      <stop offset="1" stop-color="#a855f7"/>
+    </linearGradient>
+    <linearGradient id="dark" x1="90" y1="92" x2="176" y2="201" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2563eb"/>
+      <stop offset=".58" stop-color="#4f46e5"/>
+      <stop offset="1" stop-color="#7e22ce"/>
+    </linearGradient>
   </defs>
-  
-  <!-- Upside down triangle -->
-  <polygon class="triangle" points="16,26 6,8 26,8" />
-  
-  <!-- Eye -->
-  <!-- Eye shape (almond) -->
-  <ellipse class="eye-bg" cx="16" cy="15" rx="7" ry="4" />
-  
-  <!-- Iris -->
-  <circle class="iris" cx="16" cy="15" r="3" />
-  
-  <!-- Pupil -->
-  <circle class="pupil" cx="16" cy="15" r="1.5" />
-  
-  <!-- Eye highlight -->
-  <circle class="highlight" cx="17" cy="14" r="0.8" />
-</svg> 
+  <path d="M128 14 30 126 128 137Z" fill="#312e81" opacity=".18"/>
+  <path d="M128 14 226 126 128 137Z" fill="url(#light)" opacity=".28"/>
+  <path d="m30 126 98 116v-105Z" fill="url(#dark)" opacity=".24"/>
+  <path d="m226 126-98 116V137Z" fill="#312e81" opacity=".14"/>
+  <path d="M128 14 226 126 128 242 30 126Z" fill="none" stroke="url(#edge)" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M128 14 142 56M226 126h-35M128 242l14-42M30 126h47M128 137l14-5" fill="none" stroke="url(#edge)" stroke-width="6" stroke-linecap="round"/>
+  <path d="m142 56-65 70 65 6Z" fill="url(#light)"/>
+  <path d="m142 56 49 70-49 6Z" fill="#818cf8"/>
+  <path d="m77 126 65 74v-68Z" fill="#3730a3"/>
+  <path d="m191 126-49 74v-68Z" fill="url(#dark)"/>
+  <path d="m142 56 49 70-49 74-65-74Z" fill="none" stroke="url(#edge)" stroke-width="5" stroke-linejoin="round"/>
+  <path d="M77 126l65 6 49-6" fill="none" stroke="#e0f2fe" stroke-width="3" stroke-linecap="round" opacity=".85"/>
+  <circle cx="142" cy="132" r="4" fill="#f0fdfa"/>
+</svg>

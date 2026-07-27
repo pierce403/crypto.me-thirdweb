@@ -14,8 +14,8 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Crypto.me - Decentralized Identity Aggregator",
-  description: "Discover and showcase your complete web3 identity across ENS, Farcaster, NFTs, DeFi, and social platforms in one unified profile.",
+  title: "crypto.me — Your onchain identity, in one view",
+  description: "Search any ENS name or Ethereum address to explore identity, social, messaging, token, and NFT signals in one profile.",
 };
 
 export default function RootLayout({

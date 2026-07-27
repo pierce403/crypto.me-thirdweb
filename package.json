@@ -15,7 +15,8 @@
     "db:deploy": "node scripts/with-database-url.js prisma migrate deploy",
     "lint": "next lint",
     "test": "TS_NODE_TRANSPILE_ONLY=1 node --require ./scripts/register-ts.js scripts/run-tests.js",
-    "test:e2e": "TS_NODE_TRANSPILE_ONLY=1 node --require ./scripts/register-ts.js tests/e2e-no-demo-data.test.ts"
+    "test:e2e": "TS_NODE_TRANSPILE_ONLY=1 node --require ./scripts/register-ts.js tests/e2e-no-demo-data.test.ts",
+    "brand:assets": "node scripts/generate-brand-assets.mjs"
   },
   "dependencies": {
     "@adraffy/ens-normalize": "^1.11.1",
@@ -48,6 +49,7 @@
     "node-mocks-http": "^1.17.2",
     "postcss": "^8",
     "prisma": "6.19.2",
+    "sharp": "0.34.5",
     "tailwindcss": "^4.1.8",
     "typescript": "^5.8.3",
     "wrangler": "4.112.0"
