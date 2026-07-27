@@ -517,7 +517,11 @@ const Home: React.FC = () => {
                 }}
               />
               <Box width={{ base: '230px', sm: '270px', md: '340px', lg: '390px' }} height={{ base: '230px', sm: '270px', md: '340px', lg: '390px' }}>
-                <HyperEthLogo size="100%" animated label="Rotating crypto.me hypercube mark" />
+                <HyperEthLogo
+                  size="100%"
+                  animated
+                  label="Crypto.me four-dimensional hypercube"
+                />
               </Box>
 
               <Box
