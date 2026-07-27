@@ -47,6 +47,7 @@ export interface TesseractFrame {
 
 type MutablePoint4 = [number, number, number, number];
 type Point3 = [number, number, number];
+type MarkPoint = readonly [x: number, y: number];
 
 const VIEWBOX_CENTER = 128;
 const DRAW_SCALE = 43;
@@ -58,13 +59,59 @@ const ETHEREUM_X_SCALE = 0.74;
 const ETHEREUM_Y_SCALE = 1.08;
 const ETHEREUM_X_SHEAR = -0.18;
 const ETHEREUM_TIP_PINCH = 0.34;
+const ETHEREUM_UPPER_X_SCALE = 0.748;
+const ETHEREUM_UPPER_Y_SCALE = 0.4624;
+const ETHEREUM_UPPER_Y_OFFSET = 42.8;
 const TAU = Math.PI * 2;
+
+export const ETHEREUM_V_BASE: {
+  leftShoulder: MarkPoint;
+  notch: MarkPoint;
+  rightShoulder: MarkPoint;
+  bottom: MarkPoint;
+} = {
+  leftShoulder: [56, 180],
+  notch: [128, 211],
+  rightShoulder: [200, 180],
+  bottom: [128, 240],
+};
+
+export const ETHEREUM_UPPER_KITE: {
+  top: MarkPoint;
+  left: MarkPoint;
+  center: MarkPoint;
+  right: MarkPoint;
+  bottom: MarkPoint;
+} = {
+  top: [128, 16],
+  left: [52, 112],
+  center: [128, 98],
+  right: [204, 112],
+  bottom: [128, 168],
+};
+
+export const COMPACT_TESSERACT_EDGE_KEYS: ReadonlySet<string> = new Set([
+  '5-7',
+  '5-13',
+  '13-15',
+  '14-15',
+  '10-14',
+  '2-10',
+  '2-6',
+  '6-7',
+  '4-6',
+  '6-14',
+  '12-14',
+  '4-12',
+]);
+
+export const COMPACT_TESSERACT_FACE_KEY = '1-3-2';
 
 /**
  * A fixed, dimensional frame used for SSR, small logo treatments, and the
  * reduced-motion experience.
  */
-export const STATIC_TESSERACT_PHASE = 0.345;
+export const STATIC_TESSERACT_PHASE = 0.645;
 
 export const TESSERACT_VERTICES: readonly TesseractPoint4[] = Array.from(
   { length: 16 },
@@ -210,13 +257,20 @@ export function projectTesseractVertex(
     (projectedX * ETHEREUM_X_SCALE +
       projectedY * ETHEREUM_X_SHEAR) *
     tipPinch;
+  const brandedY =
+    VIEWBOX_CENTER + projectedY * ETHEREUM_Y_SCALE;
 
   return {
     index,
     // Preserve the real 4D/3D projection, then give its presentation the
-    // taller, subtly sheared crystal stance associated with Ethereum.
-    x: VIEWBOX_CENTER + brandedX,
-    y: VIEWBOX_CENTER + projectedY * ETHEREUM_Y_SCALE,
+    // upper-kite stance associated with Ethereum. A separate stable V base
+    // completes the mark without participating in the rotation.
+    x:
+      VIEWBOX_CENTER +
+      brandedX * ETHEREUM_UPPER_X_SCALE,
+    y:
+      ETHEREUM_UPPER_Y_OFFSET +
+      brandedY * ETHEREUM_UPPER_Y_SCALE,
     z: cameraZ,
     w,
     depth: Math.max(0, Math.min(1, (cameraZ + 2.5) / 5)),

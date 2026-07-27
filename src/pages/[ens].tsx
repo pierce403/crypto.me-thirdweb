@@ -224,7 +224,7 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
       <Box minH="100vh" bg="bg.subtle" color="fg" _dark={{ bg: 'bg' }}>
         <Head>
           <title>{`${ensName} | Crypto.me Profile`}</title>
-          <link rel="icon" href="/favicon-ethereum-tesseract.svg?v=ethereum-crystal-1" type="image/svg+xml" />
+          <link rel="icon" href="/favicon-ethereum-tesseract.svg?v=ethereum-v-3" type="image/svg+xml" />
         </Head>
         <ProfileHeader />
         <Container maxW="container.md" centerContent>
@@ -300,7 +300,7 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
     <Box data-testid="profile-shell" minH="100vh" bg="bg.subtle" color="fg" _dark={{ bg: 'bg' }}>
       <Head>
         <title>{`${ensName} | Crypto.me Profile`}</title>
-        <link rel="icon" href="/favicon-ethereum-tesseract.svg?v=ethereum-crystal-1" type="image/svg+xml" />
+        <link rel="icon" href="/favicon-ethereum-tesseract.svg?v=ethereum-v-3" type="image/svg+xml" />
       </Head>
 
       <ProfileHeader />

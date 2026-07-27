@@ -7,7 +7,11 @@ import {
 } from 'react';
 
 import {
+  COMPACT_TESSERACT_EDGE_KEYS,
+  COMPACT_TESSERACT_FACE_KEY,
   createTesseractFrame,
+  ETHEREUM_UPPER_KITE,
+  ETHEREUM_V_BASE,
   STATIC_TESSERACT_PHASE,
   type TesseractFrame,
 } from '../lib/tesseract';
@@ -26,6 +30,65 @@ const LOOP_DURATION_MS = 20_000;
 const FRAME_INTERVAL_MS = 1_000 / 45;
 const STATIC_FRAME = createTesseractFrame(STATIC_TESSERACT_PHASE);
 const EDGE_COLORS = ['#A5F3FC', '#93C5FD', '#A5B4FC', '#D946EF'] as const;
+const V_BASE_LEFT_POINTS = [
+  ETHEREUM_V_BASE.leftShoulder,
+  ETHEREUM_V_BASE.notch,
+  ETHEREUM_V_BASE.bottom,
+].join(' ');
+const V_BASE_RIGHT_POINTS = [
+  ETHEREUM_V_BASE.rightShoulder,
+  ETHEREUM_V_BASE.notch,
+  ETHEREUM_V_BASE.bottom,
+].join(' ');
+const V_BASE_OUTLINE_PATH = [
+  `M${ETHEREUM_V_BASE.leftShoulder.join(' ')}`,
+  `L${ETHEREUM_V_BASE.notch.join(' ')}`,
+  `L${ETHEREUM_V_BASE.rightShoulder.join(' ')}`,
+  `L${ETHEREUM_V_BASE.bottom.join(' ')}`,
+  'Z',
+].join(' ');
+const V_BASE_RIDGE_PATH = [
+  `M${ETHEREUM_V_BASE.notch.join(' ')}`,
+  `L${ETHEREUM_V_BASE.bottom.join(' ')}`,
+].join(' ');
+const UPPER_KITE_POINTS = [
+  ETHEREUM_UPPER_KITE.top,
+  ETHEREUM_UPPER_KITE.right,
+  ETHEREUM_UPPER_KITE.bottom,
+  ETHEREUM_UPPER_KITE.left,
+].join(' ');
+const UPPER_LEFT_TOP_POINTS = [
+  ETHEREUM_UPPER_KITE.top,
+  ETHEREUM_UPPER_KITE.left,
+  ETHEREUM_UPPER_KITE.center,
+].join(' ');
+const UPPER_RIGHT_TOP_POINTS = [
+  ETHEREUM_UPPER_KITE.top,
+  ETHEREUM_UPPER_KITE.right,
+  ETHEREUM_UPPER_KITE.center,
+].join(' ');
+const UPPER_LEFT_BOTTOM_POINTS = [
+  ETHEREUM_UPPER_KITE.left,
+  ETHEREUM_UPPER_KITE.bottom,
+  ETHEREUM_UPPER_KITE.center,
+].join(' ');
+const UPPER_RIGHT_BOTTOM_POINTS = [
+  ETHEREUM_UPPER_KITE.right,
+  ETHEREUM_UPPER_KITE.bottom,
+  ETHEREUM_UPPER_KITE.center,
+].join(' ');
+const UPPER_KITE_OUTLINE_PATH = [
+  `M${ETHEREUM_UPPER_KITE.top.join(' ')}`,
+  `L${ETHEREUM_UPPER_KITE.right.join(' ')}`,
+  `L${ETHEREUM_UPPER_KITE.bottom.join(' ')}`,
+  `L${ETHEREUM_UPPER_KITE.left.join(' ')}`,
+  'Z',
+].join(' ');
+const UPPER_KITE_RIDGE_PATH = [
+  `M${ETHEREUM_UPPER_KITE.top.join(' ')}`,
+  `L${ETHEREUM_UPPER_KITE.center.join(' ')}`,
+  `L${ETHEREUM_UPPER_KITE.bottom.join(' ')}`,
+].join(' ');
 
 function vertexColor(w: number) {
   const mix = Math.max(0, Math.min(1, (w + 2) / 4));
@@ -180,7 +243,7 @@ function useTesseractFrame(
 export function HyperEthLogo({
   size = 64,
   animated = false,
-  label = 'Crypto.me four-dimensional hypercube',
+  label = 'Crypto.me Ethereum tesseract',
   style,
   ...svgProps
 }: HyperEthLogoProps) {
@@ -189,26 +252,21 @@ export function HyperEthLogo({
   const auraGradientId = `hyper-eth-aura-${idSuffix}`;
   const lightFaceGradientId = `hyper-eth-face-light-${idSuffix}`;
   const darkFaceGradientId = `hyper-eth-face-dark-${idSuffix}`;
+  const baseLeftGradientId = `hyper-eth-base-left-${idSuffix}`;
+  const baseRightGradientId = `hyper-eth-base-right-${idSuffix}`;
+  const upperClipId = `hyper-eth-upper-clip-${idSuffix}`;
   const glowFilterId = `hyper-eth-glow-${idSuffix}`;
   const svgRef = useRef<SVGSVGElement | null>(null);
   const frame = useTesseractFrame(animated, svgRef);
-  const displayedFaces = animated ? frame.faces : frame.faces.slice(-8);
-  const topVertex = frame.vertices.reduce((first, second) =>
-    first.y < second.y ? first : second,
-  );
-  const bottomVertex = frame.vertices.reduce((first, second) =>
-    first.y > second.y ? first : second,
-  );
+  const displayedFaces = animated
+    ? frame.faces
+    : frame.faces.filter(
+        (face) => face.key === COMPACT_TESSERACT_FACE_KEY,
+      );
   const displayedEdges = animated
     ? frame.edges
     : frame.edges.filter(
-        (edge) =>
-          edge.depth >= 0.45 ||
-          edge.axis === 3 ||
-          edge.from === topVertex.index ||
-          edge.to === topVertex.index ||
-          edge.from === bottomVertex.index ||
-          edge.to === bottomVertex.index,
+        (edge) => COMPACT_TESSERACT_EDGE_KEYS.has(edge.key),
       );
 
   return (
@@ -219,7 +277,7 @@ export function HyperEthLogo({
       data-tesseract-vertices="16"
       data-tesseract-edges="32"
       data-tesseract-projection="4d-perspective-to-3d-perspective"
-      data-brand-silhouette="ethereum-crystal"
+      data-brand-silhouette="ethereum-tesseract-v"
       viewBox="0 0 256 256"
       width={size}
       height={size}
@@ -272,6 +330,33 @@ export function HyperEthLogo({
           <stop offset="0.54" stopColor="#4F46E5" />
           <stop offset="1" stopColor="#86198F" />
         </linearGradient>
+        <linearGradient
+          id={baseLeftGradientId}
+          x1="56"
+          y1="180"
+          x2="136"
+          y2="240"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop offset="0" stopColor="#CFFAFE" />
+          <stop offset="0.46" stopColor="#A5B4FC" />
+          <stop offset="1" stopColor="#4F46E5" />
+        </linearGradient>
+        <linearGradient
+          id={baseRightGradientId}
+          x1="200"
+          y1="180"
+          x2="120"
+          y2="240"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop offset="0" stopColor="#A78BFA" />
+          <stop offset="0.55" stopColor="#6D28D9" />
+          <stop offset="1" stopColor="#4C1D95" />
+        </linearGradient>
+        <clipPath id={upperClipId}>
+          <polygon points={UPPER_KITE_POINTS} />
+        </clipPath>
         <filter
           id={glowFilterId}
           x="-35%"
@@ -286,107 +371,199 @@ export function HyperEthLogo({
 
       <ellipse
         cx="128"
-        cy="128"
-        rx="73"
-        ry="105"
+        cy="108"
+        rx="82"
+        ry="102"
         fill={`url(#${auraGradientId})`}
         opacity={animated ? 0.055 : 0.045}
         filter={`url(#${glowFilterId})`}
       />
 
-      <g aria-hidden="true">
-        {displayedFaces.map((face) => (
+      <g
+        data-brand-part="ethereum-v-base"
+        data-ethereum-v-base="stable"
+        aria-hidden="true"
+      >
+        <g filter={`url(#${glowFilterId})`} opacity={animated ? 0.2 : 0.14}>
           <polygon
-            key={face.key}
-            points={face.points}
-            fill={`url(#${
-              face.centroidX <= 128
-                ? lightFaceGradientId
-                : darkFaceGradientId
-            })`}
-            opacity={
-              (face.includesW ? 0.018 : 0.01) +
-              (face.centroidY < 128 ? 0.014 : 0) +
-              face.depth ** 2 * (animated ? 0.082 : 0.12)
-            }
+            points={V_BASE_LEFT_POINTS}
+            fill={`url(#${baseLeftGradientId})`}
           />
-        ))}
+          <polygon
+            points={V_BASE_RIGHT_POINTS}
+            fill={`url(#${baseRightGradientId})`}
+          />
+        </g>
+        <polygon
+          points={V_BASE_LEFT_POINTS}
+          fill={`url(#${baseLeftGradientId})`}
+          opacity={animated ? 0.78 : 0.94}
+        />
+        <polygon
+          points={V_BASE_RIGHT_POINTS}
+          fill={`url(#${baseRightGradientId})`}
+          opacity={animated ? 0.7 : 0.9}
+        />
+        <path
+          d={V_BASE_OUTLINE_PATH}
+          fill="none"
+          stroke={`url(#${edgeGradientId})`}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={animated ? 1.8 : 4.6}
+          opacity={animated ? 0.72 : 0.9}
+        />
+        <path
+          d={V_BASE_RIDGE_PATH}
+          fill="none"
+          stroke="#C4B5FD"
+          strokeLinecap="round"
+          strokeWidth={animated ? 1.2 : 3.4}
+          opacity={animated ? 0.42 : 0.68}
+        />
       </g>
 
       <g
+        data-brand-part="upper-tesseract"
         aria-hidden="true"
-        fill="none"
-        stroke={`url(#${edgeGradientId})`}
-        strokeLinecap="round"
-        filter={`url(#${glowFilterId})`}
-        opacity={animated ? 0.42 : 0.34}
       >
-        {displayedEdges.map((edge) => {
-          const from = frame.vertices[edge.from];
-          const to = frame.vertices[edge.to];
+        <g opacity={animated ? 0.065 : 0.19}>
+          <polygon
+            points={UPPER_LEFT_TOP_POINTS}
+            fill={`url(#${lightFaceGradientId})`}
+          />
+          <polygon
+            points={UPPER_RIGHT_TOP_POINTS}
+            fill={`url(#${darkFaceGradientId})`}
+          />
+          <polygon
+            points={UPPER_LEFT_BOTTOM_POINTS}
+            fill={`url(#${lightFaceGradientId})`}
+          />
+          <polygon
+            points={UPPER_RIGHT_BOTTOM_POINTS}
+            fill={`url(#${darkFaceGradientId})`}
+          />
+        </g>
 
-          return (
-            <line
-              key={edge.key}
-              x1={from.x}
-              y1={from.y}
-              x2={to.x}
-              y2={to.y}
-              strokeWidth={
-                animated ? 5 + edge.depth * 4 : 7 + edge.depth * 3
-              }
-            />
-          );
-        })}
-      </g>
-
-      <g aria-hidden="true" fill="none" strokeLinecap="round">
-        {displayedEdges.map((edge) => {
-          const from = frame.vertices[edge.from];
-          const to = frame.vertices[edge.to];
-          const depthOpacity = 0.14 + edge.depth ** 1.35 * 0.82;
-
-          return (
-            <line
-              key={edge.key}
-              x1={from.x}
-              y1={from.y}
-              x2={to.x}
-              y2={to.y}
-              stroke={
-                edge.axis === 3
-                  ? EDGE_COLORS[3]
-                  : EDGE_COLORS[edge.axis]
-              }
-              strokeWidth={
-                animated
-                  ? 1.15 +
-                    edge.depth * 2.15 +
-                    (edge.axis === 3 ? 0.3 : 0)
-                  : 5.1 + edge.depth * 2
-              }
-              opacity={depthOpacity}
-            />
-          );
-        })}
-      </g>
-
-      {animated && (
-        <g aria-hidden="true">
-          {[...frame.vertices]
-            .sort((first, second) => first.depth - second.depth)
-            .map((vertex) => (
-              <circle
-                key={vertex.index}
-                cx={vertex.x}
-                cy={vertex.y}
-                r={0.65 + vertex.depth * 1.15}
-                fill={vertexColor(vertex.w)}
-                opacity={0.08 + vertex.depth ** 2 * 0.66}
+        <g clipPath={`url(#${upperClipId})`}>
+          <g>
+            {displayedFaces.map((face) => (
+              <polygon
+                key={face.key}
+                points={face.points}
+                fill={`url(#${
+                  face.centroidX <= 128
+                    ? lightFaceGradientId
+                    : darkFaceGradientId
+                })`}
+                opacity={
+                  animated
+                    ? (face.includesW ? 0.018 : 0.01) +
+                      (face.centroidY < 90 ? 0.014 : 0) +
+                      face.depth ** 2 * 0.11
+                    : 0.28
+                }
               />
             ))}
+          </g>
+
+          <g
+            fill="none"
+            stroke={`url(#${edgeGradientId})`}
+            strokeLinecap="round"
+            filter={`url(#${glowFilterId})`}
+            opacity={animated ? 0.4 : 0.24}
+          >
+            {displayedEdges.map((edge) => {
+              const from = frame.vertices[edge.from];
+              const to = frame.vertices[edge.to];
+
+              return (
+                <line
+                  key={edge.key}
+                  x1={from.x}
+                  y1={from.y}
+                  x2={to.x}
+                  y2={to.y}
+                  strokeWidth={
+                    animated ? 4.6 + edge.depth * 3.7 : 6.8 + edge.depth * 2.6
+                  }
+                />
+              );
+            })}
+          </g>
+
+          <g fill="none" strokeLinecap="round">
+            {displayedEdges.map((edge) => {
+              const from = frame.vertices[edge.from];
+              const to = frame.vertices[edge.to];
+              const depthOpacity = animated
+                ? 0.12 + edge.depth ** 1.35 * 0.76
+                : 0.86;
+
+              return (
+                <line
+                  key={edge.key}
+                  x1={from.x}
+                  y1={from.y}
+                  x2={to.x}
+                  y2={to.y}
+                  stroke={
+                    edge.axis === 3
+                      ? EDGE_COLORS[3]
+                      : EDGE_COLORS[edge.axis]
+                  }
+                  strokeWidth={
+                    animated
+                      ? 1.05 +
+                        edge.depth * 2.05 +
+                        (edge.axis === 3 ? 0.3 : 0)
+                      : 4.8 + edge.depth * 1.8
+                  }
+                  opacity={depthOpacity}
+                />
+              );
+            })}
+          </g>
+
+          {animated && (
+            <g>
+              {[...frame.vertices]
+                .sort((first, second) => first.depth - second.depth)
+                .map((vertex) => (
+                  <circle
+                    key={vertex.index}
+                    cx={vertex.x}
+                    cy={vertex.y}
+                    r={0.55 + vertex.depth}
+                    fill={vertexColor(vertex.w)}
+                    opacity={0.06 + vertex.depth ** 2 * 0.58}
+                  />
+                ))}
+            </g>
+          )}
         </g>
-      )}
+
+        <path
+          d={UPPER_KITE_OUTLINE_PATH}
+          fill="none"
+          stroke={`url(#${edgeGradientId})`}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={animated ? 1.05 : 3.4}
+          opacity={animated ? 0.34 : 0.72}
+        />
+        <path
+          d={UPPER_KITE_RIDGE_PATH}
+          fill="none"
+          stroke="#A5B4FC"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={animated ? 0.8 : 2.4}
+          opacity={animated ? 0.2 : 0.5}
+        />
+      </g>
     </svg>
   );
 }
