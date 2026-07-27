@@ -1488,120 +1488,163 @@ const XMTPContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) => {
       ? Math.max(0, Math.trunc(data.installationCount))
       : null;
 
+  const shortenIdentifier = (value: string, leading = 10, trailing = 6) =>
+    value.length > leading + trailing + 1
+      ? `${value.slice(0, leading)}…${value.slice(-trailing)}`
+      : value;
+
+  if (!inboxId) {
+    return (
+      <Text fontSize="sm" color="fg.muted">
+        Not on XMTP.
+      </Text>
+    );
+  }
+
   return (
-    <VStack gap={3} align="stretch">
-      <Box>
-        <Text fontSize="sm" fontWeight="semibold" color="fg.muted">Inbox ID:</Text>
-        <Text fontSize="xs" color="fg" fontFamily="mono" wordBreak="break-all">
-          {inboxId || 'Not registered'}
-        </Text>
-      </Box>
+    <VStack gap={2} align="stretch">
+      <HStack justify="space-between" align="flex-start" gap={2} flexWrap="wrap">
+        <VStack align="stretch" gap={0.5} minW={0}>
+          <HStack gap={1.5} minW={0}>
+            <Text fontSize="xs" fontWeight="semibold" color="fg.muted">Inbox</Text>
+            <Text
+              fontSize="xs"
+              color="fg"
+              fontFamily="mono"
+              truncate
+              title={inboxId}
+            >
+              {shortenIdentifier(inboxId, 8, 8)}
+            </Text>
+          </HStack>
+          <HStack gap={1.5} flexWrap="wrap">
+            {environment && (
+              <Badge size="sm" colorScheme="blue" textTransform="capitalize">
+                {environment}
+              </Badge>
+            )}
+            {installationCount !== null && (
+              <Text fontSize="xs" color="fg.muted">
+                {installationCount} {installationCount === 1 ? 'install' : 'installs'}
+              </Text>
+            )}
+            <Text fontSize="xs" color="fg.muted">
+              {identities.length} {identities.length === 1 ? 'identity' : 'identities'}
+            </Text>
+          </HStack>
+        </VStack>
 
-      {inboxId && (environment || installationCount !== null) && (
-        <HStack gap={2} flexWrap="wrap">
-          {environment && (
-            <Badge size="sm" colorScheme="blue" textTransform="capitalize">
-              XMTP {environment}
-            </Badge>
-          )}
-          {installationCount !== null && (
-            <Badge size="sm" colorScheme="gray">
-              {installationCount} {installationCount === 1 ? 'installation' : 'installations'}
-            </Badge>
-          )}
-        </HStack>
-      )}
-
-      {inboxId && messageUrl && (
-        <Link
-          data-testid="xmtp-message-link"
-          href={messageUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          display="inline-flex"
-          alignItems="center"
-          justifyContent="center"
-          minH="44px"
-          px={4}
-          borderRadius="md"
-          bg="blue.600"
-          color="white"
-          fontSize="sm"
-          fontWeight="semibold"
-          _hover={{ bg: 'blue.700', textDecoration: 'none' }}
-        >
-          Message on xmtp.im ↗
-        </Link>
-      )}
+        {messageUrl && (
+          <Link
+            data-testid="xmtp-message-link"
+            href={messageUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Message on xmtp.im"
+            display="inline-flex"
+            alignItems="center"
+            minH={{ base: '40px', md: '32px' }}
+            px={2.5}
+            borderRadius="md"
+            border="1px solid"
+            borderColor="border"
+            color="blue.fg"
+            fontSize="xs"
+            fontWeight="semibold"
+            whiteSpace="nowrap"
+            _hover={{ bg: 'blue.subtle', textDecoration: 'none' }}
+          >
+            Message on xmtp.im ↗
+          </Link>
+        )}
+      </HStack>
 
       {identities.length > 0 ? (
-        <Box>
-          <Text fontSize="sm" fontWeight="semibold" color="fg.muted">
-            Inbox identities ({identities.length})
-          </Text>
-          <VStack gap={2} align="stretch" mt={2}>
-            {identities.map((identity) => (
-              <Box
+        <VStack
+          gap={0}
+          align="stretch"
+          border="1px solid"
+          borderColor="border"
+          borderRadius="md"
+          overflow="hidden"
+        >
+          {identities.map((identity, index) => {
+            const identifierLabel = shortenIdentifier(
+              identity.identifier,
+              identity.kind === 'ethereum' ? 10 : 14,
+              identity.kind === 'ethereum' ? 6 : 8,
+            );
+
+            return (
+              <HStack
                 key={`${identity.kind}:${identity.identifier.toLowerCase()}`}
                 data-testid="xmtp-identity"
                 data-identity-kind={identity.kind}
-                p={3}
-                bg="bg.muted"
-                border="1px solid"
+                justify="space-between"
+                gap={2}
+                px={2.5}
+                py={{ base: 2, md: 1.5 }}
+                minH={{ base: '40px', md: '34px' }}
+                bg={identity.isViewedProfile ? 'green.subtle' : 'bg.muted'}
+                borderBottom={index < identities.length - 1 ? '1px solid' : '0'}
                 borderColor="border"
-                borderRadius="md"
               >
-                <HStack gap={1.5} flexWrap="wrap" mb={2}>
+                <HStack gap={1.5} minW={0} flex={1}>
                   <Badge
                     size="sm"
                     colorScheme={identity.kind === 'ethereum' ? 'blue' : identity.kind === 'passkey' ? 'purple' : 'gray'}
-                    textTransform="capitalize"
+                    textTransform="uppercase"
+                    flexShrink={0}
                   >
-                    {identity.kind}
+                    {identity.kind === 'ethereum' ? 'ETH' : identity.kind}
                   </Badge>
+                  {identity.explorerUrl ? (
+                    <Link
+                      href={identity.explorerUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`View ${identity.identifier} on Etherscan`}
+                      color="blue.fg"
+                      fontSize="xs"
+                      fontFamily="mono"
+                      minW={0}
+                      truncate
+                      title={identity.identifier}
+                    >
+                      {identifierLabel} ↗
+                    </Link>
+                  ) : (
+                    <Text
+                      color="fg"
+                      fontSize="xs"
+                      fontFamily="mono"
+                      minW={0}
+                      truncate
+                      title={identity.identifier}
+                    >
+                      {identifierLabel}
+                    </Text>
+                  )}
+                </HStack>
+
+                <HStack gap={1} flexShrink={0}>
                   {identity.isViewedProfile && (
-                    <Badge size="sm" colorScheme="green">Viewed profile</Badge>
+                    <Badge size="sm" colorScheme="green">Profile</Badge>
                   )}
                   {identity.isRecovery && (
                     <Badge size="sm" colorScheme="purple">Recovery</Badge>
                   )}
-                  {!identity.isViewedProfile && !identity.isRecovery && (
-                    <Badge size="sm" colorScheme="gray">Linked identity</Badge>
+                  {!identity.isViewedProfile && (
+                    <Text fontSize="xs" color="fg.muted">Linked</Text>
                   )}
                 </HStack>
-                <Text fontSize="xs" color="fg.muted" mb={1}>
-                  {identity.kind === 'ethereum'
-                    ? 'Ethereum address'
-                    : identity.kind === 'passkey'
-                      ? 'Passkey identifier'
-                      : 'Unknown identifier type'}
-                </Text>
-                <Text fontSize="xs" color="fg" fontFamily="mono" wordBreak="break-all">
-                  {identity.identifier}
-                </Text>
-                {identity.explorerUrl && (
-                  <Link
-                    href={identity.explorerUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={`View ${identity.identifier} on Etherscan`}
-                    color="blue.fg"
-                    fontSize="xs"
-                    display="inline-flex"
-                    alignItems="center"
-                    minH="44px"
-                    mt={2}
-                  >
-                    View on Etherscan ↗
-                  </Link>
-                )}
-              </Box>
-            ))}
-          </VStack>
-        </Box>
+              </HStack>
+            );
+          })}
+        </VStack>
       ) : (
         <Text fontSize="sm" color="fg.muted">
-          {inboxId ? 'No inbox identities returned.' : 'Not on XMTP.'}
+          No inbox identities returned.
         </Text>
       )}
     </VStack>
