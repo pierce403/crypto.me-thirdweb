@@ -277,19 +277,52 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
 
     return names.size;
   })();
-  const netWorthUsd = (() => {
+  const portfolioEstimate = (() => {
     const zerionData = (data?.services?.zerion as any) ?? null;
-    if (zerionData && zerionData.source === 'zerion' && typeof zerionData.totalUSD === 'number') return zerionData.totalUSD;
+    if (zerionData && zerionData.source === 'zerion' && typeof zerionData.totalUSD === 'number') {
+      return { valueUsd: zerionData.totalUSD, isLowerBound: false };
+    }
 
     const debankData = (data?.services?.debank as any) ?? null;
-    if (debankData && debankData.source === 'debank' && typeof debankData.totalUSD === 'number') return debankData.totalUSD;
+    if (debankData && debankData.source === 'debank' && typeof debankData.totalUSD === 'number') {
+      return { valueUsd: debankData.totalUSD, isLowerBound: false };
+    }
 
     const alchemyData = (data?.services?.alchemy as any) ?? null;
-    if (alchemyData && alchemyData.source === 'alchemy' && typeof alchemyData.totalValueUsd === 'number') {
-      return alchemyData.totalValueUsd;
+    if (
+      alchemyData &&
+      alchemyData.schemaVersion === 4 &&
+      ['alchemy', 'etherscan', 'etherscan+alchemy'].includes(alchemyData.source) &&
+      typeof alchemyData.totalValueUsd === 'number'
+    ) {
+      const isNativeOnly =
+        alchemyData.schemaVersion === 4 &&
+        alchemyData.valueSemantics === 'native-only';
+      const isCompletePricedPortfolio =
+        alchemyData.schemaVersion === 4 &&
+        alchemyData.isPartial === false &&
+        alchemyData.scanComplete === true &&
+        alchemyData.valueSemantics === 'priced-total';
+      return {
+        valueUsd: alchemyData.totalValueUsd,
+        isLowerBound: !isNativeOnly && !isCompletePricedPortfolio,
+        isPricedPortfolio: true,
+        isNativeOnly,
+      };
     }
 
     return null;
+  })();
+  const alchemyPortfolioRefreshing = (() => {
+    const alchemyData = (data?.services?.alchemy as any) ?? null;
+    return Boolean(
+      alchemyData &&
+      alchemyData.schemaVersion !== 4 &&
+      (
+        (typeof alchemyData.source === 'string' && alchemyData.source !== 'none') ||
+        typeof alchemyData.totalValueUsd === 'number'
+      ),
+    );
   })();
   const xmtpCardData = xmtp ? { ...xmtp, profileAddress: resolvedAddress } : xmtp;
 
@@ -445,9 +478,23 @@ export default function ProfilePage({ ensName, address, avatar }: ProfilePagePro
                         </Text>
                       </Box>
                       <Box>
-                        <Text fontSize="sm" color="fg.muted">Net Worth (Est.)</Text>
+                        <Text fontSize="sm" color="fg.muted">
+                          {portfolioEstimate?.isPricedPortfolio
+                            ? portfolioEstimate.isNativeOnly
+                              ? 'Native Assets Only'
+                              : portfolioEstimate.isLowerBound
+                                ? 'Known Priced Assets (Min.)'
+                                : 'Priced Assets'
+                            : alchemyPortfolioRefreshing
+                              ? 'Assets Refreshing'
+                            : 'Net Worth (Est.)'}
+                        </Text>
                         <Text fontSize="xl" fontWeight="bold">
-                          {netWorthUsd === null ? '—' : `$${Math.round(Number(netWorthUsd)).toLocaleString()}`}
+                          {portfolioEstimate === null
+                            ? '—'
+                            : `${portfolioEstimate.isLowerBound ? '≥' : ''}$${Math.round(
+                                Number(portfolioEstimate.valueUsd),
+                              ).toLocaleString()}`}
                         </Text>
                       </Box>
                     </SimpleGrid>

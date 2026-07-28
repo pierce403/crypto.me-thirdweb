@@ -184,7 +184,9 @@ export function useFastProfile(
       const timeoutMs = serviceName === 'xmtp' ? serviceConfig.timeoutMs : 10000;
       const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-      const serviceUrl = serviceConfig.url(address, originalInput);
+      const serviceUrl = serviceName === 'alchemy'
+        ? `/api/fast-profile?address=${encodeURIComponent(address)}&refresh=alchemy`
+        : serviceConfig.url(address, originalInput);
       console.log(`[refresh-service:${serviceName}] Fetching URL: ${serviceUrl}`);
 
       // Use relative URL - browser will automatically use current domain

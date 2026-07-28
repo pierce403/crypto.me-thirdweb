@@ -43,11 +43,11 @@
     "consumers": [
       {
         "queue": "crypto-me-profile-refresh",
-        "max_batch_size": 5,
+        "max_batch_size": 1,
         "max_batch_timeout": 5,
         "max_retries": 3,
         "retry_delay": 60,
-        "max_concurrency": 3,
+        "max_concurrency": 1,
         "dead_letter_queue": "crypto-me-profile-refresh-dlq"
       }
     ]
@@ -59,8 +59,7 @@
       "head_sampling_rate": 1
     },
     "traces": {
-      "enabled": true,
-      "head_sampling_rate": 0.1
+      "enabled": false
     }
   }
 }

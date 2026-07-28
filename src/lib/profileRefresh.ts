@@ -17,6 +17,10 @@ export interface ProfileRefreshMessage {
 
 export type ServiceRefreshResult = 'updated' | 'upstream-error' | 'configuration-error';
 
+const FULL_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const PARTIAL_ALCHEMY_CACHE_TTL_MS = 30 * 60 * 1000;
+const PROFILE_REFRESH_HEADER = 'x-crypto-me-refresh-token';
+
 function errorFromPayload(payload: unknown): string | undefined {
   if (typeof payload === 'string') return payload;
   if (!payload || typeof payload !== 'object') return undefined;
@@ -28,11 +32,31 @@ function errorFromPayload(payload: unknown): string | undefined {
   return undefined;
 }
 
+function cacheTtlMs(service: ServiceName, payload: unknown): number {
+  if (
+    service === 'alchemy' &&
+    payload &&
+    typeof payload === 'object' &&
+    !Array.isArray(payload)
+  ) {
+    const result = payload as Record<string, unknown>;
+    const isCompletePricedPortfolio =
+      result.schemaVersion === 4 &&
+      result.isPartial === false &&
+      result.scanComplete === true &&
+      result.valueSemantics === 'priced-total';
+    if (!isCompletePricedPortfolio) return PARTIAL_ALCHEMY_CACHE_TTL_MS;
+  }
+
+  return FULL_CACHE_TTL_MS;
+}
+
 export async function refreshProfileService(
   prisma: ProfileRefreshStore,
   message: ProfileRefreshMessage,
   fetchService: typeof fetch,
   baseUrl: string,
+  internalToken?: string,
 ): Promise<ServiceRefreshResult> {
   const normalizedAddress = message.address.toLowerCase();
   const service = SERVICES_CONFIG.find((candidate) => candidate.name === message.service);
@@ -45,7 +69,10 @@ export async function refreshProfileService(
     const servicePath = service.url(message.address, message.originalInput);
     const response = await fetchService(new URL(servicePath, baseUrl), {
       signal: controller.signal,
-      headers: { 'User-Agent': 'CryptoMe-ProfileRefresh/2.0' },
+      headers: {
+        'User-Agent': 'CryptoMe-ProfileRefresh/2.0',
+        ...(internalToken ? { [PROFILE_REFRESH_HEADER]: internalToken } : {}),
+      },
     });
 
     const now = new Date();
@@ -58,7 +85,7 @@ export async function refreshProfileService(
     const payloadError = errorFromPayload(data);
 
     if (response.ok && !payloadError && data !== undefined) {
-      const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      const expiresAt = new Date(now.getTime() + cacheTtlMs(service.name, data));
       await prisma.service_cache.upsert({
         where: { address_service: { address: normalizedAddress, service: service.name } },
         update: {

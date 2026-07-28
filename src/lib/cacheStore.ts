@@ -70,11 +70,20 @@ export const SERVICES_CONFIG = [
     name: 'alchemy',
     key: 'alchemy',
     defaultData: {
+      schemaVersion: 4,
       totalValueUsd: 0,
       totalHoldings: 0,
       topHoldings: [],
       networks: [],
-      source: 'none'
+      source: 'none',
+      isPartial: true,
+      valueSemantics: 'unavailable',
+      scanComplete: false,
+      nativeComplete: false,
+      pagesFetched: 0,
+      incompleteNetworks: [],
+      networkScans: {},
+      requiresEtherscanApiKey: false
     },
     timeoutMs: 20000,
     url: (address: string) => `/api/services/alchemy?address=${address}`
@@ -144,7 +153,8 @@ export const SERVICES_CONFIG = [
 export type ServiceName = (typeof SERVICES_CONFIG)[number]['name'];
 
 export function hasOutdatedServicePayload(service: ServiceName, payload: unknown): boolean {
-  if (service !== 'opensea') return false;
+  if (service !== 'opensea' && service !== 'alchemy') return false;
   if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) return true;
-  return (payload as Record<string, unknown>).schemaVersion !== 2;
+  const schemaVersion = (payload as Record<string, unknown>).schemaVersion;
+  return service === 'alchemy' ? schemaVersion !== 4 : schemaVersion !== 2;
 }

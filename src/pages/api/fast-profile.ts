@@ -156,6 +156,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
   }
 
   const normalizedAddress = address.toLowerCase();
+  const requestedRefresh =
+    typeof req.query.refresh === 'string' ? req.query.refresh : undefined;
+  const forcedService = SERVICES_CONFIG.find(
+    (service) => service.name === requestedRefresh,
+  )?.name;
   console.log(`[fast-profile:info] Handler invoked for address: ${normalizedAddress}`);
 
   let prisma: ReturnType<typeof getPrisma> | undefined;
@@ -215,11 +220,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
           !cachedEntry.expires_at ||
           new Date(cachedEntry.expires_at) < nowForFreshness;
         const failureBackoffActive = (cachedEntry.error_count ?? 0) > 0 && !isExpired;
+        const schemaRequiresRefresh =
+          hasOutdatedServicePayload(serviceConfig.name, parsedData);
         const payloadRequiresRefresh =
           !parsedSuccessfully ||
           hasUntrackedPayloadError(parsedData, cachedEntry.error_count ?? 0) ||
-          hasOutdatedServicePayload(serviceConfig.name, parsedData);
-        if (isExpired || (payloadRequiresRefresh && !failureBackoffActive)) {
+          schemaRequiresRefresh;
+        if (
+          isExpired ||
+          schemaRequiresRefresh ||
+          (payloadRequiresRefresh && !failureBackoffActive)
+        ) {
           allServicesFresh = false;
           servicesNeedingRefresh.push(serviceConfig.name);
         }
@@ -228,6 +239,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
         allServicesFresh = false;
         servicesNeedingRefresh.push(serviceConfig.name);
       }
+    }
+
+    if (forcedService && !servicesNeedingRefresh.includes(forcedService)) {
+      allServicesFresh = false;
+      servicesNeedingRefresh.push(forcedService);
     }
 
     const cacheStatus = allServicesFresh ? 'hit' : (cachedServices.length > 0 ? 'partial' : 'miss');

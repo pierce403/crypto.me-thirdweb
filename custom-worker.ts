@@ -14,6 +14,9 @@ export default {
     if (!selfReference?.fetch) {
       throw new Error('WORKER_SELF_REFERENCE binding is unavailable');
     }
+    const refreshToken = (
+      env as CloudflareEnv & { PROFILE_REFRESH_TOKEN?: string }
+    ).PROFILE_REFRESH_TOKEN;
     const prisma = createPrisma(env.HYPERDRIVE.connectionString);
 
     try {
@@ -24,6 +27,7 @@ export default {
             message.body,
             (input, init) => selfReference.fetch(input, init),
             'https://crypto.me',
+            refreshToken,
           );
           const key = {
             address: message.body.address.toLowerCase(),

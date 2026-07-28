@@ -109,9 +109,20 @@ binding.
 ```bash
 npx wrangler secret put NEYNAR_API_KEY
 npx wrangler secret put ALCHEMY_API_KEY
+npx wrangler secret put ETHERSCAN_API_KEY
+npx wrangler secret put PROFILE_REFRESH_TOKEN
 npx wrangler secret put OPENSEA_API_KEY
 npx wrangler tail crypto-me
 ```
+
+`ETHERSCAN_API_KEY` must be from a Standard plan or above because the
+address-token-holdings endpoint is a Pro endpoint. Without it, profiles show
+priced native balances from Alchemy and explicitly avoid claiming an ERC-20
+portfolio total.
+
+`PROFILE_REFRESH_TOKEN` authenticates collector calls made through the Worker
+self-service binding. The expensive holdings collector is not a public API;
+profile refreshes reach it through the serialized Queue consumer.
 
 Only add a credential after validating it with its provider. Missing DeBank,
 Zerion, Passport, or other credentials deliberately produce degraded collector

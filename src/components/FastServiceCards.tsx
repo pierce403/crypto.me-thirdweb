@@ -671,6 +671,27 @@ const AlchemyContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =
   const networks = data.networks as string[] | undefined;
   const source = data.source as string | undefined;
   const error = data.error as string | undefined;
+  const warning = data.warning as string | undefined;
+  const valueSemantics = data.valueSemantics as string | undefined;
+  const isNativeOnly =
+    data.schemaVersion === 4 &&
+    valueSemantics === 'native-only';
+  const isExactPricedPortfolio = (
+    data.schemaVersion === 4 &&
+    data.isPartial === false &&
+    data.scanComplete === true &&
+    valueSemantics === 'priced-total'
+  );
+  const isPartial = !isExactPricedPortfolio;
+  const isPricedLowerBound = isPartial && !isNativeOnly;
+  const sourceLabel =
+    source === 'etherscan+alchemy'
+      ? 'Etherscan + Alchemy'
+      : source === 'etherscan'
+        ? 'Etherscan'
+        : source === 'alchemy'
+          ? 'Alchemy'
+          : undefined;
 
   if (error === 'NO_API_KEY') {
     return (
@@ -678,29 +699,63 @@ const AlchemyContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =
         <Box p={3} bg="bg.info" borderRadius="md" border="1px solid" borderColor="border.info">
           <Text fontSize="sm" color="fg.info" fontWeight="semibold">API Key Required</Text>
           <Text fontSize="xs" color="fg.info">
-            Add ALCHEMY_API_KEY to see this wallet&apos;s most valuable crypto holdings.
+            Add ALCHEMY_API_KEY for native balances and an Etherscan Standard API key for ERC-20 holdings.
           </Text>
         </Box>
-        <Link href="https://alchemy.com" target="_blank" rel="noopener noreferrer" color="blue.fg" fontSize="sm">
-          Get Alchemy API Key ↗
+        <Link href="https://docs.etherscan.io/api-reference/endpoint/addresstokenbalance" target="_blank" rel="noopener noreferrer" color="blue.fg" fontSize="sm">
+          Etherscan holdings API ↗
         </Link>
       </VStack>
     );
   }
 
+  if (
+    data.schemaVersion !== 4 &&
+    (
+      (source !== undefined && source !== 'none') ||
+      typeof totalValueUsd === 'number' ||
+      Boolean(topHoldings?.length)
+    )
+  ) {
+    return (
+      <Box p={3} bg="bg.info" borderRadius="md" border="1px solid" borderColor="border.info">
+        <Text fontSize="sm" color="fg.info" fontWeight="semibold">
+          Refreshing holdings valuation
+        </Text>
+        <Text fontSize="xs" color="fg.info" mt={1}>
+          The previous provider sample was incomplete, so its total is hidden while a corrected valuation is collected.
+        </Text>
+      </Box>
+    );
+  }
+
   return (
     <VStack gap={3} align="stretch">
-      {source === 'alchemy' && typeof totalValueUsd === 'number' && Number.isFinite(totalValueUsd) && (
+      {source !== 'none' && typeof totalValueUsd === 'number' && Number.isFinite(totalValueUsd) && (
         <Box p={3} bg="blue.subtle" borderRadius="lg" border="1px solid" borderColor="blue.muted">
-          <Text fontSize="xs" color="fg.muted" fontWeight="semibold">Crypto portfolio value</Text>
+          <Text fontSize="xs" color="fg.muted" fontWeight="semibold">
+            {isNativeOnly
+              ? 'Known native value'
+              : isPartial
+                ? 'Known priced value'
+                : 'Priced portfolio value'}
+          </Text>
           <Text fontSize="2xl" lineHeight="shorter" fontWeight="bold" color="blue.fg">
-            {formatUsd(totalValueUsd)}
+            {isPricedLowerBound ? '≥' : ''}{formatUsd(totalValueUsd)}
           </Text>
           <HStack gap={2} mt={1} flexWrap="wrap">
             {typeof totalHoldings === 'number' && (
               <Text fontSize="xs" color="fg.muted">
-                {totalHoldings.toLocaleString()} priced {totalHoldings === 1 ? 'asset' : 'assets'}
+                {isNativeOnly
+                  ? `${totalHoldings.toLocaleString()} native ${totalHoldings === 1 ? 'balance' : 'balances'} found`
+                  : `${totalHoldings.toLocaleString()} priced ${totalHoldings === 1 ? 'asset' : 'assets'}${isPartial ? ' found' : ''}`}
               </Text>
+            )}
+            {isPartial && !isNativeOnly && (
+              <>
+                <Text fontSize="xs" color="fg.muted" aria-hidden="true">•</Text>
+                <Text fontSize="xs" color="fg.muted">Partial scan</Text>
+              </>
             )}
             {networks && networks.length > 0 && (
               <>
@@ -714,10 +769,32 @@ const AlchemyContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =
         </Box>
       )}
 
+      {warning === 'ETHERSCAN_API_KEY_REQUIRED' && (
+        <Box p={3} bg="bg.info" borderRadius="md" border="1px solid" borderColor="border.info">
+          <Text fontSize="xs" color="fg.info">
+            Curated ERC-20 values require an Etherscan Standard API key. Native balances are shown without claiming a full portfolio total.
+          </Text>
+        </Box>
+      )}
+
+      {warning === 'ETHERSCAN_API_UNAVAILABLE' && (
+        <Box p={3} bg="bg.warning" borderRadius="md" border="1px solid" borderColor="border.warning">
+          <Text fontSize="xs" color="fg.warning">
+            Etherscan token holdings are currently incomplete. Only verified data returned by the providers is shown.
+          </Text>
+        </Box>
+      )}
+
       {topHoldings && topHoldings.length > 0 ? (
         <Box>
           <HStack justify="space-between" align="baseline" mb={2}>
-            <Text fontSize="sm" fontWeight="semibold" color="fg">Top crypto holdings</Text>
+            <Text fontSize="sm" fontWeight="semibold" color="fg">
+              {isNativeOnly
+                ? 'Native balances'
+                : isPartial
+                  ? 'Top holdings found'
+                  : 'Top crypto holdings'}
+            </Text>
             <Text fontSize="xs" color="fg.muted">By USD value</Text>
           </HStack>
           <VStack gap={2} align="stretch">
@@ -794,18 +871,20 @@ const AlchemyContent: React.FC<{ data: Record<string, unknown> }> = ({ data }) =
           </VStack>
         </Box>
       ) : (
-        !error && source === 'alchemy' && (
+        !error && source !== 'none' && (
           <Box p={3} bg="bg.muted" borderRadius="md" border="1px solid" borderColor="border">
             <Text fontSize="sm" color="fg.muted" textAlign="center">
-              No priced crypto holdings found.
+              {isNativeOnly
+                ? 'No priced native balances found.'
+                : 'No priced crypto holdings found.'}
             </Text>
           </Box>
         )
       )}
 
       <HStack justify="space-between" align="center" flexWrap="wrap">
-        {source && source !== 'none' && (
-          <Text fontSize="xs" color="fg.muted">Source: Alchemy</Text>
+        {sourceLabel && (
+          <Text fontSize="xs" color="fg.muted">Source: {sourceLabel}</Text>
         )}
         {networks && networks.length > 0 && (
           <Text fontSize="xs" color="fg.muted" truncate>
