@@ -1,4 +1,4 @@
-import { createEnsPublicClient } from '@ensdomains/ensjs';
+import { addEnsContracts, createEnsPublicClient } from '@ensdomains/ensjs';
 import { fallback, http } from 'viem';
 import { mainnet } from 'viem/chains';
 
@@ -28,7 +28,7 @@ export function createAppEnsClient(env: NodeJS.ProcessEnv = process.env) {
   }));
 
   return createEnsPublicClient({
-    chain: mainnet,
+    chain: addEnsContracts(mainnet),
     // Public RPCs occasionally reject a specific edge provider. Keep the
     // resolver bounded and fail over without background ranking requests.
     transport: fallback(transports, {

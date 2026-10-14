@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createEnsPublicClient } from '@ensdomains/ensjs';
+import { addEnsContracts, createEnsPublicClient } from '@ensdomains/ensjs';
 import { http } from 'viem';
 import { mainnet } from 'viem/chains';
 
@@ -10,7 +10,7 @@ const alchemyRpcUrl =
 const rpcUrl = alchemyRpcUrl ?? 'https://rpc.ankr.com/eth';
 
 const ensClient = createEnsPublicClient({
-  chain: mainnet,
+  chain: addEnsContracts(mainnet),
   transport: http(rpcUrl, { timeout: 8000, retryCount: 1, retryDelay: 300 }),
 });
 
