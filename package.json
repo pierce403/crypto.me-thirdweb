@@ -55,6 +55,9 @@
     "wrangler": "4.150.0"
   },
   "overrides": {
+    "@prisma/config": {
+      "effect": "3.20.0"
+    },
     "next": {
       "postcss": "8.5.30"
     }
